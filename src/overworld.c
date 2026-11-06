@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "gflib.h"
 #include "bg_regs.h"
 #include "cable_club.h"
@@ -1562,6 +1563,7 @@ static void OverworldBasic(void)
 {
     ScriptContext_RunScript();
     RunTasks();
+    Coop_Update();
     AnimateSprites();
     CameraUpdate();
     SetQuestLogEvent_Arrived();
