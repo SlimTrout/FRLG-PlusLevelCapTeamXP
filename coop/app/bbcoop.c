@@ -459,7 +459,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
         return 1;
     }
-    SDL_Window *win = SDL_CreateWindow("Pokemon Brainy Blue - Co-op", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+    SDL_Window *win = SDL_CreateWindow(app.net.isHost ? "Brainy Blue Co-op - Host" : "Brainy Blue Co-op - Guest", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                        240 * 3, 160 * 3, SDL_WINDOW_RESIZABLE);
     SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (!ren) ren = SDL_CreateRenderer(win, -1, 0);
@@ -514,14 +514,16 @@ int main(int argc, char **argv) {
             }
             if (status != lastConnected) {
                 static const char *const titles[] = {
-                    "Pokemon Brainy Blue - Co-op (waiting for partner to connect)",
-                    "Pokemon Brainy Blue - Co-op (connected; start or load your game)",
-                    "Pokemon Brainy Blue - Co-op (connected; partner is still loading)",
-                    "Pokemon Brainy Blue - Co-op (connected; partner is on another map)",
-                    "Pokemon Brainy Blue - Co-op (connected; partner is on this map)",
+                    "waiting for partner to connect",
+                    "connected; start or load your game",
+                    "connected; partner is still loading",
+                    "connected; partner is on another map",
+                    "connected; partner is on this map",
                 };
+                char title[160];
                 lastConnected = status;
-                SDL_SetWindowTitle(win, titles[status]);
+                snprintf(title, sizeof title, "Brainy Blue Co-op - %s (%s)", app.net.isHost ? "Host" : "Guest", titles[status]);
+                SDL_SetWindowTitle(win, title);
             }
         }
 
