@@ -6,7 +6,7 @@ SilphCo_7F_Text_HaveMonForSavingUs::
     .string "for saving us.$"
 
 SilphCo_7F_Text_ObtainedLaprasFromEmployee::
-    .string "{PLAYER} obtained a LAPRAS from\n"
+    .string "{PLAYER} obtained a {STR_VAR_1} from\n"
     .string "the SILPH employee!$"
 
 SilphCo_7F_Text_ExplainLapras::

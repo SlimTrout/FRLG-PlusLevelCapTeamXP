@@ -1,4 +1,5 @@
 #include "global.h"
+#include "randomizer.h"
 #include "random.h"
 #include "wild_encounter.h"
 #include "event_data.h"
@@ -251,6 +252,8 @@ static void GenerateWildMon(u16 species, u8 level, u8 slot)
     u32 personality;
     s8 chamber;
     ZeroEnemyPartyMons();
+
+    species = GetRandomizedSpecies(species, RANDOMIZE_WILD);
 
     checkCuteCharm = TRUE;
 

@@ -1,4 +1,5 @@
 #include "global.h"
+#include "randomizer.h"
 #include "gflib.h"
 #include "script.h"
 #include "mystery_event_script.h"
@@ -1598,6 +1599,7 @@ bool8 ScrCmd_bufferspeciesname(struct ScriptContext * ctx)
     u8 stringVarIndex = ScriptReadByte(ctx);
     u16 species = VarGet(ScriptReadHalfword(ctx));
 
+    species = GetGiftSpeciesForDisplay(species);
     StringCopy(sScriptStringVars[stringVarIndex], gSpeciesNames[species]);
     return FALSE;
 }

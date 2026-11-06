@@ -1,4 +1,5 @@
 #include "global.h"
+#include "randomizer.h"
 #include "gflib.h"
 #include "battle_setup.h"
 #include "berry.h"
@@ -110,6 +111,9 @@ u8 ScriptGiveMon(u16 species, u8 level, u16 item, u32 unused1, u32 unused2, u8 u
     u16 zeroHP = 0;
     u32 wasFirstCatch = 0;
 
+    // The starter is randomized separately in Oak's Lab.
+    if (!IN_OAKS_LAB)
+        species = RandomizeGiftSpecies(species);
     CreateMon(mon, species, level, 32, 0, 0, OT_ID_PLAYER_ID, 0);
     heldItem[0] = item;
     heldItem[1] = item >> 8;
@@ -156,6 +160,7 @@ u8 ScriptGiveEgg(u16 species)
     bool8 isEgg;
     bool8 sentToPc;
 
+    species = RandomizeGiftSpecies(species);
     CreateEgg(mon, species, TRUE);
     isEgg = TRUE;
     SetMonData(mon, MON_DATA_IS_EGG, &isEgg);
@@ -207,7 +212,9 @@ void CreateScriptedWildMon(u16 species, u8 level, u16 item)
 {
     u8 heldItem[2];
     u8 version = VERSION_EMERALD;
+    u16 originalSpecies = species;
 
+    species = GetRandomizedSpecies(species, RANDOMIZE_STATIC);
     ZeroEnemyPartyMons();
     CreateMon(&gEnemyParty[0], species, level, 32, 0, 0, OT_ID_PLAYER_ID, 0);
     if (item)
@@ -216,7 +223,7 @@ void CreateScriptedWildMon(u16 species, u8 level, u16 item)
         heldItem[1] = item >> 8;
         SetMonData(&gEnemyParty[0], MON_DATA_HELD_ITEM, heldItem);
     }
-    if(species == SPECIES_SUDOWOODO && level == 40 && gMapHeader.regionMapSectionId == MAPSEC_BATTLE_FRONTIER)
+    if(originalSpecies == SPECIES_SUDOWOODO && level == 40 && gMapHeader.regionMapSectionId == MAPSEC_BATTLE_FRONTIER)
     {
         SetMonData(&gEnemyParty[0], MON_DATA_MET_GAME, &version);
     }

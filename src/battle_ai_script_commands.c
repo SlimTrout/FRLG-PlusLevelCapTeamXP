@@ -1217,25 +1217,25 @@ static void Cmd_get_ability(void)
             return;
         }
 
-        if (gSpeciesInfo[gBattleMons[battlerId].species].abilities[0] != ABILITY_NONE)
+        if (GetSpeciesAbility(gBattleMons[battlerId].species, 0) != ABILITY_NONE)
         {
-            if (gSpeciesInfo[gBattleMons[battlerId].species].abilities[1] != ABILITY_NONE)
+            if (GetSpeciesAbility(gBattleMons[battlerId].species, 1) != ABILITY_NONE)
             {
                 // AI has no knowledge of opponent, so it guesses which ability.
                 if (Random() % 2)
-                    AI_THINKING_STRUCT->funcResult = gSpeciesInfo[gBattleMons[battlerId].species].abilities[0];
+                    AI_THINKING_STRUCT->funcResult = GetSpeciesAbility(gBattleMons[battlerId].species, 0);
                 else
-                    AI_THINKING_STRUCT->funcResult = gSpeciesInfo[gBattleMons[battlerId].species].abilities[1];
+                    AI_THINKING_STRUCT->funcResult = GetSpeciesAbility(gBattleMons[battlerId].species, 1);
             }
             else
             {
-                AI_THINKING_STRUCT->funcResult = gSpeciesInfo[gBattleMons[battlerId].species].abilities[0];
+                AI_THINKING_STRUCT->funcResult = GetSpeciesAbility(gBattleMons[battlerId].species, 0);
             }
         }
         else
         {
              // AI can't actually reach this part since no pokemon has ability 2 and no ability 1.
-            AI_THINKING_STRUCT->funcResult = gSpeciesInfo[gBattleMons[battlerId].species].abilities[1];
+            AI_THINKING_STRUCT->funcResult = GetSpeciesAbility(gBattleMons[battlerId].species, 1);
         }
     }
     else

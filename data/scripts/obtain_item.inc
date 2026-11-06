@@ -8,6 +8,7 @@ EventScript_RestorePrevTextColor::
 	return
 
 Std_ObtainItem::
+	special RandomizeObtainedItem
 	copyvar VAR_PREV_TEXT_COLOR, VAR_TEXT_COLOR
 	textcolor NPC_TEXT_COLOR_NEUTRAL
 	additem VAR_0x8000, VAR_0x8001
@@ -119,6 +120,7 @@ Std_FindItem::
 	lock
 	faceplayer
 	waitse
+	special RandomizeObtainedItem
 	copyvar VAR_0x8004, VAR_0x8000
 	copyvar VAR_0x8005, VAR_0x8001
 	checkitemspace VAR_0x8000, VAR_0x8001
@@ -168,6 +170,7 @@ EventScript_HiddenItemScript::
 	end
 
 EventScript_TryPickUpHiddenItem::
+	special RandomizeHiddenItem
 	additem VAR_0x8005, VAR_0x8006
 	copyvar VAR_0x8007, VAR_RESULT
 	bufferitemname STR_VAR_2, VAR_0x8005

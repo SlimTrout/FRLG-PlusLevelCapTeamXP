@@ -1,6 +1,7 @@
 #define IS_POKEMON_C
 
 #include "global.h"
+#include "randomizer.h"
 #include "gflib.h"
 #include "random.h"
 #include "text.h"
@@ -5414,13 +5415,19 @@ u8 GetMonsStateToDoubles(void)
     return (aliveCount > 1) ? PLAYER_HAS_TWO_USABLE_MONS : PLAYER_HAS_ONE_USABLE_MON;
 }
 
+// Random abilities (Modern Emerald): a species borrows the ability of the species it
+// randomizes to. A Pokemon keeps its ability slot when the other species has two.
+u8 GetSpeciesAbility(u16 species, bool8 abilityNum)
+{
+    species = GetRandomizedSpecies(species, RANDOMIZE_ABILITY);
+    if (abilityNum && gSpeciesInfo[species].abilities[1] != ABILITY_NONE)
+        return gSpeciesInfo[species].abilities[1];
+    return gSpeciesInfo[species].abilities[0];
+}
+
 u8 GetAbilityBySpecies(u16 species, bool8 abilityNum)
 {
-    if (abilityNum)
-        gLastUsedAbility = gSpeciesInfo[species].abilities[1];
-    else
-        gLastUsedAbility = gSpeciesInfo[species].abilities[0];
-
+    gLastUsedAbility = GetSpeciesAbility(species, abilityNum);
     return gLastUsedAbility;
 }
 
@@ -8364,6 +8371,7 @@ void CreateEnemyEventMon(void)
     s32 level = gSpecialVar_0x8005;
     s32 itemId = gSpecialVar_0x8006;
 
+    species = GetRandomizedSpecies(species, RANDOMIZE_STATIC);
     ZeroEnemyPartyMons();
     CreateEventMon(&gEnemyParty[0], species, level, USE_RANDOM_IVS, FALSE, 0, OT_ID_PLAYER_ID, 0);
     if (itemId)

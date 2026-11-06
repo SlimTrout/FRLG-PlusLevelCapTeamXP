@@ -32,6 +32,7 @@ CinnabarIsland_PokemonLab_Entrance_EventScript_Trapped::
 CinnabarIsland_PokemonLab_Entrance_EventScript_GetTentacoolParty::
 	textcolor 3
 	playfanfare MUS_LEVEL_UP
+	bufferspeciesname STR_VAR_1, SPECIES_TENTACOOL
 	message CinnabarIsland_PokemonLab_Entrance_Text_ObtainedATentacool
 	waitmessage
 	waitfanfare
@@ -49,6 +50,7 @@ CinnabarIsland_PokemonLab_Entrance_EventScript_NicknameTentacoolParty::
 CinnabarIsland_PokemonLab_Entrance_EventScript_GetTentacoolPC::
 	textcolor 3
 	playfanfare MUS_LEVEL_UP
+	bufferspeciesname STR_VAR_1, SPECIES_TENTACOOL
 	message CinnabarIsland_PokemonLab_Entrance_Text_ObtainedATentacool
 	waitmessage
 	waitfanfare
@@ -92,7 +94,7 @@ CinnabarIsland_PokemonLab_Entrance_Text_Trapped::
 
 CinnabarIsland_PokemonLab_Entrance_Text_ObtainedATentacool::
 	.string "{PLAYER} received\n"
-	.string "the TENTACOOL!$"
+	.string "the {STR_VAR_1}!$"
 
 CinnabarIsland_PokemonLab_Entrance_EventScript_DrFujiPhoto::
 	msgbox CinnabarIsland_PokemonLab_Entrance_Text_PhotoOfLabFounderDrFuji, MSGBOX_SIGN

@@ -1,4 +1,5 @@
 #include "global.h"
+#include "randomizer.h"
 #include "item.h"
 #include "field_effect_helpers.h"
 #include "field_specials.h"
@@ -364,6 +365,7 @@ bool8 ScriptContext_RunScript(void)
 // Sets up a new script in the global context and enables the context
 void ScriptContext_SetupScript(const u8 *ptr)
 {
+    ResetGiftSpeciesForDisplay();
     ClearMsgBoxCancelableState();
     EnableMsgBoxWalkaway();
     ClearQuestLogInputIsDpadFlag();
