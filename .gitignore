@@ -68,3 +68,4 @@ tools/coopapp/SDL2-*/
 tools/coopapp/sdl2-mingw.tar.gz
 tools/coopapp/windows/
 tools/coopapp/bbcoop
+*.coop.ss
