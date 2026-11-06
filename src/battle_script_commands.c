@@ -3157,6 +3157,12 @@ static u16 GetModifiedExpYield(void)
         case 3:
             calculatedExp = calculatedExp * 2;
             break;
+        case 4:
+            calculatedExp = calculatedExp * 3;
+            break;
+        case 5:
+            calculatedExp = calculatedExp * 4;
+            break;
     }
     return calculatedExp;
 }

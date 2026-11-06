@@ -146,7 +146,7 @@ static const struct BgTemplate sKeySystemMenuBgTemplates[] =
 
 static const u16 sKeySystemMenuPalette[] = INCBIN_U16("graphics/misc/option_menu.gbapal");
 static const u16 sKeySystemMenuItemCounts[MENUITEM_COUNT] = {2, 3, 2, 3, 1, 0};
-static const u16 sKeySystemSubMenuItemCounts[MENUITEM_COUNT2] = {2, 3, 2, 2, 4, 0};
+static const u16 sKeySystemSubMenuItemCounts[MENUITEM_COUNT2] = {2, 3, 2, 2, 6, 0};
 
 static const u8 *const sKeySystemMenuItemsNames[MENUITEM_COUNT] =
 {
@@ -222,7 +222,9 @@ static const u8 *const sExpModOptions[] =
     gText_ExpModZero,
     gText_ExpModHalf,
     gText_ExpModNormal,
-    gText_ExpModTwice
+    gText_ExpModTwice,
+    gText_ExpModThrice,
+    gText_ExpModFour
 };
 
 static const u8 sKeySystemMenuPickSwitchCancelTextColor[] = {TEXT_DYNAMIC_COLOR_6, TEXT_COLOR_WHITE, TEXT_COLOR_DARK_GRAY};

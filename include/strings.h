@@ -1599,6 +1599,8 @@ extern const u8 gText_ExpModZero[];
 extern const u8 gText_ExpModHalf[];
 extern const u8 gText_ExpModNormal[];
 extern const u8 gText_ExpModTwice[];
+extern const u8 gText_ExpModThrice[];
+extern const u8 gText_ExpModFour[];
 extern const u8 gText_KeySystemSettings[];
 extern const u8 gText_HelpPickSwitchCancel[];
 extern const u8 gChooseVersionNewGame[];

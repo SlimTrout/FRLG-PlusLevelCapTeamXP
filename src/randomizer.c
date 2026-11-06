@@ -125,6 +125,19 @@ u16 GetRandomizedStarter(u8 starterId)
     return list[(starterId * 27) % ARRAY_COUNT(list)];
 }
 
+// Items some evolution needs stay where FRLG+ puts them, so those evolutions stay possible.
+static const u16 sEvolutionItems[] =
+{
+    ITEM_FIRE_STONE, ITEM_WATER_STONE, ITEM_THUNDER_STONE, ITEM_LEAF_STONE, ITEM_MOON_STONE, ITEM_SUN_STONE,
+    ITEM_METAL_COAT, ITEM_KINGS_ROCK, ITEM_DRAGON_SCALE, ITEM_UP_GRADE, ITEM_DEEP_SEA_TOOTH, ITEM_DEEP_SEA_SCALE,
+    ITEM_HARD_STONE, ITEM_SPELL_TAG, ITEM_NEVER_MELT_ICE, ITEM_HEART_SCALE, ITEM_LUCKY_EGG,
+};
+
+static bool8 IsEvolutionItem(u16 itemId)
+{
+    return IsInList(itemId, sEvolutionItems, ARRAY_COUNT(sEvolutionItems));
+}
+
 // Modern Emerald's RandomItemId. Key items, HMs and Poke Balls are left alone
 // (Oak's Poke Balls start FRLG+'s Nuzlocke rules); TMs become a TM the player
 // doesn't have yet when possible.
@@ -132,7 +145,7 @@ u16 GetRandomizedItem(u16 itemId)
 {
     u8 pocket;
 
-    if (itemId == ITEM_NONE || itemId == ITEM_POKE_BALL)
+    if (itemId == ITEM_NONE || itemId == ITEM_POKE_BALL || IsEvolutionItem(itemId))
         return itemId;
 
     pocket = ItemId_GetPocket(itemId);

@@ -6704,9 +6704,10 @@ void TryConsumeEvolutionHeldItem(struct Pokemon *mon, u16 preEvoSpecies, u16 pos
     for (i = 0; i < EVOS_PER_MON; i++)
     {
         u16 method = gEvolutionTable[preEvoSpecies][i].method;
+        u16 item = (method == EVO_LEVEL_ITEM_HOLD) ? gEvolutionTable[preEvoSpecies][i].param2 : gEvolutionTable[preEvoSpecies][i].param;
         if (gEvolutionTable[preEvoSpecies][i].targetSpecies == postEvoSpecies
-         && (method == EVO_ITEM_HOLD || method == EVO_ITEM_HOLD_DAY || method == EVO_ITEM_HOLD_NIGHT)
-         && gEvolutionTable[preEvoSpecies][i].param == heldItem)
+         && (method == EVO_ITEM_HOLD || method == EVO_ITEM_HOLD_DAY || method == EVO_ITEM_HOLD_NIGHT || method == EVO_LEVEL_ITEM_HOLD)
+         && item == heldItem)
         {
             heldItem = ITEM_NONE;
             SetMonData(mon, MON_DATA_HELD_ITEM, &heldItem);
@@ -6832,6 +6833,10 @@ u16 GetEvolutionTargetSpecies(struct Pokemon *mon, u8 type, u16 evolutionItem)
                 if (heldItem == gEvolutionTable[species][i].param)
                     targetSpecies = gEvolutionTable[species][i].targetSpecies;
                 break;
+            case EVO_LEVEL_ITEM_HOLD:
+                if (gEvolutionTable[species][i].param <= level && heldItem == gEvolutionTable[species][i].param2)
+                    targetSpecies = gEvolutionTable[species][i].targetSpecies;
+                break;
             case EVO_MOVE:
                 if (MonKnowsMove(mon, gEvolutionTable[species][i].param))
                     targetSpecies = gEvolutionTable[species][i].targetSpecies;
@@ -6861,6 +6866,19 @@ u16 GetEvolutionTargetSpecies(struct Pokemon *mon, u8 type, u16 evolutionItem)
         break;
     case EVO_MODE_ITEM_USE:
     case EVO_MODE_ITEM_CHECK:
+        // A stone used while holding the right item (e.g. Glaceon) wins over the plain stone (Vaporeon).
+        for (i = 0; i < EVOS_PER_MON; i++)
+        {
+            if (gEvolutionTable[species][i].method == EVO_STONE_HELD
+             && gEvolutionTable[species][i].param == evolutionItem
+             && gEvolutionTable[species][i].param2 == heldItem)
+            {
+                targetSpecies = gEvolutionTable[species][i].targetSpecies;
+                break;
+            }
+        }
+        if (targetSpecies != SPECIES_NONE)
+            break;
         for (i = 0; i < EVOS_PER_MON; i++)
         {
             if (gEvolutionTable[species][i].method == EVO_ITEM

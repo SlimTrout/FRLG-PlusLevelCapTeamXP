@@ -2098,7 +2098,8 @@ Help_Text_DefineExpMod::
 	.string "0× disables Experience Point gains.\l"
 	.string "1/2× halves given Experience Points.\l"
 	.string "1× is the standard modifier.\l"
-	.string "2× doubles given Experience Points.$"
+	.string "2× doubles given Experience Points.\l"
+	.string "3× and 4× triple and quadruple them.$"
 
 Help_Text_LevelCap::
 	.string "LEVEL CAP$"

@@ -301,6 +301,7 @@
 #define EVO_LEVEL_FEMALE_MORNING 24 // Pokémon reaches the specified level outdoors, is female
 #define EVO_LEVEL_MALE_MORNING   25 // Pokémon reaches the specified level outdoors, is male
 #define EVO_ITEM_HOLD        26 // Pokémon levels up holding the specified item
+#define EVO_LEVEL_ITEM_HOLD  27 // Pokémon reaches the specified level holding the item in param2 (replaces trade evolutions)
 
 #define EVOS_PER_MON 8
 #define EVOS_PER_LINE 9
