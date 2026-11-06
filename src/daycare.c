@@ -1,4 +1,5 @@
 #include "global.h"
+#include "nuzlocke_tracker.h"
 #include "gflib.h"
 #include "data.h"
 #include "battle.h"
@@ -1887,6 +1888,7 @@ static void AddHatchedMonToParty(u8 id)
         }
         if(!IsWildMonNuzlockeDupe(GetMonData(mon, MON_DATA_SPECIES)))
         {   // Set encounter flag where Egg was received if not a dupe
+            NuzlockeTracker_RecordEncounter(mapsecid, GetMonData(mon, MON_DATA_SPECIES), GetMonData(mon, MON_DATA_HP) > 0);
             NuzlockeFlagSet(mapsecid);
             if(GetMonData(mon, MON_DATA_HP) > 0)
                 wasFirstCatch = TRUE; // only set dupe flag if not fainted

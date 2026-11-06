@@ -1,4 +1,5 @@
 #include "global.h"
+#include "nuzlocke_tracker.h"
 #include "gflib.h"
 #include "decompress.h"
 #include "m4a.h"
@@ -45,7 +46,8 @@ u8 RunHelpSystemCallback(void)
     {
     case 0:
         sInHelpSystem = 0;
-        if (gSaveBlock2Ptr->optionsButtonMode != OPTIONS_BUTTON_MODE_HELP && (gSaveBlock1Ptr->keyFlags.inKeySystemMenu != 1 && !FlagGet(FLAG_SYS_IN_OPTIONS_MENU)))
+        // Nuzlocke tracker: only with the L button free (Help button mode), and not from the settings menus.
+        if (gSaveBlock2Ptr->optionsButtonMode != OPTIONS_BUTTON_MODE_HELP || gSaveBlock1Ptr->keyFlags.inKeySystemMenu == 1 || FlagGet(FLAG_SYS_IN_OPTIONS_MENU))
             return 0;
         if (JOY_NEW(L_BUTTON))
         {
@@ -79,18 +81,8 @@ u8 RunHelpSystemCallback(void)
         sVideoState.state = 3;
         break;
     case 3:
-        HS_BufferFillMapWithTile1FF();
-        HelpSystem_FillPanel3();
-        HelpSystem_FillPanel2();
-        HelpSystem_PrintTextInTopLeftCorner(gString_Help);
-        HS_ShowOrHideWordHELPinTopLeft(1);
-        if (HelpSystem_UpdateHasntSeenIntro() == TRUE)
-            HelpSystemSubroutine_PrintWelcomeMessage(&gHelpSystemListMenu, gHelpSystemListMenuItems);
-        else
-            HelpSystemSubroutine_WelcomeEndGotoMenu(&gHelpSystemListMenu, gHelpSystemListMenuItems);
-        HS_ShowOrHideHeaderAndFooterLines_Lighter(1);
-        HS_ShowOrHideVerticalBlackBarsAlongSides(1);
-        CommitTilemap();
+        // Brainy Blue: L opens the Nuzlocke tracker instead of the Help System.
+        NuzlockeTracker_Open();
         sVideoState.state = 4;
         break;
     case 4:
@@ -102,7 +94,7 @@ u8 RunHelpSystemCallback(void)
         sVideoState.state = 5;
         break;
     case 5:
-        if (!RunHelpMenuSubroutine(&gHelpSystemListMenu, gHelpSystemListMenuItems))
+        if (!NuzlockeTracker_HandleInput())
         {
             PlaySE(SE_HELP_CLOSE);
             sVideoState.state = 6;

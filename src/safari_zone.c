@@ -1,4 +1,5 @@
 #include "global.h"
+#include "nuzlocke_tracker.h"
 #include "battle.h"
 #include "battle_setup.h"
 #include "event_scripts.h"
@@ -68,6 +69,7 @@ void CB2_EndSafariBattle(void)
     {   
         if(!IsWildMonNuzlockeDupe(GetMonData(&gEnemyParty[0], MON_DATA_SPECIES)))
         {
+            NuzlockeTracker_RecordEncounter(GetCurrentRegionMapSectionId(), GetMonData(&gEnemyParty[0], MON_DATA_SPECIES), FALSE);
             NuzlockeFlagSet(GetCurrentRegionMapSectionId());
         }
     }

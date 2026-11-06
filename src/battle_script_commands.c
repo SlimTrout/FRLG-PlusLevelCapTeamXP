@@ -1,4 +1,5 @@
 #include "global.h"
+#include "nuzlocke_tracker.h"
 #include "gflib.h"
 #include "item.h"
 #include "util.h"
@@ -9741,6 +9742,7 @@ static void Cmd_handleballthrow(void)
                 {   //if first catch in area, set dupe flag for this species.
                     SetNuzlockeDupeFlags(SpeciesToNationalPokedexNum(GetMonData(&gEnemyParty[gBattlerPartyIndexes[gBattlerTarget]], MON_DATA_SPECIES)));
                 }
+                NuzlockeTracker_RecordEncounter(GetCurrentRegionMapSectionId(), GetMonData(&gEnemyParty[gBattlerPartyIndexes[gBattlerTarget]], MON_DATA_SPECIES), TRUE);
                 NuzlockeFlagSet(GetCurrentRegionMapSectionId());
             }
             if((gSaveBlock1Ptr->location.mapGroup == MAP_GROUP(THREE_ISLAND_BOND_BRIDGE_UNDERWATER) && gSaveBlock1Ptr->location.mapNum == MAP_NUM(THREE_ISLAND_BOND_BRIDGE_UNDERWATER))
@@ -9801,6 +9803,7 @@ static void Cmd_handleballthrow(void)
                     {   //if first catch in area, set dupe flag for this species.
                         SetNuzlockeDupeFlags(SpeciesToNationalPokedexNum(GetMonData(&gEnemyParty[gBattlerPartyIndexes[gBattlerTarget]], MON_DATA_SPECIES)));
                     }
+                    NuzlockeTracker_RecordEncounter(GetCurrentRegionMapSectionId(), GetMonData(&gEnemyParty[gBattlerPartyIndexes[gBattlerTarget]], MON_DATA_SPECIES), TRUE);
                     NuzlockeFlagSet(GetCurrentRegionMapSectionId());
                 }
                 if((gSaveBlock1Ptr->location.mapGroup == MAP_GROUP(THREE_ISLAND_BOND_BRIDGE_UNDERWATER) && gSaveBlock1Ptr->location.mapNum == MAP_NUM(THREE_ISLAND_BOND_BRIDGE_UNDERWATER))

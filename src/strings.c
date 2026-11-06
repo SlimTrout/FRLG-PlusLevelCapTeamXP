@@ -795,10 +795,10 @@ const u8 gText_ButtonTypeHelp[] = _("HELP");
 const u8 gText_ButtonTypeLEqualsA[] = _("L=A");
 const u8 gText_ButtonTypeLR[] = _("LR");
 const u8 gText_FrameType[] = _("TYPE");
-const u8 gText_PickSwitchCancelA[] = _("{A_BUTTON}GO {L_BUTTON}HELP{CLEAR 13}{DPAD_UPDOWN}PICK {DPAD_LEFTRIGHT}SWITCH{CLEAR 13}{B_BUTTON}SAVE & EXIT");
-const u8 gText_PickSwitchCancel[] = _("{L_BUTTON}HELP{CLEAR 13}{DPAD_UPDOWN}PICK {DPAD_LEFTRIGHT}SWITCH{CLEAR 13}{B_BUTTON}SAVE & EXIT");
-const u8 gText_PickSwitchExit[] = _("{L_BUTTON}HELP{CLEAR 13}{DPAD_UPDOWN}PICK {DPAD_LEFTRIGHT}SWITCH {A_BUTTON}{B_BUTTON}SAVE & EXIT");
-const u8 gText_PickSwitchBack[] = _("{L_BUTTON}HELP{CLEAR 13}{DPAD_UPDOWN}PICK {DPAD_LEFTRIGHT}SWITCH{CLEAR 40}{A_BUTTON}{B_BUTTON}BACK");
+const u8 gText_PickSwitchCancelA[] = _("{A_BUTTON}GO{CLEAR 13}{DPAD_UPDOWN}PICK {DPAD_LEFTRIGHT}SWITCH{CLEAR 13}{B_BUTTON}SAVE & EXIT");
+const u8 gText_PickSwitchCancel[] = _("{DPAD_UPDOWN}PICK {DPAD_LEFTRIGHT}SWITCH{CLEAR 13}{B_BUTTON}SAVE & EXIT");
+const u8 gText_PickSwitchExit[] = _("{DPAD_UPDOWN}PICK {DPAD_LEFTRIGHT}SWITCH {A_BUTTON}{B_BUTTON}SAVE & EXIT");
+const u8 gText_PickSwitchBack[] = _("{DPAD_UPDOWN}PICK {DPAD_LEFTRIGHT}SWITCH{CLEAR 40}{A_BUTTON}{B_BUTTON}BACK");
 const u8 gText_SavingDontTurnOffThePower2[] = _("SAVING…\nDON'T TURN OFF THE POWER.");
 const u8 gText_TextSpeedInstant[] = _("INSTANT");
 

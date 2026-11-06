@@ -1,4 +1,5 @@
 #include "global.h"
+#include "nuzlocke_tracker.h"
 #include "task.h"
 #include "help_system.h"
 #include "overworld.h"
@@ -547,6 +548,7 @@ static void CB2_EndWildBattle(void)
     {   
         if(!IsWildMonNuzlockeDupe(GetMonData(&gEnemyParty[0], MON_DATA_SPECIES)))
         {
+            NuzlockeTracker_RecordEncounter(GetCurrentRegionMapSectionId(), GetMonData(&gEnemyParty[0], MON_DATA_SPECIES), FALSE);
             NuzlockeFlagSet(GetCurrentRegionMapSectionId());
         }
     }
@@ -569,6 +571,7 @@ static void CB2_EndScriptedWildBattle(void)
     {   
         if(!IsWildMonNuzlockeDupe(GetMonData(&gEnemyParty[0], MON_DATA_SPECIES)))
         {
+            NuzlockeTracker_RecordEncounter(GetCurrentRegionMapSectionId(), GetMonData(&gEnemyParty[0], MON_DATA_SPECIES), FALSE);
             NuzlockeFlagSet(GetCurrentRegionMapSectionId());
         }
     }

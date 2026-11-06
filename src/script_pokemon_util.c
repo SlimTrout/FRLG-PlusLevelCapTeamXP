@@ -1,4 +1,5 @@
 #include "global.h"
+#include "nuzlocke_tracker.h"
 #include "randomizer.h"
 #include "gflib.h"
 #include "battle_setup.h"
@@ -126,10 +127,13 @@ u8 ScriptGiveMon(u16 species, u8 level, u16 item, u32 unused1, u32 unused2, u8 u
         }
         if(!IsWildMonNuzlockeDupe(species))
         {
+            NuzlockeTracker_RecordEncounter(GetCurrentRegionMapSectionId(), species, TRUE);
             NuzlockeFlagSet(GetCurrentRegionMapSectionId());
             wasFirstCatch = 1;
         }
     }
+    if (IN_OAKS_LAB)
+        NuzlockeTracker_RecordStarter(species);
     CalculateMonStats(mon, FALSE);
     sentToPc = GiveMonToPlayer(mon);
     nationalDexNum = SpeciesToNationalPokedexNum(species);
