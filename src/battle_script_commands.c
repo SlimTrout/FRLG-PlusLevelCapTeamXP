@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "nuzlocke_tracker.h"
 #include "gflib.h"
 #include "item.h"
@@ -3145,6 +3146,9 @@ static u16 GetModifiedExpYield(void)
 {
     u16 calculatedExp = gSpeciesInfo[gBattleMons[gBattlerFainted].species].expYield * gBattleMons[gBattlerFainted].level / 7;
 
+    // Co-op: the exp multiplier is applied per Pokemon, by its owner's setting.
+    if (Coop_IsLinkOpen())
+        return calculatedExp;
     switch(gSaveBlock1Ptr->keyFlags.expMod)
     {
         case 0:
@@ -3192,7 +3196,33 @@ static u32 GetTeamExpAmount(void)
     return teamExp;
 }
 
+static void Cmd_getexp_Internal(void);
+
+// Co-op: the current Pokemon's owner's exp multiplier (Key System), as in GetModifiedExpYield.
+static u32 Coop_ApplyExpMultiplier(u32 exp)
+{
+    switch (gSaveBlock1Ptr->keyFlags.expMod)
+    {
+    case 0: return 0;
+    case 1: return exp / 2 ? exp / 2 : 1;
+    case 3: return exp * 2;
+    case 4: return exp * 3;
+    case 5: return exp * 4;
+    }
+    return exp;
+}
+
+// Co-op: each Pokemon gets exp by its owner's settings (see Coop_UseExpOwnerSettings).
 static void Cmd_getexp(void)
+{
+    // (state 1 starts over at party slot 0 and falls through to it)
+    u16 saved = Coop_UseExpOwnerSettings(gBattleScripting.getexpState <= 1 ? 0 : gBattleStruct->expGetterMonId);
+
+    Cmd_getexp_Internal();
+    Coop_RestoreExpSettings(saved);
+}
+
+static void Cmd_getexp_Internal(void)
 {
     u16 item;
     s32 i; // also used as stringId
@@ -3207,9 +3237,8 @@ static void Cmd_getexp(void)
     switch (gBattleScripting.getexpState)
     {
     case 0: // check if should receive exp at all
-        if (GetBattlerSide(gBattlerFainted) != B_SIDE_OPPONENT || (gBattleTypeFlags &
-             (BATTLE_TYPE_LINK
-              | BATTLE_TYPE_TRAINER_TOWER
+        if (GetBattlerSide(gBattlerFainted) != B_SIDE_OPPONENT || BATTLE_IS_REAL_LINK || (gBattleTypeFlags &
+             (BATTLE_TYPE_TRAINER_TOWER
               | BATTLE_TYPE_BATTLE_TOWER
               | BATTLE_TYPE_SAFARI
               | BATTLE_TYPE_EREADER_TRAINER)))
@@ -3340,10 +3369,17 @@ static void Cmd_getexp(void)
                     {
                         i = STRINGID_EMPTYSTRING4;
                     }
+                    if (Coop_IsLinkOpen())
+                        gBattleMoveDamage = Coop_ApplyExpMultiplier(gBattleMoveDamage);
                     gBattleMoveDamage = GetCappedExpGain(&gPlayerParty[gBattleStruct->expGetterMonId], gBattleMoveDamage);
 
                     // get exp getter battlerId
-                    if (gBattleTypeFlags & BATTLE_TYPE_DOUBLE)
+                    if (Coop_IsLinkOpen())
+                    {
+                        // Co-op: the owner's battler shows it (host left, guest right).
+                        gBattleStruct->expGetterBattlerId = gBattleStruct->expGetterMonId < MULTI_PARTY_SIZE ? 0 : 2;
+                    }
+                    else if (gBattleTypeFlags & BATTLE_TYPE_DOUBLE)
                     {
                         if (gBattlerPartyIndexes[2] == gBattleStruct->expGetterMonId && !(gAbsentBattlerFlags & gBitTable[2]))
                             gBattleStruct->expGetterBattlerId = 2;

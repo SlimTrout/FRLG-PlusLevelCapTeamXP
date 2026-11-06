@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "gflib.h"
 #include "data.h"
 #include "link.h"
@@ -1340,6 +1341,32 @@ static void LinkPartnerHandleHealthBarUpdate(void)
 
 static void LinkPartnerHandleExpUpdate(void)
 {
+    // Co-op: the host's game keeps its copy of the guest's Pokemon up to date too,
+    // the same way the guest's own controller gives the exp (one level at a time).
+    if (Coop_IsLinkOpen())
+    {
+        struct Pokemon *mon = &gPlayerParty[gBattleBufferA[gActiveBattler][1]];
+        s16 gained = T1_READ_16(&gBattleBufferA[gActiveBattler][2]);
+        u16 species = GetMonData(mon, MON_DATA_SPECIES);
+        u8 level = GetMonData(mon, MON_DATA_LEVEL);
+        u32 exp = GetMonData(mon, MON_DATA_EXP);
+
+        if (level < MAX_LEVEL)
+        {
+            u32 next = gExperienceTables[gSpeciesInfo[species].growthRate][level + 1];
+
+            if (exp + gained >= next)
+            {
+                SetMonData(mon, MON_DATA_EXP, &next);
+                CalculateMonStats(mon, FALSE);
+            }
+            else
+            {
+                exp += gained;
+                SetMonData(mon, MON_DATA_EXP, &exp);
+            }
+        }
+    }
     LinkPartnerBufferExecCompleted();
 }
 

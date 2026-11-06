@@ -262,6 +262,7 @@ static void WriteLocalState(void)
     s->inOverworld = TRUE;
     s->msgActive = sMsgShown;
     s->msgPage = gCoopTextPages - sMsgPageBase;
+    s->keySettings = *(u16 *)&gSaveBlock1Ptr->keyFlags;
     StringCopyN(s->name, gSaveBlock2Ptr->playerName, PLAYER_NAME_LENGTH + 1);
     s->seq++;
 }
@@ -983,4 +984,21 @@ static void TryStartPartnersWildBattle(void)
     sCoopBattlePending = FALSE;
     if (Coop_GenerateWildMonHere())
         BattleSetup_StartCoopWildBattle();
+}
+
+// Exp in a co-op battle follows each Pokemon's owner's own settings (exp multiplier,
+// team exp, level cap). The host's game runs the battle, so while it gives exp to
+// one of the guest's Pokemon (battle party slots 3-5) it uses the guest's settings.
+u16 Coop_UseExpOwnerSettings(u8 partyId)
+{
+    u16 saved = *(u16 *)&gSaveBlock1Ptr->keyFlags;
+
+    if (Coop_IsLinkOpen() && partyId >= MULTI_PARTY_SIZE && partyId < PARTY_SIZE)
+        *(u16 *)&gSaveBlock1Ptr->keyFlags = gCoopMailbox.partner.keySettings;
+    return saved;
+}
+
+void Coop_RestoreExpSettings(u16 saved)
+{
+    *(u16 *)&gSaveBlock1Ptr->keyFlags = saved;
 }

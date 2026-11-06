@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "gflib.h"
 #include "gba/flash_internal.h"
 #include "load_save.h"
@@ -93,6 +94,11 @@ void MoveSaveBlocks_ResetHeap(void)
     struct SaveBlock2 *saveBlock2Copy;
     struct SaveBlock1 *saveBlock1Copy;
     struct PokemonStorage *pokemonStorageCopy;
+
+    // Co-op: the flags and vars are about to move; the app stops syncing them until
+    // the overworld publishes where they are again.
+    gCoopMailbox.flagsPtr = 0;
+    gCoopMailbox.varsPtr = 0;
 
     // save interrupt functions and turn them off
     vblankCB = gMain.vblankCallback;

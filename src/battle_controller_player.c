@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "gflib.h"
 #include "data.h"
 #include "item.h"
@@ -835,7 +836,7 @@ void SetBattleEndCallbacks(void)
 {
     if (!gPaletteFade.active)
     {
-        if (gBattleTypeFlags & BATTLE_TYPE_LINK)
+        if (BATTLE_IS_REAL_LINK)
         {
             if (gWirelessCommType == 0)
                 SetCloseLinkCallback();

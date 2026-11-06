@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "item.h"
 #include "text.h"
 #include "util.h"
@@ -1547,6 +1548,27 @@ bool8 HasNoMonsToSwitch(u8 battler, u8 partyIdBattlerOn1, u8 partyIdBattlerOn2)
 
     if (!(gBattleTypeFlags & BATTLE_TYPE_DOUBLE))
         return FALSE;
+
+    if (Coop_IsLinkOpen())
+    {
+        // Co-op: each player switches within their own three (host 0-2, guest 3-5);
+        // the wild Pokemon on the other side never switch.
+        u8 start;
+
+        if (GetBattlerSide(battler) == B_SIDE_OPPONENT)
+            return TRUE;
+        start = GetBattlerPosition(battler) == B_POSITION_PLAYER_LEFT ? 0 : MULTI_PARTY_SIZE;
+        for (i = start; i < start + MULTI_PARTY_SIZE; i++)
+        {
+            if (GetMonData(&gPlayerParty[i], MON_DATA_HP) != 0
+             && GetMonData(&gPlayerParty[i], MON_DATA_SPECIES_OR_EGG) != SPECIES_NONE
+             && GetMonData(&gPlayerParty[i], MON_DATA_SPECIES_OR_EGG) != SPECIES_EGG
+             && i != gBattlerPartyIndexes[battler]
+             && i != *(gBattleStruct->monToSwitchIntoId + battler))
+                return FALSE;
+        }
+        return TRUE;
+    }
 
     if (gBattleTypeFlags & BATTLE_TYPE_MULTI)
     {

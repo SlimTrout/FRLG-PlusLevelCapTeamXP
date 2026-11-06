@@ -1,4 +1,6 @@
 #include "global.h"
+#include "battle_main.h"
+#include "link.h"
 #include "coop.h"
 #include "nuzlocke_tracker.h"
 #include "task.h"
@@ -352,17 +354,73 @@ void BattleSetup_StartCoopWildBattle(void)
     IncrementGameStat(GAME_STAT_WILD_BATTLES);
 }
 
+// After a co-op battle: the host's game ran it, so its battle party is the one that
+// counts. It sends the guest's three Pokemon (with their exp, HP and so on) back to
+// the guest's game; then both games give each player their own Pokemon back.
 static void CB2_EndCoopBattle(void)
 {
-    Coop_CloseLink();
-    Coop_RestoreParty();
-    gBattleTypeFlags = 0;
-    CpuFill16(0, (void *)BG_PLTT, BG_PLTT_SIZE);
-    ResetOamRange(0, 128);
-    if (IsPlayerDefeated(gBattleOutcome) == TRUE)
-        SetMainCallback2(CB2_WhiteOut);
-    else
-        SetMainCallback2(CB2_ReturnToField);
+    static u8 sState;
+    u8 ready = 1;
+    bool8 host = Coop_IsHost();
+
+    switch (sState)
+    {
+    case 0:
+        gBattleTypeFlags &= ~BATTLE_TYPE_LINK_IN_BATTLE; // battle blocks are done
+        FreeRestoreBattleData();
+        ResetBlockReceivedFlags();
+        sState++;
+        break;
+    case 1:
+        if (IsLinkTaskFinished() && SendBlock(0, &ready, sizeof(ready)))
+            sState++;
+        break;
+    case 2:
+        if ((GetBlockReceivedStatus() & 3) == 3)
+        {
+            ResetBlockReceivedFlags();
+            sState++;
+        }
+        break;
+    case 3:
+        if (!host || (IsLinkTaskFinished() && SendBlock(0, &gPlayerParty[3], sizeof(struct Pokemon) * 2)))
+            sState++;
+        break;
+    case 4:
+        if (host ? IsLinkTaskFinished() : (GetBlockReceivedStatus() & 1) != 0)
+        {
+            if (!host)
+                memcpy(&gPlayerParty[3], gBlockRecvBuffer[0], sizeof(struct Pokemon) * 2);
+            ResetBlockReceivedFlags();
+            sState++;
+        }
+        break;
+    case 5:
+        if (!host || (IsLinkTaskFinished() && SendBlock(0, &gPlayerParty[5], sizeof(struct Pokemon))))
+            sState++;
+        break;
+    case 6:
+        if (host ? IsLinkTaskFinished() : (GetBlockReceivedStatus() & 1) != 0)
+        {
+            if (!host)
+                memcpy(&gPlayerParty[5], gBlockRecvBuffer[0], sizeof(struct Pokemon));
+            ResetBlockReceivedFlags();
+            sState++;
+        }
+        break;
+    default:
+        sState = 0;
+        Coop_CloseLink();
+        Coop_RestoreParty();
+        gBattleTypeFlags = 0;
+        CpuFill16(0, (void *)BG_PLTT, BG_PLTT_SIZE);
+        ResetOamRange(0, 128);
+        if (IsPlayerDefeated(gBattleOutcome) == TRUE)
+            SetMainCallback2(CB2_WhiteOut);
+        else
+            SetMainCallback2(CB2_ReturnToField);
+        break;
+    }
 }
 
 static void DoStandardWildBattle(void)

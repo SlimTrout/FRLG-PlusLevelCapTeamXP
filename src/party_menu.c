@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "gflib.h"
 #include "battle.h"
 #include "battle_anim.h"
@@ -5984,6 +5985,14 @@ static bool8 TrySwitchInPokemon(void)
     if (IsMultiBattle() == TRUE && (slot == 1 || slot == 4 || slot == 5))
     {
         StringCopy(gStringVar1, GetTrainerPartnerName());
+        StringExpandPlaceholders(gStringVar4, gText_CantSwitchWithAlly);
+        return FALSE;
+    }
+    // In a co-op battle, the battle party's other half belongs to the partner.
+    if (Coop_IsLinkOpen() && GetPartyIdFromBattleSlot(slot) / MULTI_PARTY_SIZE != GetMultiplayerId())
+    {
+        StringCopy(gStringVar1, gCoopMailbox.partner.name);
+        gStringVar1[PLAYER_NAME_LENGTH] = EOS;
         StringExpandPlaceholders(gStringVar4, gText_CantSwitchWithAlly);
         return FALSE;
     }

@@ -66,6 +66,7 @@ static void HandleEndTurn_BattleLost(void);
 static void HandleEndTurn_RanFromBattle(void);
 static void HandleEndTurn_MonFled(void);
 static void HandleEndTurn_FinishBattle(void);
+static void BattleTurnPassed_Dummy(void);
 static void CB2_InitBattleInternal(void);
 static void CB2_PreInitMultiBattle(void);
 static void CB2_HandleStartMultiBattle(void);
@@ -3204,7 +3205,7 @@ u8 IsRunningFromBattleImpossible(void)
         holdEffect = ItemId_GetHoldEffect(gBattleMons[gActiveBattler].item);
     gPotentialItemEffectBattler = gActiveBattler;
     if (holdEffect == HOLD_EFFECT_CAN_ALWAYS_RUN
-     || (gBattleTypeFlags & BATTLE_TYPE_LINK)
+     || BATTLE_IS_REAL_LINK
      || gBattleMons[gActiveBattler].ability == ABILITY_RUN_AWAY)
         return BATTLE_RUN_SUCCESS;
     side = GetBattlerSide(gActiveBattler);
@@ -3926,7 +3927,7 @@ static void HandleEndTurn_BattleWon(void)
         sTrainers = (struct Trainer*)gTrainers;
 
     gCurrentActionFuncId = 0;
-    if (gBattleTypeFlags & BATTLE_TYPE_LINK)
+    if (BATTLE_IS_REAL_LINK)
     {
         gBattleTextBuff1[0] = gBattleOutcome;
         gBattlerAttacker = GetBattlerAtPosition(B_POSITION_PLAYER_LEFT);
@@ -3973,7 +3974,7 @@ static void HandleEndTurn_BattleWon(void)
 static void HandleEndTurn_BattleLost(void)
 {
     gCurrentActionFuncId = 0;
-    if (gBattleTypeFlags & BATTLE_TYPE_LINK)
+    if (BATTLE_IS_REAL_LINK)
     {
         gBattleTextBuff1[0] = gBattleOutcome;
         gBattlerAttacker = GetBattlerAtPosition(B_POSITION_PLAYER_LEFT);
@@ -4030,6 +4031,18 @@ static void HandleEndTurn_MonFled(void)
 
 static void HandleEndTurn_FinishBattle(void)
 {
+    if (Coop_IsLinkOpen() && (gCurrentActionFuncId == B_ACTION_TRY_FINISH || gCurrentActionFuncId == B_ACTION_FINISHED))
+    {
+        // Co-op: both games leave the battle together (each player's controller ends
+        // it, see SetBattleEndCallbacks), the host's taking the outcome along.
+        if (gBattleControllerExecFlags)
+            return;
+        gActiveBattler = GetBattlerAtPosition(B_POSITION_PLAYER_LEFT);
+        BtlController_EmitEndLinkBattle(BUFFER_A, gBattleOutcome);
+        MarkBattlerForControllerExec(gActiveBattler);
+        gBattleMainFunc = BattleTurnPassed_Dummy;
+        return;
+    }
     if (gCurrentActionFuncId == B_ACTION_TRY_FINISH || gCurrentActionFuncId == B_ACTION_FINISHED)
     {
         if (!(gBattleTypeFlags & (BATTLE_TYPE_TRAINER_TOWER | BATTLE_TYPE_EREADER_TRAINER | BATTLE_TYPE_OLD_MAN_TUTORIAL | BATTLE_TYPE_BATTLE_TOWER | BATTLE_TYPE_SAFARI | BATTLE_TYPE_FIRST_BATTLE | BATTLE_TYPE_LINK)))
@@ -4505,7 +4518,7 @@ static void HandleAction_Run(void)
 {
     gBattlerAttacker = gBattlerByTurnOrder[gCurrentTurnActionNumber];
 
-    if (gBattleTypeFlags & BATTLE_TYPE_LINK)
+    if (BATTLE_IS_REAL_LINK)
     {
         gCurrentTurnActionNumber = gBattlersCount;
         for (gActiveBattler = 0; gActiveBattler < gBattlersCount; gActiveBattler++)
@@ -4695,4 +4708,9 @@ static void HandleAction_ActionFinished(void)
     gBattleCommunication[ACTIONS_CONFIRMED_COUNT] = 0;
     gBattleScripting.multihitMoveEffect = 0;
     gBattleResources->battleScriptsStack->size = 0;
+}
+
+// Co-op: nothing left for the battle engine to do while both games leave the battle.
+static void BattleTurnPassed_Dummy(void)
+{
 }

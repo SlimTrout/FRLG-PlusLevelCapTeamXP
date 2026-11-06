@@ -58,3 +58,9 @@ link.c: SendBlock / IsLinkTaskFinished / GetMultiplayerId get a co-op branch.
   both screens. Tested in coophost (scratchpad sp/b5.txt).
 - Next: only one player-side healthbox is visible; battle end (win/run/faint) and
   returning to the field; exp; party write-back; switching limited to own half.
+- Done: battle end (win/run) returns both games to the field via the end-link command;
+  host sends the guest's three Pokemon back after the battle; exp per owner's settings
+  (Cmd_getexp wrapper swaps keyFlags; LinkPartner applies exp on the host's copy);
+  flags/vars pointers cleared when save blocks move (battle start) so world sync pauses.
+- Still to do in milestone 1: second player-side healthbox not visible; move learning
+  with 4 moves for the guest's Pokemon prompts on the host; evolutions after battle.

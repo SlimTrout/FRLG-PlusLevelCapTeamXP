@@ -65,7 +65,7 @@ struct CoopPlayerState
     /*0x20*/ u16 battleTrainer; // trainer ID + 1 of a trainer battle under way (talked to,
                                 // spotted or fighting), 0 if none: the partner's game
                                 // treats that trainer as taken
-    /*0x22*/ u8 padding4[2];
+    /*0x22*/ u16 keySettings;  // this player's Key System settings (exp, team exp, level cap)
 };
 
 struct CoopMailbox
@@ -134,6 +134,8 @@ bool8 Coop_SendBlock(const void *src, u16 size);
 bool8 Coop_IsLinkTaskFinished(void);
 
 // co-op battles
+// A link battle against other people, not a co-op battle (which also uses the link).
+#define BATTLE_IS_REAL_LINK ((gBattleTypeFlags & BATTLE_TYPE_LINK) && !Coop_IsLinkOpen())
 bool8 Coop_IsHost(void);
 void Coop_StartLinkedWildBattle(void);
 void Coop_CreateLinkBattleTasks(void);
@@ -142,6 +144,8 @@ void *Coop_GetBattleSendMons(u8 part);
 void Coop_ReceiveBattleMons(u8 part, struct Pokemon *fromHost, struct Pokemon *fromGuest);
 void Coop_BuildBattleParties(void);
 void Coop_RestoreParty(void);
+u16 Coop_UseExpOwnerSettings(u8 partyId);
+void Coop_RestoreExpSettings(u16 saved);
 
 // trainers: one player's battle keeps the trainer away from the other
 void Coop_OnTrainerBattle(u16 trainerId);

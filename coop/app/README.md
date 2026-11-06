@@ -21,6 +21,17 @@ Escape = quit. A game controller also works.
 
 If the partner disconnects, the app closes. Only the host saves, so progress since the host last saved is not kept.
 
+## Battles (first stage)
+
+- **Linked wild battles are double battles.** When the leader runs into a wild
+  Pokemon, both players go into the same battle: the host's lead Pokemon on the left,
+  the guest's on the right, against two wild Pokemon (one from each player's own
+  encounter table). Each player picks their own moves. Running works or fails for both.
+- **Exp** goes to each player's Pokemon by that player's own exp, team exp and level
+  cap settings.
+- When one of your Pokemon faints you pick your next one from your own team.
+- Not yet: the bag and catching in linked battles, linked trainer battles.
+
 ## Building
 
 - Linux, or Windows 11 through WSL: `./build_linux.sh`
