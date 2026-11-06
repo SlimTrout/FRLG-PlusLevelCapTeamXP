@@ -123,6 +123,10 @@
 #define DIFFICULTY_CHALLENGE 1
 #define DIFFICULTY_EASY      2
 
+#define TEAM_EXP_OFF  0
+#define TEAM_EXP_HALF 1
+#define TEAM_EXP_FULL 2
+
 #define IV_CALC_NORMAL 0
 #define IV_CALC_PERFECT 1
 #define IV_CALC_ZERO 2

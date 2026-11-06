@@ -9,6 +9,8 @@
 	* __EV Calculation__: Can make the game treat your Pokémon's EVs as all zero, or use their actual EVs as is standard for the purposes of stat calculation. This does not affect your Pokémon's actual EVs, (they will still gain/lose EVs as normal), just how their stats are calculated.
 	* __No Free Heals__: Can disable free party heals, most notably the Pokémon Center heals and the Lavender Tower purified zone, but also many others. This also prevents PC Boxes from healing Pokémon deposited into them.
 	* __Exp. Modifier__: Can alter experience gains using a multiplier. The possible options are 0×, 1/2×, 1×, and 2×. Pokémon still gain EVs normally when this is set to 0×.
+	* __Level Cap__: When on, Pokémon can't gain experience past the level of the next boss's strongest Pokémon (Brock 14 → Giovanni 50, then each Elite Four member in turn, the Champion's 63 after the Hall of Fame, and the rematch Champion's 75 once rematches unlock). The cap follows the Difficulty key, rising for Challenge Mode and dropping for Easy Mode. Experience that would overshoot the cap is trimmed, capped Pokémon still gain EVs, and Rare Candy has no effect on them.
+	* __Team Exp.__: Gives experience to party members that didn't battle, like the Generation VI+ Exp. Share. 1/2× gives each benched Pokémon half of a full share, FULL gives them a full share. Participants and Exp. Share holders are unaffected, and fainted Pokémon and Eggs get nothing. Works alongside the Exp. Modifier and Level Cap keys.
 
 ##### Nuzlocke Info:
 <details>

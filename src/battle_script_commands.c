@@ -27,6 +27,7 @@
 #include "battle_controllers.h"
 #include "battle_interface.h"
 #include "battle_setup.h"
+#include "level_cap.h"
 #include "constants/battle_anim.h"
 #include "constants/battle_move_effects.h"
 #include "constants/battle_script_commands.h"
@@ -3139,6 +3140,51 @@ static void Cmd_jumpiftype(void)
         gBattlescriptCurrInstr += 7;
 }
 
+static u16 GetModifiedExpYield(void)
+{
+    u16 calculatedExp = gSpeciesInfo[gBattleMons[gBattlerFainted].species].expYield * gBattleMons[gBattlerFainted].level / 7;
+
+    switch(gSaveBlock1Ptr->keyFlags.expMod)
+    {
+        case 0:
+            calculatedExp = 0;
+            break;
+        case 1:
+            calculatedExp = calculatedExp / 2;
+            if(calculatedExp == 0)
+                calculatedExp = 1;
+            break;
+        case 3:
+            calculatedExp = calculatedExp * 2;
+            break;
+    }
+    return calculatedExp;
+}
+
+// Team Exp key: party members that didn't battle (and aren't holding an Exp. Share)
+// still receive experience, like the Generation VI+ Exp. Share.
+static bool32 MonGetsTeamExp(struct Pokemon *mon)
+{
+    if (gSaveBlock1Ptr->keyFlags.teamExp == TEAM_EXP_OFF)
+        return FALSE;
+    if (GetMonData(mon, MON_DATA_SPECIES) == SPECIES_NONE
+     || GetMonData(mon, MON_DATA_IS_EGG)
+     || GetMonData(mon, MON_DATA_HP) == 0)
+        return FALSE;
+    return TRUE;
+}
+
+static u32 GetTeamExpAmount(void)
+{
+    u32 teamExp = GetModifiedExpYield();
+
+    if (gSaveBlock1Ptr->keyFlags.teamExp == TEAM_EXP_HALF)
+        teamExp /= 2;
+    if (teamExp == 0)
+        teamExp = 1;
+    return teamExp;
+}
+
 static void Cmd_getexp(void)
 {
     u16 item;
@@ -3192,21 +3238,7 @@ static void Cmd_getexp(void)
                     viaExpShare++;
             }
 
-            calculatedExp = gSpeciesInfo[gBattleMons[gBattlerFainted].species].expYield * gBattleMons[gBattlerFainted].level / 7;
-            switch(gSaveBlock1Ptr->keyFlags.expMod)
-            {
-                case 0:
-                    calculatedExp = 0;
-                    break;
-                case 1:
-                    calculatedExp = calculatedExp / 2;
-                    if(calculatedExp == 0)
-                        calculatedExp = 1;
-                    break;
-                case 3:
-                    calculatedExp = calculatedExp * 2;
-                    break;
-            }
+            calculatedExp = GetModifiedExpYield();
             if (viaExpShare) // at least one mon is getting exp via exp share
             {
                 *exp = SAFE_DIV(calculatedExp / 2, viaSentIn);
@@ -3233,6 +3265,9 @@ static void Cmd_getexp(void)
     case 2: // set exp value to the poke in expgetter_id and print message
         if (gBattleControllerExecFlags == 0)
         {
+            bool32 viaTeamExp = FALSE;
+            bool32 atLevelCap = IsMonAtLevelCap(&gPlayerParty[gBattleStruct->expGetterMonId]);
+
             item = GetMonData(&gPlayerParty[gBattleStruct->expGetterMonId], MON_DATA_HELD_ITEM);
 
             if (item == ITEM_ENIGMA_BERRY)
@@ -3241,19 +3276,25 @@ static void Cmd_getexp(void)
                 holdEffect = ItemId_GetHoldEffect(item);
 
             if (holdEffect != HOLD_EFFECT_EXP_SHARE && !(gBattleStruct->sentInPokes & 1))
+                viaTeamExp = MonGetsTeamExp(&gPlayerParty[gBattleStruct->expGetterMonId]);
+
+            if (holdEffect != HOLD_EFFECT_EXP_SHARE && !(gBattleStruct->sentInPokes & 1) && !viaTeamExp)
             {
                 *(&gBattleStruct->sentInPokes) >>= 1;
                 gBattleScripting.getexpState = 5;
                 gBattleMoveDamage = 0; // used for exp
             }
-            else if (GetMonData(&gPlayerParty[gBattleStruct->expGetterMonId], MON_DATA_LEVEL) == MAX_LEVEL || gSaveBlock1Ptr->keyFlags.expMod == 0 || FlagGet(FLAG_MASTER_TRAINER_BATTLE))
+            else if (GetMonData(&gPlayerParty[gBattleStruct->expGetterMonId], MON_DATA_LEVEL) == MAX_LEVEL || gSaveBlock1Ptr->keyFlags.expMod == 0 || FlagGet(FLAG_MASTER_TRAINER_BATTLE) || atLevelCap)
             {
                 *(&gBattleStruct->sentInPokes) >>= 1;
                 gBattleScripting.getexpState = 5;
                 gBattleMoveDamage = 0; // used for exp
 
-                if (!FlagGet(FLAG_MASTER_TRAINER_BATTLE) && gSaveBlock1Ptr->keyFlags.expMod == 0)
+                if (!FlagGet(FLAG_MASTER_TRAINER_BATTLE)
+                 && (gSaveBlock1Ptr->keyFlags.expMod == 0
+                  || (atLevelCap && GetMonData(&gPlayerParty[gBattleStruct->expGetterMonId], MON_DATA_HP))))
                 {
+                    // Capped Pokémon still earn EVs, same as the 0× Exp. Modifier.
                     MonGainEVs(&gPlayerParty[gBattleStruct->expGetterMonId], gBattleMons[gBattlerFainted].species);
                 }
             }
@@ -3276,6 +3317,8 @@ static void Cmd_getexp(void)
 
                     if (holdEffect == HOLD_EFFECT_EXP_SHARE)
                         gBattleMoveDamage += gExpShareExp;
+                    if (viaTeamExp)
+                        gBattleMoveDamage += GetTeamExpAmount();
                     if (holdEffect == HOLD_EFFECT_LUCKY_EGG)
                         gBattleMoveDamage = (gBattleMoveDamage * 150) / 100;
                     if (gBattleTypeFlags & BATTLE_TYPE_TRAINER)
@@ -3290,6 +3333,7 @@ static void Cmd_getexp(void)
                     {
                         i = STRINGID_EMPTYSTRING4;
                     }
+                    gBattleMoveDamage = GetCappedExpGain(&gPlayerParty[gBattleStruct->expGetterMonId], gBattleMoveDamage);
 
                     // get exp getter battlerId
                     if (gBattleTypeFlags & BATTLE_TYPE_DOUBLE)

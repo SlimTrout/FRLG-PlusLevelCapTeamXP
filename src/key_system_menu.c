@@ -20,6 +20,8 @@ enum
 {
     MENUITEM_VERSION = 0,
     MENUITEM_DIFFICULTY,
+    MENUITEM_LEVEL_CAP,
+    MENUITEM_TEAM_EXP,
     MENUITEM_ADVANCED,
     MENUITEM_CANCEL,
     MENUITEM_COUNT
@@ -143,13 +145,15 @@ static const struct BgTemplate sKeySystemMenuBgTemplates[] =
 };
 
 static const u16 sKeySystemMenuPalette[] = INCBIN_U16("graphics/misc/option_menu.gbapal");
-static const u16 sKeySystemMenuItemCounts[MENUITEM_COUNT] = {2, 3, 1, 0};
+static const u16 sKeySystemMenuItemCounts[MENUITEM_COUNT] = {2, 3, 2, 3, 1, 0};
 static const u16 sKeySystemSubMenuItemCounts[MENUITEM_COUNT2] = {2, 3, 2, 2, 4, 0};
 
 static const u8 *const sKeySystemMenuItemsNames[MENUITEM_COUNT] =
 {
     [MENUITEM_VERSION]    = gText_Version,
     [MENUITEM_DIFFICULTY] = gText_Difficulty,
+    [MENUITEM_LEVEL_CAP]  = gText_LevelCap,
+    [MENUITEM_TEAM_EXP]   = gText_TeamExp,
     [MENUITEM_ADVANCED]   = gText_Advanced,
     [MENUITEM_CANCEL]     = gText_OptionMenuSaveAndExit,
 };
@@ -174,6 +178,19 @@ static const u8 *const sDifficultyOptions[] =
     gText_NormalDifficulty,
     gText_ChallengeDifficulty,
     gText_EasyDifficulty
+};
+
+static const u8 *const sLevelCapOptions[] =
+{
+    gText_Nuzlocke_Off,
+    gText_Nuzlocke_On
+};
+
+static const u8 *const sTeamExpOptions[] =
+{
+    [TEAM_EXP_OFF]  = gText_Nuzlocke_Off,
+    [TEAM_EXP_HALF] = gText_TeamExpHalf,
+    [TEAM_EXP_FULL] = gText_TeamExpFull
 };
 
 static const u8 *const sAdvancedOptions[] =
@@ -240,6 +257,8 @@ void CB2_KeySystemMenuFromContinueScreen(void)
     sKeySystemMenuPtr->inSubMenu = 0;
     sKeySystemMenuPtr->option[MENUITEM_VERSION] = gSaveBlock1Ptr->keyFlags.version;
     sKeySystemMenuPtr->option[MENUITEM_DIFFICULTY] = gSaveBlock1Ptr->keyFlags.difficulty;
+    sKeySystemMenuPtr->option[MENUITEM_LEVEL_CAP] = gSaveBlock1Ptr->keyFlags.levelCap;
+    sKeySystemMenuPtr->option[MENUITEM_TEAM_EXP] = gSaveBlock1Ptr->keyFlags.teamExp;
     sKeySystemMenuPtr->option[MENUITEM_ADVANCED] = 0;
     sKeySystemMenuPtr->subOption[MENUITEM_NUZLOCKE] = gSaveBlock1Ptr->keyFlags.nuzlocke;
     sKeySystemMenuPtr->subOption[MENUITEM_IV] = gSaveBlock1Ptr->keyFlags.ivCalcMode;
@@ -636,6 +655,12 @@ static void BufferKeySystemMenuString(u8 selection)
             case MENUITEM_DIFFICULTY:
                 AddTextPrinterParameterized3(1, 2, x, y, dst, -1, sDifficultyOptions[sKeySystemMenuPtr->option[selection]]);
                 break;
+            case MENUITEM_LEVEL_CAP:
+                AddTextPrinterParameterized3(1, 2, x, y, dst, -1, sLevelCapOptions[sKeySystemMenuPtr->option[selection]]);
+                break;
+            case MENUITEM_TEAM_EXP:
+                AddTextPrinterParameterized3(1, 2, x, y, dst, -1, sTeamExpOptions[sKeySystemMenuPtr->option[selection]]);
+                break;
             case MENUITEM_ADVANCED:
                 AddTextPrinterParameterized3(1, 2, x, y, dst, -1, sAdvancedOptions[sKeySystemMenuPtr->option[selection]]);
                 break;
@@ -677,6 +702,8 @@ static void CloseAndSaveKeySystemMenu(u8 taskId)
     FreeAllWindowBuffers();
     gSaveBlock1Ptr->keyFlags.version = sKeySystemMenuPtr->option[MENUITEM_VERSION];
     gSaveBlock1Ptr->keyFlags.difficulty = sKeySystemMenuPtr->option[MENUITEM_DIFFICULTY];
+    gSaveBlock1Ptr->keyFlags.levelCap = sKeySystemMenuPtr->option[MENUITEM_LEVEL_CAP];
+    gSaveBlock1Ptr->keyFlags.teamExp = sKeySystemMenuPtr->option[MENUITEM_TEAM_EXP];
     gSaveBlock1Ptr->keyFlags.nuzlocke = sKeySystemMenuPtr->subOption[MENUITEM_NUZLOCKE];
     if(gSaveBlock1Ptr->keyFlags.ivCalcMode != sKeySystemMenuPtr->subOption[MENUITEM_IV] || gSaveBlock1Ptr->keyFlags.evCalcMode != sKeySystemMenuPtr->subOption[MENUITEM_EV])
     {
@@ -742,7 +769,7 @@ static void LoadKeySystemMenuItemNames(void)
     {
         for (i = 0; i < MENUITEM_COUNT2; i++)
         {
-            AddTextPrinterParameterized(WIN_KEYS, 2, sKeySystemMenuItemsNames[i + MENUITEM_COUNT], 8, (u8)((i * (GetFontAttribute(2, FONTATTR_MAX_LETTER_HEIGHT))) + 2) - i, TEXT_SKIP_DRAW, NULL);    
+            AddTextPrinterParameterized(WIN_KEYS, 2, sKeySystemSubMenuItemsNames[i], 8, (u8)((i * (GetFontAttribute(2, FONTATTR_MAX_LETTER_HEIGHT))) + 2) - i, TEXT_SKIP_DRAW, NULL);    
         }
     }
 }

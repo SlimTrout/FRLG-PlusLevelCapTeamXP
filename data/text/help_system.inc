@@ -2100,6 +2100,29 @@ Help_Text_DefineExpMod::
 	.string "1× is the standard modifier.\l"
 	.string "2× doubles given Experience Points.$"
 
+Help_Text_LevelCap::
+	.string "LEVEL CAP$"
+
+Help_Text_DefineLevelCap::
+	.string "When ON, your POKéMON can't level up\n"
+	.string "past the level of the next GYM LEADER\l"
+	.string "or ELITE FOUR member's strongest\l"
+	.string "POKéMON. The cap rises as you win\l"
+	.string "BADGES and follows the DIFFICULTY.\l"
+	.string "Capped POKéMON still gain EVs, and\l"
+	.string "RARE CANDY won't work on them.$"
+
+Help_Text_TeamExp::
+	.string "TEAM EXP.$"
+
+Help_Text_DefineTeamExp::
+	.string "When ON, POKéMON in your party that\n"
+	.string "didn't battle still earn Experience\l"
+	.string "Points, like an EXP. SHARE for the\l"
+	.string "whole team. 1/2× gives them half of a\l"
+	.string "full share, and FULL gives them all of\l"
+	.string "it. Fainted POKéMON and EGGS get none.$"
+
 Help_Text_FRExclusives::
 	.string "  POKéMON exclusive to FIRERED$"
 

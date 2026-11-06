@@ -720,7 +720,9 @@ struct KeySystemFlags
     u16 evCalcMode:1;   //0 for normal, 1 for all zero
     u16 noPMC:1;        //0 for normal, 1 for no Pokemon Center healing.
     u16 expMod:2;       //0 for 0x, 1 for 1/2x, 2 for 1x, 3 for 2x 
-    u16 padding:4;
+    u16 levelCap:1;     //0 for off, 1 for level cap based on next boss trainer
+    u16 teamExp:2;      //0 for off, 1 for non-participants get 1/2 exp, 2 for full exp (TEAM_EXP_*)
+    u16 padding:1;
     u16 changedCalcMode:1; //set if calc mode is changed to recalc party on save load
     u16 inKeySystemMenu:1; //Needed for Help Menu regardless of Button Mode
     u16 padding2;
