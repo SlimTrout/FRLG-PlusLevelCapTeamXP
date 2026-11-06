@@ -63,3 +63,8 @@ prefabs.json
 my_script.js
 *.js
 *.sym
+tools/coopapp/mgba/
+tools/coopapp/SDL2-*/
+tools/coopapp/sdl2-mingw.tar.gz
+tools/coopapp/windows/
+tools/coopapp/bbcoop
