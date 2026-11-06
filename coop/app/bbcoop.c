@@ -30,6 +30,7 @@
 #include <mgba-util/audio-buffer.h>
 #include <mgba-util/vfs.h>
 #include "world_sync.h"
+#include "link_relay.h"
 
 #define SDL_MAIN_HANDLED // we provide main() ourselves
 #include <SDL.h>
@@ -88,7 +89,7 @@ static void sock_nonblock(sock_t s) { fcntl(s, F_SETFL, fcntl(s, F_GETFL, 0) | O
 #define MSG_HELLO 1 // payload: protocol version
 #define MSG_STATE 2 // payload: STATE_SIZE bytes of the sender's local block
 #define MSG_TEXT 3  // payload: chunk index, then up to TEXT_CHUNK bytes of the sender's message text
-#define PROTOCOL_VERSION 3
+#define PROTOCOL_VERSION 4
 #define DEFAULT_PORT 27450
 
 struct Net {
@@ -104,6 +105,7 @@ struct Net {
     unsigned char partnerText[TEXT_SIZE];
     int sentMsgSeq; // -1 until the first message text has been sent
     struct WorldSync ws;
+    struct LinkRelay lr;
 };
 
 struct App {
@@ -161,6 +163,7 @@ static int netJoin(struct Net *n, const char *host, int port) {
     n->sentMsgSeq = -1;
     n->isHost = 0;
     wsInit(&n->ws, 0);
+    lrInit(&n->lr);
     printf("Connected to your partner.\n");
     return 1;
 }
@@ -186,6 +189,7 @@ static void netPoll(struct Net *n) {
             n->everConnected = 1;
             n->sentMsgSeq = -1;
             wsInit(&n->ws, 1);
+            lrInit(&n->lr);
             printf("Your partner joined.\n");
             unsigned char v = PROTOCOL_VERSION;
             netSend(n, MSG_HELLO, &v, 1);
@@ -208,6 +212,8 @@ static void netPoll(struct Net *n) {
         if (m[2] == MSG_STATE && len == STATE_SIZE) {
             memcpy(n->partnerState, m + 4, STATE_SIZE);
             n->havePartnerState = 1;
+        } else if (m[2] == MSG_BLOCK) {
+            lrReceive(&n->lr, m + 4, (int)len);
         } else if (m[2] >= MSG_WORLD_CHANGES && m[2] <= MSG_WORLD_REQUEST) {
             wsReceive(&n->ws, m[2], m + 4, (int)len);
         } else if (m[2] == MSG_TEXT && len >= 1) {
@@ -266,6 +272,8 @@ static void exchangeMailbox(struct App *app) {
     }
     // Shared world: story flags and variables both ways (after the game ran this frame).
     wsTick(&app->net.ws, c, app->mailbox, app->net.connected, wsSendNet, &app->net);
+    // Co-op battles: the game's link blocks.
+    if (app->net.connected) lrTick(&app->net.lr, c, app->mailbox, wsSendNet, &app->net);
     netSend(&app->net, MSG_STATE, local, STATE_SIZE);
 
     c->busWrite8(c, app->mailbox + MB_INDEX, app->net.isHost ? 0 : 1);

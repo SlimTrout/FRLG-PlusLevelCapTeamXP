@@ -8,6 +8,12 @@
 #include "field_specials.h"
 #include "save.h"
 #include "task.h"
+#include "link.h"
+#include "malloc.h"
+#include "pokemon.h"
+#include "battle_setup.h"
+#include "wild_encounter.h"
+#include "constants/global.h"
 #include "field_player_avatar.h"
 #include "fieldmap.h"
 #include "main.h"
@@ -52,44 +58,45 @@ extern const u8 Coop_Text_PartnerDisconnected[];
 EWRAM_DATA struct CoopMailbox gCoopMailbox = {0};
 u8 gCoopTextPages;
 
-static EWRAM_DATA u8 sPartnerObjId = 0;
-static EWRAM_DATA u8 sPartnerMapGroup = 0;
-static EWRAM_DATA u8 sPartnerMapNum = 0;
-static EWRAM_DATA bool8 sPartnerObjValid = FALSE;
+static u8 sPartnerObjId;
+static u8 sPartnerMapGroup;
+static u8 sPartnerMapNum;
+static bool8 sPartnerObjValid;
 
 // link state
-static EWRAM_DATA u8 sLastPartnerCmdSeq = 0;
-static EWRAM_DATA bool8 sAwaitingLinkAnswer = FALSE;
-static EWRAM_DATA bool8 sAwaitingControlAnswer = FALSE;
-static EWRAM_DATA const u8 *sPendingScript = NULL;
-static EWRAM_DATA const u8 *sPendingNotice = NULL;
-static EWRAM_DATA bool8 sWasActive = FALSE;
+static u8 sLastPartnerCmdSeq;
+static bool8 sAwaitingLinkAnswer;
+static bool8 sAwaitingControlAnswer;
+static const u8 *sPendingScript;
+static const u8 *sPendingNotice;
+static bool8 sWasActive;
 static EWRAM_DATA bool8 sCoopScriptRunning = FALSE; // its messages aren't mirrored
-static EWRAM_DATA bool8 sFollowerMenuRequested = FALSE;
-static EWRAM_DATA bool8 sSaveWithHost = FALSE;
+static bool8 sFollowerMenuRequested;
+static bool8 sSaveWithHost;
+static bool8 sCoopBattlePending; // the leader started a wild battle
 
 // step recording (always recorded)
-static EWRAM_DATA s16 sLastX = 0;
-static EWRAM_DATA s16 sLastY = 0;
-static EWRAM_DATA u8 sLastMapGroup = 0;
-static EWRAM_DATA u8 sLastMapNum = 0;
-static EWRAM_DATA u32 sLastFrame = 0;
+static s16 sLastX;
+static s16 sLastY;
+static u8 sLastMapGroup;
+static u8 sLastMapNum;
+static u32 sLastFrame;
 
 // following
 static EWRAM_DATA u8 sConsumed = 0;     // leader steps already walked
-static EWRAM_DATA u8 sIdleFrames = 0;
-static EWRAM_DATA bool8 sWarping = FALSE;
-static EWRAM_DATA bool8 sResync = FALSE;
-static EWRAM_DATA u16 sWarpFrames = 0;
-static EWRAM_DATA u32 sFollowFrame = 0;
+static u8 sIdleFrames;
+static bool8 sWarping;
+static bool8 sResync;
+static u16 sWarpFrames;
+static u32 sFollowFrame;
 
 // dialogue mirroring
 static EWRAM_DATA bool8 sMsgShown = FALSE;     // leader: a field message is up
 static EWRAM_DATA u8 sMsgPageBase = 0;         // leader: gCoopTextPages when it started
 static EWRAM_DATA bool8 sMirroring = FALSE;    // follower: showing the leader's message
-static EWRAM_DATA bool8 sShowingMirror = FALSE;
-static EWRAM_DATA u8 sMirrorSeq = 0;
-static EWRAM_DATA u8 sMirrorPageBase = 0;
+static bool8 sShowingMirror;
+static u8 sMirrorSeq;
+static u8 sMirrorPageBase;
 
 // ---------------------------------------------------------------- helpers
 
@@ -419,6 +426,10 @@ static void HandlePartnerCommand(void)
             ShowNotice(Coop_Text_PartnerSplitOff);
         }
         break;
+    case COOP_CMD_WILD_BATTLE:
+        if (Coop_IsFollowing())
+            sCoopBattlePending = TRUE;
+        break;
     case COOP_CMD_SAVED:
         if (Coop_IsGuest())
             sSaveWithHost = TRUE;
@@ -675,6 +686,8 @@ static void UpdateMirroredText(void)
     }
 }
 
+static void TryStartPartnersWildBattle(void);
+
 // ---------------------------------------------------------------- main update
 
 // Called every overworld frame.
@@ -716,6 +729,7 @@ void Coop_Update(void)
     }
 
     HandlePartnerCommand();
+    TryStartPartnersWildBattle();
     if (Coop_IsFollowing())
         UpdateFollowing();
     UpdateMirroredText();
@@ -822,4 +836,151 @@ void Coop_OnTrainerBattle(u16 trainerId)
 bool8 Coop_IsTrainerTakenByPartner(u16 trainerId)
 {
     return gCoopMailbox.active && gCoopMailbox.partner.battleTrainer == trainerId + 1;
+}
+
+// ---------------------------------------------------------------- co-op link
+
+// While a co-op battle runs, the game's link layer (SendBlock, received blocks,
+// player count, master) is carried by the app over the network instead of the
+// link cable. The battle code then works exactly as in a link battle.
+void Coop_OpenLink(void)
+{
+    u8 i;
+
+    gCoopMailbox.blockSendBuf = (u32)gBlockSendBuffer;
+    gCoopMailbox.blockRecvBuf = (u32)gBlockRecvBuffer;
+    gCoopMailbox.blockRecvStatus = (u32)gBlockReceivedStatus;
+    gCoopMailbox.blockSendPending = FALSE;
+    ResetBlockReceivedFlags();
+    gLinkStatus = (2 << LINK_STAT_PLAYER_COUNT_SHIFT) | (gCoopMailbox.playerIndex == 0 ? LINK_STAT_MASTER : 0);
+    for (i = 0; i < 2; i++)
+    {
+        struct LinkPlayer *player = &gLinkPlayers[i];
+        bool8 self = (i == gCoopMailbox.playerIndex);
+
+        memset(player, 0, sizeof(*player));
+        player->version = VERSION_FIRE_RED;
+        player->linkType = LINKTYPE_BATTLE;
+        player->id = i == 0 ? 0 : 2; // battler: host on the left, guest on the right
+        player->language = GAME_LANGUAGE;
+        player->gender = self ? gSaveBlock2Ptr->playerGender : gCoopMailbox.partner.gender;
+        StringCopyN(player->name, self ? gSaveBlock2Ptr->playerName : gCoopMailbox.partner.name, PLAYER_NAME_LENGTH);
+        player->name[PLAYER_NAME_LENGTH] = EOS;
+    }
+    gReceivedRemoteLinkPlayers = TRUE;
+    gCoopMailbox.linkActive = TRUE;
+}
+
+void Coop_CloseLink(void)
+{
+    gCoopMailbox.linkActive = FALSE;
+    gReceivedRemoteLinkPlayers = FALSE;
+    gLinkStatus = 0;
+    ResetBlockReceivedFlags();
+}
+
+bool8 Coop_IsLinkOpen(void)
+{
+    return gCoopMailbox.linkActive;
+}
+
+bool8 Coop_SendBlock(const void *src, u16 size)
+{
+    u8 self = gCoopMailbox.playerIndex;
+
+    if (gCoopMailbox.blockSendPending || size > BLOCK_BUFFER_SIZE)
+        return FALSE;
+    memcpy(gBlockSendBuffer, src, size);
+    gCoopMailbox.blockSendSize = size;
+    gCoopMailbox.blockSendSeq++;
+    gCoopMailbox.blockSendPending = TRUE;
+    // A link block also arrives at its sender.
+    memcpy(gBlockRecvBuffer[self], src, size);
+    gBlockReceivedStatus[self] = TRUE;
+    return TRUE;
+}
+
+bool8 Coop_IsLinkTaskFinished(void)
+{
+    return !gCoopMailbox.blockSendPending;
+}
+
+// ---------------------------------------------------------------- co-op battles
+
+// During a co-op battle the battle party holds both players' first three Pokemon
+// (host's in slots 0-2, guest's in 3-5). The player's own party is kept aside and
+// gets its Pokemon back from the battle party afterwards.
+static struct Pokemon *sOwnParty;       // the real party, PARTY_SIZE
+static struct Pokemon *sBattleMons;     // [player][4]: three party Pokemon and a wild one
+
+bool8 Coop_IsHost(void)
+{
+    return gCoopMailbox.active && gCoopMailbox.playerIndex == 0;
+}
+
+void Coop_BackUpParty(void)
+{
+    sOwnParty = AllocZeroed(sizeof(struct Pokemon) * PARTY_SIZE);
+    sBattleMons = AllocZeroed(sizeof(struct Pokemon) * 8);
+    memcpy(sOwnParty, gPlayerParty, sizeof(struct Pokemon) * PARTY_SIZE);
+    // This player's own wild Pokemon, rolled from their own encounter table.
+    memcpy(&sBattleMons[gCoopMailbox.playerIndex * 4 + 3], &gEnemyParty[0], sizeof(struct Pokemon));
+}
+
+// What this game sends in each of the two start blocks.
+void *Coop_GetBattleSendMons(u8 part)
+{
+    static struct Pokemon *const unused = NULL;
+    struct Pokemon *mine = &sBattleMons[gCoopMailbox.playerIndex * 4];
+
+    (void)unused;
+    memcpy(&mine[0], &sOwnParty[0], sizeof(struct Pokemon) * 3);
+    return &mine[part * 2];
+}
+
+void Coop_ReceiveBattleMons(u8 part, struct Pokemon *fromHost, struct Pokemon *fromGuest)
+{
+    memcpy(&sBattleMons[0 * 4 + part * 2], fromHost, sizeof(struct Pokemon) * 2);
+    memcpy(&sBattleMons[1 * 4 + part * 2], fromGuest, sizeof(struct Pokemon) * 2);
+}
+
+void Coop_BuildBattleParties(void)
+{
+    memcpy(&gPlayerParty[0], &sBattleMons[0], sizeof(struct Pokemon) * 3);
+    memcpy(&gPlayerParty[3], &sBattleMons[4], sizeof(struct Pokemon) * 3);
+    ZeroEnemyPartyMons();
+    memcpy(&gEnemyParty[0], &sBattleMons[3], sizeof(struct Pokemon));
+    memcpy(&gEnemyParty[1], &sBattleMons[7], sizeof(struct Pokemon));
+    CalculatePlayerPartyCount();
+    CalculateEnemyPartyCount();
+}
+
+// After the battle: this player's three Pokemon come back from the battle party.
+void Coop_RestoreParty(void)
+{
+    if (sOwnParty == NULL)
+        return;
+    memcpy(&sOwnParty[0], &gPlayerParty[gCoopMailbox.playerIndex * 3], sizeof(struct Pokemon) * 3);
+    memcpy(gPlayerParty, sOwnParty, sizeof(struct Pokemon) * PARTY_SIZE);
+    CalculatePlayerPartyCount();
+    Free(sOwnParty);
+    Free(sBattleMons);
+    sOwnParty = NULL;
+    sBattleMons = NULL;
+}
+
+// The leader ran into a wild Pokemon while linked: both games go into a co-op battle.
+void Coop_StartLinkedWildBattle(void)
+{
+    SendCommand(COOP_CMD_WILD_BATTLE);
+    BattleSetup_StartCoopWildBattle();
+}
+
+static void TryStartPartnersWildBattle(void)
+{
+    if (!sCoopBattlePending || !Coop_IsInOverworld() || ScriptContext_IsEnabled())
+        return;
+    sCoopBattlePending = FALSE;
+    if (Coop_GenerateWildMonHere())
+        BattleSetup_StartCoopWildBattle();
 }

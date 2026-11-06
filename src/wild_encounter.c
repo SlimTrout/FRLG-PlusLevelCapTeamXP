@@ -1114,3 +1114,30 @@ static u8 ViridianForestNuzlockeOverride(const struct WildPokemonInfo * info, u8
     }
     return slot;
 }
+
+// Co-op: the partner of a player who ran into a wild Pokemon rolls their own one
+// from their own encounter table for the tile they're on (put in gEnemyParty[0]).
+bool8 Coop_GenerateWildMonHere(void)
+{
+    u16 headerId = GetCurrentMapWildMonHeaderId();
+    const struct WildPokemonInfo *land, *water;
+    s16 x, y;
+    u32 attrs;
+
+    if (headerId == HEADER_NONE)
+        return FALSE;
+    land = gSaveBlock1Ptr->keyFlags.version == 0 ? gWildMonHeaders[headerId].landMonsInfo_FR : gWildMonHeaders[headerId].landMonsInfo_LG;
+    water = gSaveBlock1Ptr->keyFlags.version == 0 ? gWildMonHeaders[headerId].waterMonsInfo_FR : gWildMonHeaders[headerId].waterMonsInfo_LG;
+    PlayerGetDestCoords(&x, &y);
+    attrs = MapGridGetMetatileAttributeAt(x, y, METATILE_ATTRIBUTES_ALL);
+    if (ExtractMetatileAttribute(attrs, METATILE_ATTRIBUTE_ENCOUNTER_TYPE) == TILE_ENCOUNTER_WATER || TestPlayerAvatarFlags(PLAYER_AVATAR_FLAG_SURFING))
+    {
+        if (water != NULL && TryGenerateWildMon(water, WILD_AREA_WATER, 0))
+            return TRUE;
+    }
+    if (land != NULL && TryGenerateWildMon(land, WILD_AREA_LAND, 0))
+        return TRUE;
+    if (water != NULL && TryGenerateWildMon(water, WILD_AREA_WATER, 0))
+        return TRUE;
+    return FALSE;
+}

@@ -15,6 +15,7 @@
 #include <mgba-util/vfs.h>
 #include <mgba/core/log.h>
 #include "../app/world_sync.h"
+#include "../app/link_relay.h"
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -59,8 +60,15 @@ struct Player {
     mColor *buf;
     uint32_t mailbox; // 0 until found
     struct WorldSync ws;
+    struct LinkRelay lr;
     struct Player *other;
 };
+
+static void lrSendDirect(void *ctx, int type, const void *payload, int len) {
+    struct Player *p = ctx;
+    (void)type;
+    lrReceive(&p->other->lr, payload, len);
+}
 
 static void wsSendDirect(void *ctx, int type, const void *payload, int len) {
     struct Player *p = ctx;
@@ -128,6 +136,8 @@ int main(int argc, char **argv) {
     a.other = &b; b.other = &a;
     wsInit(&a.ws, 1);
     wsInit(&b.ws, 0);
+    lrInit(&a.lr);
+    lrInit(&b.lr);
 
     FILE *f = fopen(argv[2], "r");
     char line[256];
@@ -145,6 +155,8 @@ int main(int argc, char **argv) {
             if ((frame & 63) == 0) { findMailbox(&a); findMailbox(&b); }
             if (a.mailbox) wsTick(&a.ws, a.core, a.mailbox, b.mailbox != 0, wsSendDirect, &a);
             if (b.mailbox) wsTick(&b.ws, b.core, b.mailbox, a.mailbox != 0, wsSendDirect, &b);
+            if (a.mailbox) lrTick(&a.lr, a.core, a.mailbox, lrSendDirect, &a);
+            if (b.mailbox) lrTick(&b.lr, b.core, b.mailbox, lrSendDirect, &b);
             relay(&a, &b, 1);
             relay(&b, &a, 0);
             frame++;

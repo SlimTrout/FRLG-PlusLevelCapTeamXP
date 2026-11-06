@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "gflib.h"
 #include "m4a.h"
 #include "scanline_effect.h"
@@ -921,6 +922,8 @@ static void SendBerryBlenderNoSpaceForPokeblocks(void)
 
 u8 GetMultiplayerId(void)
 {
+    if (Coop_IsLinkOpen())
+        return gCoopMailbox.playerIndex;
     if (gWirelessCommType == 1)
         return Rfu_GetMultiplayerId();
 
@@ -937,6 +940,8 @@ u8 BitmaskAllOtherLinkPlayers(void)
 
 bool8 SendBlock(u8 unused, const void *src, u16 size)
 {
+    if (Coop_IsLinkOpen())
+        return Coop_SendBlock(src, size);
     if (gWirelessCommType == 1)
         return Rfu_InitBlockSend(src, size);
 
@@ -959,6 +964,8 @@ bool8 SendBlockRequest(u8 blockRequestType)
 
 bool8 IsLinkTaskFinished(void)
 {
+    if (Coop_IsLinkOpen())
+        return Coop_IsLinkTaskFinished();
     if (gWirelessCommType == 1)
         return IsLinkRfuTaskFinished();
 
@@ -1565,6 +1572,8 @@ bool8 HandleLinkConnection(void)
     bool32 main1Failed;
     bool32 main2Failed;
 
+    if (Coop_IsLinkOpen()) // co-op: the app carries the link, there's no cable to run
+        return FALSE;
     if (gWirelessCommType == 0)
     {
         gLinkStatus = LinkMain1(&gShouldAdvanceLinkState, gSendCmd, gRecvCmds);

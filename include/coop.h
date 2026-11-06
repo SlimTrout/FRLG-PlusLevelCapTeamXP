@@ -29,6 +29,7 @@ enum
     COOP_CMD_CONTROL_DECLINE,
     COOP_CMD_SPLIT,
     COOP_CMD_SAVED,           // the host saved; the guest saves too
+    COOP_CMD_WILD_BATTLE,     // the leader ran into a wild Pokemon: both go into a co-op battle
 };
 
 #define COOP_TEXT_SIZE 400
@@ -82,6 +83,15 @@ struct CoopMailbox
     /*0x378*/ u32 varsPtr;
     /*0x37C*/ u8 worldChanged; // set by the app after it applied the partner's changes
     /*0x37D*/ u8 padding3[3];
+    // Co-op link: the game's link blocks (as used by link battles) go through the app.
+    /*0x380*/ u32 blockSendBuf;   // gBlockSendBuffer
+    /*0x384*/ u32 blockRecvBuf;   // gBlockRecvBuffer (BLOCK_BUFFER_SIZE bytes per player)
+    /*0x388*/ u32 blockRecvStatus; // gBlockReceivedStatus (one byte per player)
+    /*0x38C*/ u16 blockSendSize;
+    /*0x38E*/ u8 blockSendSeq;    // bumped for each block sent
+    /*0x38F*/ u8 blockSendPending; // set by the game, cleared by the app once it has the block
+    /*0x390*/ u8 linkActive;      // co-op link is up (both games in a co-op battle)
+    /*0x391*/ u8 padding5[3];
 };
 
 extern struct CoopMailbox gCoopMailbox;
@@ -115,6 +125,23 @@ void Coop_SaveWithHost(void);
 
 // saving: only the host saves, and the guest's game saves along with it
 bool8 Coop_IsGuest(void);
+
+// co-op link: the game's link layer, carried by the app (link.c calls these)
+void Coop_OpenLink(void);
+void Coop_CloseLink(void);
+bool8 Coop_IsLinkOpen(void);
+bool8 Coop_SendBlock(const void *src, u16 size);
+bool8 Coop_IsLinkTaskFinished(void);
+
+// co-op battles
+bool8 Coop_IsHost(void);
+void Coop_StartLinkedWildBattle(void);
+void Coop_CreateLinkBattleTasks(void);
+void Coop_BackUpParty(void);
+void *Coop_GetBattleSendMons(u8 part);
+void Coop_ReceiveBattleMons(u8 part, struct Pokemon *fromHost, struct Pokemon *fromGuest);
+void Coop_BuildBattleParties(void);
+void Coop_RestoreParty(void);
 
 // trainers: one player's battle keeps the trainer away from the other
 void Coop_OnTrainerBattle(u16 trainerId);

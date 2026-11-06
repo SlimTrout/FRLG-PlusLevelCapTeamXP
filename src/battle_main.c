@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "gflib.h"
 #include "battle.h"
 #include "battle_anim.h"
@@ -70,6 +71,7 @@ static void CB2_PreInitMultiBattle(void);
 static void CB2_HandleStartMultiBattle(void);
 static u8 CreateNPCTrainerParty(struct Pokemon *party, u16 trainerNum);
 static void CB2_HandleStartBattle(void);
+static void CB2_HandleStartCoopBattle(void);
 static void TryCorrectShedinjaLanguage(struct Pokemon *mon);
 static void BattleMainCB1(void);
 static void CB2_QuitPokedudeBattle(void);
@@ -700,7 +702,9 @@ static void CB2_InitBattleInternal(void)
     SetVBlankCallback(VBlankCB_Battle);
     SetUpBattleVars();
 
-    if (gBattleTypeFlags & BATTLE_TYPE_MULTI)
+    if (Coop_IsLinkOpen())
+        SetMainCallback2(CB2_HandleStartCoopBattle);
+    else if (gBattleTypeFlags & BATTLE_TYPE_MULTI)
         SetMainCallback2(CB2_HandleStartMultiBattle);
     else
         SetMainCallback2(CB2_HandleStartBattle);
@@ -1084,6 +1088,84 @@ static void CB2_HandleStartBattle(void)
             gBattleCommunication[MULTIUSE_STATE]++;
         break;
     }
+}
+
+// Co-op battle start: the two games swap their first three Pokemon and their wild
+// Pokemon over the co-op link, then both build the same battle: host's Pokemon in
+// party slots 0-2, guest's in 3-5, the host's wild Pokemon first on the other side.
+static void CB2_HandleStartCoopBattle(void)
+{
+    u8 self = GetMultiplayerId();
+    struct Pokemon *block;
+
+    RunTasks();
+    AnimateSprites();
+    BuildOamBuffer();
+    gBattleStruct->multiplayerId = self;
+    switch (gBattleCommunication[MULTIUSE_STATE])
+    {
+    case 0:
+        if (!IsDma3ManagerBusyWithBgCopy())
+        {
+            ShowBg(0);
+            ShowBg(1);
+            ShowBg(2);
+            ShowBg(3);
+            BattleInterfaceSetWindowPals();
+            Coop_CreateLinkBattleTasks();
+            Coop_BackUpParty();
+            gBattleCommunication[MULTIUSE_STATE] = 1;
+        }
+        break;
+    case 1:
+        if (IsLinkTaskFinished())
+        {
+            SendBlock(BitmaskAllOtherLinkPlayers(), Coop_GetBattleSendMons(0), sizeof(struct Pokemon) * 2);
+            gBattleCommunication[MULTIUSE_STATE]++;
+        }
+        break;
+    case 2:
+        if ((GetBlockReceivedStatus() & 3) == 3)
+        {
+            Coop_ReceiveBattleMons(0, (struct Pokemon *)gBlockRecvBuffer[0], (struct Pokemon *)gBlockRecvBuffer[1]);
+            ResetBlockReceivedFlags();
+            gBattleCommunication[MULTIUSE_STATE]++;
+        }
+        break;
+    case 3:
+        if (IsLinkTaskFinished())
+        {
+            SendBlock(BitmaskAllOtherLinkPlayers(), Coop_GetBattleSendMons(1), sizeof(struct Pokemon) * 2);
+            gBattleCommunication[MULTIUSE_STATE]++;
+        }
+        break;
+    case 4:
+        if ((GetBlockReceivedStatus() & 3) == 3)
+        {
+            Coop_ReceiveBattleMons(1, (struct Pokemon *)gBlockRecvBuffer[0], (struct Pokemon *)gBlockRecvBuffer[1]);
+            ResetBlockReceivedFlags();
+            Coop_BuildBattleParties();
+            SetAllPlayersBerryData();
+            gBattleCommunication[MULTIUSE_STATE]++;
+        }
+        break;
+    case 5:
+        InitBattleControllers();
+        gBattleCommunication[MULTIUSE_STATE]++;
+        gBattleCommunication[SPRITES_INIT_STATE1] = 0;
+        gBattleCommunication[SPRITES_INIT_STATE2] = 0;
+        break;
+    case 6:
+        if (BattleInitAllSprites(&gBattleCommunication[SPRITES_INIT_STATE1], &gBattleCommunication[SPRITES_INIT_STATE2]))
+        {
+            gPreBattleCallback1 = gMain.callback1;
+            gMain.callback1 = BattleMainCB1;
+            SetMainCallback2(BattleMainCB2);
+            gBattleTypeFlags |= BATTLE_TYPE_LINK_IN_BATTLE;
+        }
+        break;
+    }
+    (void)block;
 }
 
 static void PrepareOwnMultiPartnerBuffer(void)

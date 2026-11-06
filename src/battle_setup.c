@@ -336,8 +336,42 @@ void StartWildBattle(void)
         DoStandardWildBattle();
 }
 
+static void CB2_EndCoopBattle(void);
+
+// Co-op: both games go into the same double battle (see coop.c and battle_main.c).
+void BattleSetup_StartCoopWildBattle(void)
+{
+    LockPlayerFieldControls();
+    FreezeObjectEvents();
+    StopPlayerAvatar();
+    gMain.savedCallback = CB2_EndCoopBattle;
+    gBattleTypeFlags = BATTLE_TYPE_LINK | BATTLE_TYPE_DOUBLE | (Coop_IsHost() ? BATTLE_TYPE_IS_MASTER : 0);
+    Coop_OpenLink();
+    CreateBattleStartTask(GetWildBattleTransition(), 0);
+    IncrementGameStat(GAME_STAT_TOTAL_BATTLES);
+    IncrementGameStat(GAME_STAT_WILD_BATTLES);
+}
+
+static void CB2_EndCoopBattle(void)
+{
+    Coop_CloseLink();
+    Coop_RestoreParty();
+    gBattleTypeFlags = 0;
+    CpuFill16(0, (void *)BG_PLTT, BG_PLTT_SIZE);
+    ResetOamRange(0, 128);
+    if (IsPlayerDefeated(gBattleOutcome) == TRUE)
+        SetMainCallback2(CB2_WhiteOut);
+    else
+        SetMainCallback2(CB2_ReturnToField);
+}
+
 static void DoStandardWildBattle(void)
 {
+    if (Coop_IsLinked() && !Coop_IsFollowing())
+    {
+        Coop_StartLinkedWildBattle();
+        return;
+    }
     LockPlayerFieldControls();
     FreezeObjectEvents();
     StopPlayerAvatar();

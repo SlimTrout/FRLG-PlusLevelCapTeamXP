@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "battle.h"
 #include "battle_ai_script_commands.h"
 #include "battle_anim.h"
@@ -138,10 +139,35 @@ static void InitSinglePlayerBtlControllers(void)
     }
 }
 
+void Coop_CreateLinkBattleTasks(void)
+{
+    CreateTasksForSendRecvLinkBuffers();
+}
+
 static void InitLinkBtlControllers(void)
 {
     s32 i;
     u8 multiplayerId;
+
+    if (Coop_IsLinkOpen())
+    {
+        // Co-op battle: the host's Pokemon on the left, the guest's on the right, the
+        // computer's on the other side. The host's game runs the battle.
+        bool8 host = (gBattleTypeFlags & BATTLE_TYPE_IS_MASTER) != 0;
+
+        if (host)
+            gBattleMainFunc = BeginBattleIntro;
+        gBattlerControllerFuncs[0] = host ? SetControllerToPlayer : SetControllerToLinkPartner;
+        gBattlerControllerFuncs[2] = host ? SetControllerToLinkPartner : SetControllerToPlayer;
+        gBattlerControllerFuncs[1] = host ? SetControllerToOpponent : SetControllerToLinkOpponent;
+        gBattlerControllerFuncs[3] = host ? SetControllerToOpponent : SetControllerToLinkOpponent;
+        gBattlerPositions[0] = B_POSITION_PLAYER_LEFT;
+        gBattlerPositions[1] = B_POSITION_OPPONENT_LEFT;
+        gBattlerPositions[2] = B_POSITION_PLAYER_RIGHT;
+        gBattlerPositions[3] = B_POSITION_OPPONENT_RIGHT;
+        gBattlersCount = MAX_BATTLERS_COUNT;
+        return;
+    }
 
     if (!(gBattleTypeFlags & BATTLE_TYPE_DOUBLE))
     {
@@ -287,9 +313,34 @@ static void InitLinkBtlControllers(void)
     }
 }
 
+static u8 Coop_FirstHealthyMon(struct Pokemon *party, u8 from, u8 to)
+{
+    u8 j;
+
+    for (j = from; j < to; j++)
+    {
+        if (GetMonData(&party[j], MON_DATA_HP) != 0
+         && GetMonData(&party[j], MON_DATA_SPECIES_OR_EGG) != SPECIES_NONE
+         && GetMonData(&party[j], MON_DATA_SPECIES_OR_EGG) != SPECIES_EGG
+         && !GetMonData(&party[j], MON_DATA_IS_EGG))
+            return j;
+    }
+    return from;
+}
+
 static void SetBattlePartyIds(void)
 {
     s32 i, j;
+
+    if (Coop_IsLinkOpen())
+    {
+        // Each player sends out from their own half of the battle party.
+        gBattlerPartyIndexes[0] = Coop_FirstHealthyMon(gPlayerParty, 0, 3);
+        gBattlerPartyIndexes[2] = Coop_FirstHealthyMon(gPlayerParty, 3, PARTY_SIZE);
+        gBattlerPartyIndexes[1] = 0;
+        gBattlerPartyIndexes[3] = 1;
+        return;
+    }
 
     if (!(gBattleTypeFlags & BATTLE_TYPE_MULTI))
     {

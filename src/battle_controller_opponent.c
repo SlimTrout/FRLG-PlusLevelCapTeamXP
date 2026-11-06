@@ -1,4 +1,5 @@
 #include "global.h"
+#include "link.h"
 #include "gflib.h"
 #include "data.h"
 #include "m4a.h"
@@ -424,7 +425,17 @@ static void CompleteOnFinishedBattleAnimation(void)
 void OpponentBufferExecCompleted(void)
 {
     gBattlerControllerFuncs[gActiveBattler] = OpponentBufferRunCommand;
-    gBattleControllerExecFlags &= ~gBitTable[gActiveBattler];
+    if (gBattleTypeFlags & BATTLE_TYPE_LINK) // co-op battles: the host's game runs the computer's side
+    {
+        u8 playerId = GetMultiplayerId();
+
+        PrepareBufferDataTransferLink(2, 4, &playerId);
+        gBattleBufferA[gActiveBattler][0] = CONTROLLER_TERMINATOR_NOP;
+    }
+    else
+    {
+        gBattleControllerExecFlags &= ~gBitTable[gActiveBattler];
+    }
 }
 
 static void OpponentHandleGetMonData(void)
