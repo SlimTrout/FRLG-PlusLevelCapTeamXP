@@ -31,6 +31,8 @@ static EWRAM_DATA u8 sTitleScreenTimerTaskId = 0;
 
 static void ResetGpuRegs(void);
 static void CB2_TitleScreenRun(void);
+static void CB2_InitBrainyBlueTitleScreen(void);
+static void LoadSaveAndGoToMainMenu(void);
 static void VBlankCB(void);
 static void Task_TitleScreenTimer(u8 taskId);
 static void Task_TitleScreenMain(u8 taskId);
@@ -314,6 +316,13 @@ static const u16 sStreakYPositions[] = {
 
 void CB2_InitTitleScreen(void)
 {
+    // Brainy Blue: use the animated title screen instead of the FireRed/LeafGreen one.
+    if (TRUE)
+    {
+        gMain.state = 0;
+        SetMainCallback2(CB2_InitBrainyBlueTitleScreen);
+        return;
+    }
     switch (gMain.state)
     {
     default:
@@ -723,36 +732,7 @@ static void SetTitleScreenScene_Cry(s16 *data)
     case 2:
         if (!gPaletteFade.active)
         {
-            u8 KeyVersionBackup = gSaveBlock1Ptr->keyFlags.version;
-            u8 KeyDifficultyBackup = gSaveBlock1Ptr->keyFlags.difficulty;
-            u8 KeyNuzlockeBackup = gSaveBlock1Ptr->keyFlags.nuzlocke;
-            u8 KeyIvCalcBackup = gSaveBlock1Ptr->keyFlags.ivCalcMode;
-            u8 KeyEvCalcBackup = gSaveBlock1Ptr->keyFlags.evCalcMode;
-            u8 ChangedCalcBackup = gSaveBlock1Ptr->keyFlags.changedCalcMode;
-            u8 noPMCBackup = gSaveBlock1Ptr->keyFlags.noPMC;
-            u8 expModBackup = gSaveBlock1Ptr->keyFlags.expMod;
-            u8 levelCapBackup = gSaveBlock1Ptr->keyFlags.levelCap;
-            u8 teamExpBackup = gSaveBlock1Ptr->keyFlags.teamExp;
-            SeedRngAndSetTrainerId();
-            SetSaveBlocksPointers();
-            ResetMenuAndMonGlobals();
-            Save_ResetSaveCounters();
-            LoadGameSave(SAVE_NORMAL);
-            if (gSaveFileStatus == SAVE_STATUS_EMPTY || gSaveFileStatus == SAVE_STATUS_INVALID)
-                Sav2_ClearSetDefault();
-            gSaveBlock1Ptr->keyFlags.version = KeyVersionBackup;
-            gSaveBlock1Ptr->keyFlags.difficulty = KeyDifficultyBackup;
-            gSaveBlock1Ptr->keyFlags.nuzlocke = KeyNuzlockeBackup;
-            gSaveBlock1Ptr->keyFlags.ivCalcMode = KeyIvCalcBackup;
-            gSaveBlock1Ptr->keyFlags.evCalcMode = KeyEvCalcBackup;
-            gSaveBlock1Ptr->keyFlags.changedCalcMode = ChangedCalcBackup;
-            gSaveBlock1Ptr->keyFlags.noPMC = noPMCBackup;
-            gSaveBlock1Ptr->keyFlags.expMod = expModBackup;
-            gSaveBlock1Ptr->keyFlags.levelCap = levelCapBackup;
-            gSaveBlock1Ptr->keyFlags.teamExp = teamExpBackup;
-            SetPokemonCryStereo(gSaveBlock2Ptr->optionsSound);
-            InitHeap(gHeap, HEAP_SIZE);
-            SetMainCallback2(CB2_InitMainMenu);
+            LoadSaveAndGoToMainMenu();
             DestroyTask(FindTaskIdByFunc(Task_TitleScreenMain));
         }
         break;
@@ -763,6 +743,40 @@ static void SetTitleScreenScene_Cry(s16 *data)
 #undef tState
 #undef tHasCreatedBlankSprite
 #undef tSlashSpriteId
+
+static void LoadSaveAndGoToMainMenu(void)
+{
+    u8 KeyVersionBackup = gSaveBlock1Ptr->keyFlags.version;
+    u8 KeyDifficultyBackup = gSaveBlock1Ptr->keyFlags.difficulty;
+    u8 KeyNuzlockeBackup = gSaveBlock1Ptr->keyFlags.nuzlocke;
+    u8 KeyIvCalcBackup = gSaveBlock1Ptr->keyFlags.ivCalcMode;
+    u8 KeyEvCalcBackup = gSaveBlock1Ptr->keyFlags.evCalcMode;
+    u8 ChangedCalcBackup = gSaveBlock1Ptr->keyFlags.changedCalcMode;
+    u8 noPMCBackup = gSaveBlock1Ptr->keyFlags.noPMC;
+    u8 expModBackup = gSaveBlock1Ptr->keyFlags.expMod;
+    u8 levelCapBackup = gSaveBlock1Ptr->keyFlags.levelCap;
+    u8 teamExpBackup = gSaveBlock1Ptr->keyFlags.teamExp;
+    SeedRngAndSetTrainerId();
+    SetSaveBlocksPointers();
+    ResetMenuAndMonGlobals();
+    Save_ResetSaveCounters();
+    LoadGameSave(SAVE_NORMAL);
+    if (gSaveFileStatus == SAVE_STATUS_EMPTY || gSaveFileStatus == SAVE_STATUS_INVALID)
+        Sav2_ClearSetDefault();
+    gSaveBlock1Ptr->keyFlags.version = KeyVersionBackup;
+    gSaveBlock1Ptr->keyFlags.difficulty = KeyDifficultyBackup;
+    gSaveBlock1Ptr->keyFlags.nuzlocke = KeyNuzlockeBackup;
+    gSaveBlock1Ptr->keyFlags.ivCalcMode = KeyIvCalcBackup;
+    gSaveBlock1Ptr->keyFlags.evCalcMode = KeyEvCalcBackup;
+    gSaveBlock1Ptr->keyFlags.changedCalcMode = ChangedCalcBackup;
+    gSaveBlock1Ptr->keyFlags.noPMC = noPMCBackup;
+    gSaveBlock1Ptr->keyFlags.expMod = expModBackup;
+    gSaveBlock1Ptr->keyFlags.levelCap = levelCapBackup;
+    gSaveBlock1Ptr->keyFlags.teamExp = teamExpBackup;
+    SetPokemonCryStereo(gSaveBlock2Ptr->optionsSound);
+    InitHeap(gHeap, HEAP_SIZE);
+    SetMainCallback2(CB2_InitMainMenu);
+}
 
 static void Task_TitleScreen_SlideWin0(u8 taskId)
 {
@@ -1326,3 +1340,132 @@ static void SpriteCallback_Slash(struct Sprite *sprite)
 #undef sState
 #undef sTimer
 #undef sDeactivate
+
+// ---------------------------------------------------------------- Brainy Blue title screen
+
+#include "data/brainy_blue_title.h"
+
+#define BRAINY_BLUE_PAGE_SIZE 0xA000 // mode 4 frame buffers: 0x06000000 and 0x0600A000
+#define DISPCNT_BITMAP_PAGE_1 0x0010
+
+// task data
+#define tFrame   data[0]
+#define tTimer   data[1]
+#define tPage    data[2]
+#define tExiting data[3]
+
+static void VBlankCB_BrainyBlue(void)
+{
+    LoadOam();
+    ProcessSpriteCopyRequests();
+    TransferPlttBuffer();
+}
+
+static void CB2_BrainyBlueTitleScreenRun(void)
+{
+    RunTasks();
+    AnimateSprites();
+    BuildOamBuffer();
+    UpdatePaletteFade();
+}
+
+static void ShowBrainyBlueFrame(s16 *data, u8 frame)
+{
+    u8 page = tPage ^ 1; // draw into the hidden page, then flip to it
+
+    LZ77UnCompVram(sBrainyBlueFrames[frame], (void *)(VRAM + page * BRAINY_BLUE_PAGE_SIZE));
+    if (page)
+        SetGpuRegBits(REG_OFFSET_DISPCNT, DISPCNT_BITMAP_PAGE_1);
+    else
+        ClearGpuRegBits(REG_OFFSET_DISPCNT, DISPCNT_BITMAP_PAGE_1);
+    tPage = page;
+    tFrame = frame;
+}
+
+static void Task_BrainyBlueTitleScreen(u8 taskId)
+{
+    s16 *data = gTasks[taskId].data;
+
+    if (tExiting)
+    {
+        if (!gPaletteFade.active)
+        {
+            SetGpuReg(REG_OFFSET_DISPCNT, 0);
+            LoadSaveAndGoToMainMenu();
+            DestroyTask(taskId);
+        }
+        return;
+    }
+
+    if (++tTimer >= sBrainyBlueFrameDurations[tFrame])
+    {
+        tTimer = 0;
+        ShowBrainyBlueFrame(data, (tFrame + 1) % ARRAY_COUNT(sBrainyBlueFrames));
+    }
+
+    if (gPaletteFade.active)
+        return;
+
+    if (JOY_HELD(KEYSTROKE_DELSAVE) == KEYSTROKE_DELSAVE)
+    {
+        BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK);
+        DestroyTask(taskId);
+        SetMainCallback2(CB2_FadeOutTransitionToSaveClearScreen);
+    }
+    else if (JOY_HELD(KEYSTROKE_BERRY_FIX) == KEYSTROKE_BERRY_FIX)
+    {
+        BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK);
+        DestroyTask(taskId);
+        SetMainCallback2(CB2_FadeOutTransitionToBerryFix);
+    }
+    else if (JOY_NEW(A_BUTTON | START_BUTTON))
+    {
+        BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_WHITE);
+        FadeOutBGM(4);
+        tExiting = TRUE;
+    }
+}
+
+static void CB2_InitBrainyBlueTitleScreen(void)
+{
+    u8 taskId;
+
+    switch (gMain.state)
+    {
+    case 0:
+        SetVBlankCallback(NULL);
+        StartTimer1();
+        InitHeap(gHeap, HEAP_SIZE);
+        ResetTasks();
+        ResetSpriteData();
+        FreeAllSpritePalettes();
+        ResetPaletteFade();
+        ResetGpuRegs();
+        HelpSystem_Disable();
+        DmaFill16(3, 0, (void *)VRAM, VRAM_SIZE);
+        DmaFill32(3, 0, (void *)OAM, OAM_SIZE);
+        DmaFill16(3, 0, (void *)PLTT, PLTT_SIZE);
+        gMain.state++;
+        break;
+    case 1:
+        LoadPalette(sBrainyBlueTitlePal, BG_PLTT_ID(0), 256 * sizeof(u16));
+        LZ77UnCompVram(sBrainyBlueFrames[0], (void *)VRAM);
+        SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_MODE_4 | DISPCNT_BG2_ON);
+        BlendPalettes(PALETTES_BG, 16, RGB_BLACK);
+        BeginNormalPaletteFade(PALETTES_BG, 0, 16, 0, RGB_BLACK);
+        taskId = CreateTask(Task_BrainyBlueTitleScreen, 4);
+        gTasks[taskId].tFrame = 0;
+        gTasks[taskId].tTimer = 0;
+        gTasks[taskId].tPage = 0;
+        gTasks[taskId].tExiting = FALSE;
+        SetVBlankCallback(VBlankCB_BrainyBlue);
+        SetMainCallback2(CB2_BrainyBlueTitleScreenRun);
+        m4aSongNumStart(MUS_TITLE);
+        break;
+    }
+}
+
+#undef tFrame
+#undef tTimer
+#undef tPage
+#undef tExiting
