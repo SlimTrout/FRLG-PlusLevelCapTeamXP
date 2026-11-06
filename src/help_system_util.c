@@ -47,7 +47,9 @@ u8 RunHelpSystemCallback(void)
     case 0:
         sInHelpSystem = 0;
         // Nuzlocke tracker: only with the L button free (Help button mode), and not from the settings menus.
-        if (gSaveBlock2Ptr->optionsButtonMode != OPTIONS_BUTTON_MODE_HELP || gSaveBlock1Ptr->keyFlags.inKeySystemMenu == 1 || FlagGet(FLAG_SYS_IN_OPTIONS_MENU))
+        // Not in battle either: the battle screen doesn't come back right afterwards.
+        if (gSaveBlock2Ptr->optionsButtonMode != OPTIONS_BUTTON_MODE_HELP || gSaveBlock1Ptr->keyFlags.inKeySystemMenu == 1 || FlagGet(FLAG_SYS_IN_OPTIONS_MENU)
+         || gMain.inBattle)
             return 0;
         if (JOY_NEW(L_BUTTON))
         {
