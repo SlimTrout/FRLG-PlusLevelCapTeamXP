@@ -173,7 +173,7 @@ bool16 HasAllMons(void)
     }
 
     // -2 excludes Jirachi and Deoxys
-    for (i = JOHTO_DEX_COUNT; i < NATIONAL_DEX_COUNT - 2; i++)
+    for (i = JOHTO_DEX_COUNT; i < NATIONAL_DEX_COUNT_GEN3 - 2; i++)
     {
         if (!GetSetPokedexFlag(i + 1, FLAG_GET_CAUGHT))
             return FALSE;

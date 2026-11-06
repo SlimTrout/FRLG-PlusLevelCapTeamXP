@@ -650,7 +650,7 @@ u8 Menu2_GetMonSpriteAnchorCoord(u16 species, u32 personality, u8 a2)
             break;
         }
     }
-    if (species != SPECIES_NONE && a2 < 5)
+    if (species != SPECIES_NONE && a2 < 5 && species <= ARRAY_COUNT(sMonSpriteAnchorCoords))
     {
         species--;
         if (sMonSpriteAnchorCoords[species][a2] != 0xFF)

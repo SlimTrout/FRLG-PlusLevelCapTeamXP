@@ -291,9 +291,19 @@
 #define EVO_LEVEL_SHEDINJA   14 // Pokémon reaches the specified level (special value for Shedinja)
 #define EVO_BEAUTY           15 // Pokémon levels up with beauty ≥ specified value
 #define EVO_STONE_HELD       16 // specified item is used on Pokémon and it's holding the specified item
+#define EVO_LEVEL_FEMALE     17 // Pokémon reaches the specified level, is female
+#define EVO_LEVEL_MALE       18 // Pokémon reaches the specified level, is male
+#define EVO_LEVEL_NIGHT      19 // Pokémon reaches the specified level indoors (FRLG+ "night")
+#define EVO_LEVEL_DAY        20 // Pokémon reaches the specified level outdoors (FRLG+ "day")
+#define EVO_ITEM_HOLD_DAY    21 // Pokémon levels up outdoors holding the specified item
+#define EVO_ITEM_HOLD_NIGHT  22 // Pokémon levels up indoors holding the specified item
+#define EVO_MOVE             23 // Pokémon levels up knowing the specified move
+#define EVO_LEVEL_FEMALE_MORNING 24 // Pokémon reaches the specified level outdoors, is female
+#define EVO_LEVEL_MALE_MORNING   25 // Pokémon reaches the specified level outdoors, is male
+#define EVO_ITEM_HOLD        26 // Pokémon levels up holding the specified item
 
-#define EVOS_PER_MON 5
-#define EVOS_PER_LINE 6
+#define EVOS_PER_MON 8
+#define EVOS_PER_LINE 9
 
 #define EVO_MODE_NORMAL     0
 #define EVO_MODE_TRADE      1

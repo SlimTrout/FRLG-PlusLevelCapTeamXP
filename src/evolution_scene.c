@@ -640,7 +640,7 @@ static void Task_EvolutionScene(u8 taskId)
     // yet unlocked, such as Crobat.
     if (!IsNationalPokedexEnabled()
         && gTasks[taskId].tState == EVOSTATE_WAIT_CYCLE_MON_SPRITE
-        && gTasks[taskId].tPostEvoSpecies > SPECIES_DEOXYS)
+        && gTasks[taskId].tPostEvoSpecies >= SPECIES_EGG)
     {
         gTasks[taskId].tState = EVOSTATE_CANCEL;
         gTasks[taskId].tEvoWasStopped = TRUE;
@@ -776,6 +776,7 @@ static void Task_EvolutionScene(u8 taskId)
             BattlePutTextOnWindow(gStringVar4, B_WIN_MSG);
             PlayBGM(MUS_EVOLVED);
             gTasks[taskId].tState++;
+            TryConsumeEvolutionHeldItem(mon, gTasks[taskId].tPreEvoSpecies, gTasks[taskId].tPostEvoSpecies);
             SetMonData(mon, MON_DATA_SPECIES, (void *)(&gTasks[taskId].tPostEvoSpecies));
             CalculateMonStats(mon, FALSE);
             EvolutionRenameMon(mon, gTasks[taskId].tPreEvoSpecies, gTasks[taskId].tPostEvoSpecies);
@@ -1096,7 +1097,7 @@ static void Task_TradeEvolutionScene(u8 taskId)
     // yet unlocked, such as Crobat.
     if (!IsNationalPokedexEnabled()
         && gTasks[taskId].tState == T_EVOSTATE_WAIT_CYCLE_MON_SPRITE
-        && gTasks[taskId].tPostEvoSpecies > SPECIES_DEOXYS)
+        && gTasks[taskId].tPostEvoSpecies >= SPECIES_EGG)
     {
         gTasks[taskId].tState = EVOSTATE_TRY_LEARN_MOVE;
         gTasks[taskId].tEvoWasStopped = TRUE;
