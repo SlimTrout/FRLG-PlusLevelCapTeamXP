@@ -265,6 +265,7 @@ static void WriteLocalState(void)
     s->msgActive = sMsgShown;
     s->msgPage = gCoopTextPages - sMsgPageBase;
     s->keySettings = *(u16 *)&gSaveBlock1Ptr->keyFlags;
+    s->hasPokemon = CalculatePlayerPartyCount() != 0;
     StringCopyN(s->name, gSaveBlock2Ptr->playerName, PLAYER_NAME_LENGTH + 1);
     s->seq++;
 }
@@ -1013,4 +1014,10 @@ u16 Coop_UseExpOwnerSettings(u8 partyId)
 void Coop_RestoreExpSettings(u16 saved)
 {
     *(u16 *)&gSaveBlock1Ptr->keyFlags = saved;
+}
+
+// Oak's lab: the rival battle waits until the partner has picked their starter too.
+u16 Coop_PartnerNeedsStarter(void)
+{
+    return gCoopMailbox.active && gCoopMailbox.partner.inOverworld && !gCoopMailbox.partner.hasPokemon;
 }

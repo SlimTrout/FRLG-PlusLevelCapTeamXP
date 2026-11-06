@@ -280,6 +280,23 @@ PalletTown_ProfessorOaksLab_EventScript_LeaveStarterSceneTrigger::
 	releaseall
 	end
 
+@ Co-op: the partner hasn't picked a starter yet, so the rival doesn't challenge yet.
+PalletTown_ProfessorOaksLab_EventScript_CoopWaitForPartner::
+	special Coop_BufferPartnerName
+	textcolor NPC_TEXT_COLOR_MALE
+	applymovement LOCALID_PROF_OAK, Common_Movement_FaceDown
+	waitmovement 0
+	msgbox PalletTown_ProfessorOaksLab_Text_CoopWaitForPartner
+	closemessage
+	applymovement OBJ_EVENT_ID_PLAYER, PalletTown_ProfessorOaksLab_Movement_PlayerWalkUp
+	waitmovement 0
+	releaseall
+	end
+
+PalletTown_ProfessorOaksLab_Text_CoopWaitForPartner::
+	.string "OAK: Hold on! {STR_VAR_1} hasn't\n"
+	.string "chosen a POKéMON yet.$"
+
 PalletTown_ProfessorOaksLab_Movement_PlayerWalkUp::
 	walk_up
 	step_end
@@ -303,6 +320,8 @@ PalletTown_ProfessorOaksLab_EventScript_RivalBattleTriggerRight::
 	end
 
 PalletTown_ProfessorOaksLab_EventScript_RivalBattle::
+	specialvar VAR_RESULT, Coop_PartnerNeedsStarter
+	goto_if_eq VAR_RESULT, TRUE, PalletTown_ProfessorOaksLab_EventScript_CoopWaitForPartner
 	textcolor NPC_TEXT_COLOR_MALE
 	playbgm MUS_ENCOUNTER_RIVAL, 0
 	applymovement LOCALID_RIVAL, Common_Movement_WalkInPlaceFasterDown
