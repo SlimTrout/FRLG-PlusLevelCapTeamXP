@@ -15,6 +15,7 @@ This is a fork of [FRLG+ by Deokishisu](https://github.com/Deokishisu/FRLG-Plus)
 - New animated title screen, "Pokémon Brainy Blue".
 - Always FireRed: the game no longer asks FireRed or LeafGreen, and the Version key is gone.
 - New games start with **Challenge Mode, Level Cap on, Team Exp. 1/2×, Nuzlocke on and Exp. Modifier 2×**. All of these can still be changed from the Key System menu.
+- **HMs without learning them** (like Modern Emerald): once you have an HM, any Pokémon can use it. Cut, Surf, Strength, Rock Smash, Waterfall and Dive work by walking up to the tree, water or rock; Fly and Flash appear in every Pokémon's party menu. The usual badges are still needed.
 - Shiny odds are 1/512 (vanilla 1/8192).
 - **Nuzlocke tracker** replaces the Help System: press L (anywhere, including battle) to see every area in the order a normal run visits it, with the first Pokémon met there and whether it's ALIVE, DEAD, MISSED (not caught) or GONE (caught, then released/traded). Areas with no encounter yet stay blank. Tracking follows FRLG+'s Nuzlocke rules (first encounters only, dupes skipped, starts with the Pokédex); the starter is always listed.
 - Nuzlocke "cemetery" look: Pokémon that have fainted in Nuzlocke mode are shown in grayscale in the party menu, the PC and the summary screen, like Modern Emerald's cemetery setting.

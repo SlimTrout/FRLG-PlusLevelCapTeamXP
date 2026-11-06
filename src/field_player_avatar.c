@@ -1,4 +1,6 @@
 #include "global.h"
+#include "item.h"
+#include "constants/items.h"
 #include "gflib.h"
 #include "bike.h"
 #include "event_data.h"
@@ -1261,6 +1263,8 @@ bool8 PartyHasMonWithSurf(void)
             if (MonKnowsMove(&gPlayerParty[i], MOVE_SURF))
                 return TRUE;
         }
+        if (CheckBagHasItem(ITEM_HM03, 1)) // HM in the bag is enough
+            return TRUE;
     }
     return FALSE;
 }

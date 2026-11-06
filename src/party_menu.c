@@ -3010,6 +3010,12 @@ static void SetPartyMonFieldSelectionActions(struct Pokemon *mons, u8 slotId)
             }
         }
     }
+    // FLY and FLASH are used from this menu, so offer them to any Pokémon once the HM
+    // is in the bag (other HMs are used by walking up to the tree/rock/water).
+    if (CheckBagHasItem(ITEM_HM02, 1) && !MonKnowsMove(&mons[slotId], MOVE_FLY) && sPartyMenuInternal->numActions < 5)
+        AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, FIELD_MOVE_FLY + CURSOR_OPTION_FIELD_MOVES);
+    if (CheckBagHasItem(ITEM_HM05, 1) && !MonKnowsMove(&mons[slotId], MOVE_FLASH) && sPartyMenuInternal->numActions < 5)
+        AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, FIELD_MOVE_FLASH + CURSOR_OPTION_FIELD_MOVES);
     if (GetMonData(&mons[1], MON_DATA_SPECIES) != SPECIES_NONE)
         AppendToList(sPartyMenuInternal->actions, &sPartyMenuInternal->numActions, CURSOR_OPTION_SWITCH);
     if (ItemIsMail(GetMonData(&mons[slotId], MON_DATA_HELD_ITEM)))

@@ -25,6 +25,7 @@
 #include "data.h"
 #include "field_specials.h"
 #include "constants/items.h"
+#include "constants/moves.h"
 #include "script_pokemon_util.h"
 #include "palette.h"
 #include "pokemon_storage_system.h"
@@ -1765,10 +1766,29 @@ bool8 ScrCmd_setmonmove(struct ScriptContext * ctx)
     return FALSE;
 }
 
+// HM field moves don't need to be known (like Modern Emerald's HM option):
+// once the HM is in the bag, any Pokémon can use it. Badges are still required.
+u16 GetHMItemForFieldMove(u16 moveId)
+{
+    switch (moveId)
+    {
+    case MOVE_CUT:        return ITEM_HM01;
+    case MOVE_FLY:        return ITEM_HM02;
+    case MOVE_SURF:       return ITEM_HM03;
+    case MOVE_STRENGTH:   return ITEM_HM04;
+    case MOVE_FLASH:      return ITEM_HM05;
+    case MOVE_ROCK_SMASH: return ITEM_HM06;
+    case MOVE_WATERFALL:  return ITEM_HM07;
+    case MOVE_DIVE:       return ITEM_HM08;
+    }
+    return ITEM_NONE;
+}
+
 bool8 ScrCmd_checkpartymove(struct ScriptContext * ctx)
 {
     u32 i;
     u16 moveId = ScriptReadHalfword(ctx);
+    u16 hmItem;
 
     gSpecialVar_Result = PARTY_SIZE;
     for (i = 0; i < PARTY_SIZE; i++)
@@ -1780,7 +1800,37 @@ bool8 ScrCmd_checkpartymove(struct ScriptContext * ctx)
         {
             gSpecialVar_Result = i;
             gSpecialVar_0x8004 = species;
+            return FALSE;
+        }
+    }
+
+    hmItem = GetHMItemForFieldMove(moveId);
+    if (hmItem == ITEM_NONE || !CheckBagHasItem(hmItem, 1))
+        return FALSE;
+
+    // Prefer a Pokémon that could learn the HM, otherwise the first one that isn't an Egg.
+    for (i = 0; i < PARTY_SIZE; i++)
+    {
+        u16 species = GetMonData(&gPlayerParty[i], MON_DATA_SPECIES, NULL);
+        if (!species)
             break;
+        if (!GetMonData(&gPlayerParty[i], MON_DATA_IS_EGG) && CanMonLearnTMHM(&gPlayerParty[i], hmItem - ITEM_TM01))
+        {
+            gSpecialVar_Result = i;
+            gSpecialVar_0x8004 = species;
+            return FALSE;
+        }
+    }
+    for (i = 0; i < PARTY_SIZE; i++)
+    {
+        u16 species = GetMonData(&gPlayerParty[i], MON_DATA_SPECIES, NULL);
+        if (!species)
+            break;
+        if (!GetMonData(&gPlayerParty[i], MON_DATA_IS_EGG))
+        {
+            gSpecialVar_Result = i;
+            gSpecialVar_0x8004 = species;
+            return FALSE;
         }
     }
     return FALSE;
