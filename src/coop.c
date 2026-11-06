@@ -63,7 +63,7 @@ extern const u8 Coop_Text_SplitForStarters[];
 extern const u8 Coop_Text_PulledIntoStoryBattle[];
 
 EWRAM_DATA struct CoopMailbox gCoopMailbox = {0};
-u8 gCoopTextPages;
+EWRAM_DATA u8 gCoopTextPages = 0; // not plain "u8 gCoopTextPages;": that lands past the end of IWRAM, on top of the GPU register buffer
 
 static u8 sPartnerObjId;
 static u8 sPartnerMapGroup;
@@ -680,7 +680,7 @@ void Coop_OnFieldMessageHidden(void)
 
 bool8 Coop_IsMirroringText(void)
 {
-    return sMirroring;
+    return sMirroring && !gMain.inBattle;
 }
 
 // The follower's text printer asks this instead of checking A/B.
@@ -1109,6 +1109,9 @@ static void TryStartPartnersWildBattle(void)
         return;
     sCoopBattlePending = 0;
     sWarpArrived = FALSE;
+    // The partner's message before the battle (a trainer's challenge) is over now.
+    StopMirroring();
+    sShowingMirror = FALSE;
     if (kind == COOP_CMD_WILD_BATTLE)
     {
         if (Coop_GenerateWildMonHere())
