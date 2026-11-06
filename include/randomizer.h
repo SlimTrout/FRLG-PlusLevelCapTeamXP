@@ -26,5 +26,7 @@ u16 RandomizeGiftSpecies(u16 species);
 void SetRandomizedStarterVar(void);
 void RandomizeObtainedItem(void);
 void RandomizeHiddenItem(void);
+void RandomizeGiftTM(void);
+void BufferGiftTMNames(void);
 
 #endif // GUARD_RANDOMIZER_H

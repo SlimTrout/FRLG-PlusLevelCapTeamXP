@@ -33,14 +33,14 @@ FuchsiaCity_Gym_Text_KogaExplainSoulBadge::
     .string "Take this, too!$"
 
 FuchsiaCity_Gym_Text_ReceivedTM06FromKoga::
-    .string "{PLAYER} received TM06\n"
+    .string "{PLAYER} received {STR_VAR_2}\n"
     .string "from KOGA.$"
 
 FuchsiaCity_Gym_Text_KogaExplainTM06::
-    .string "Sealed within that TM06 lies\n"
-    .string "TOXIC!\p"
-    .string "It is a secret technique dating\n"
-    .string "back some four hundred years.$"
+    .string "Sealed within that TM lies a\n"
+    .string "technique I prize greatly!\p"
+    .string "Use it with the cunning of a\n"
+    .string "true ninja!$"
 
 FuchsiaCity_Gym_Text_MakeSpaceForThis::
     .string "Make space for this, child!$"

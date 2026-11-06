@@ -454,4 +454,6 @@ gSpecials::
 	def_special CreateEnemyEventMon
 	def_special RandomizeObtainedItem
 	def_special RandomizeHiddenItem
+	def_special RandomizeGiftTM
+	def_special BufferGiftTMNames
 gSpecialsEnd::

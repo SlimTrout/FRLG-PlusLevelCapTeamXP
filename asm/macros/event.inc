@@ -1836,6 +1836,18 @@
 	msgreceiveditem \msg, \item, \amount, \fanfare
 	.endm
 
+	@ Brainy Blue: gives a randomized TM in place of \item. \msg can use {STR_VAR_2}
+	@ (the TM) and is followed by "{STR_VAR_2} contains {STR_VAR_3}."
+	.macro giverandomtm_msg msg:req, item:req
+	setvar VAR_0x8000, \item
+	special RandomizeGiftTM
+	copyvar VAR_0x8006, VAR_0x8000
+	additem VAR_0x8006
+	msgreceiveditem \msg, VAR_0x8006
+	special BufferGiftTMNames
+	msgbox Text_RandomTMContains
+	.endm
+
 	@ Depends on the provided function. With the default argument, unlocks the specified entry in the Fame Checker.
 	.macro famechecker person:req, index:req, function=SetFlavorTextFlagFromSpecialVars
 	setvar VAR_0x8004, \person

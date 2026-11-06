@@ -37,7 +37,7 @@ PewterCity_Gym_Text_TakeThisWithYou::
     .string "Take this with you.$"
 
 PewterCity_Gym_Text_ReceivedTM39FromBrock::
-    .string "{PLAYER} received TM39\n"
+    .string "{PLAYER} received {STR_VAR_2}\n"
     .string "from BROCK.$"
 
 PewterCity_Gym_Text_ExplainTM39::
@@ -46,11 +46,7 @@ PewterCity_Gym_Text_ExplainTM39::
     .string "Using a TM teaches the move it\n"
     .string "contains to a POKéMON.\p"
     .string "A TM is good forever, it can be\n"
-    .string "used as many times as you want.\p"
-    .string "Anyways…\n"
-    .string "TM39 contains ROCK TOMB.\p"
-    .string "It hurls boulders at the foe and\n"
-    .string "lowers its SPEED.$"
+    .string "used as many times as you want.$"
 
 PewterCity_Gym_Text_BrockPostBattle::
     .string "There are all kinds of TRAINERS in\n"

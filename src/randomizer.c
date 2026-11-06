@@ -5,6 +5,9 @@
 #include "fieldmap.h"
 #include "constants/vars.h"
 #include "randomizer.h"
+#include "data.h"
+#include "party_menu.h"
+#include "string_util.h"
 #include "constants/species.h"
 #include "constants/items.h"
 
@@ -214,6 +217,23 @@ void SetRandomizedStarterVar(void)
 void RandomizeObtainedItem(void)
 {
     gSpecialVar_0x8000 = GetRandomizedItem(gSpecialVar_0x8000);
+}
+
+// special: VAR_0x8000 holds a TM someone is about to give. Randomizes it and buffers
+// its name (STR_VAR_2) and move (STR_VAR_3) for the "received" text.
+void RandomizeGiftTM(void)
+{
+    gSpecialVar_0x8000 = GetRandomizedItem(gSpecialVar_0x8000);
+    CopyItemName(gSpecialVar_0x8000, gStringVar2);
+    StringCopy(gStringVar3, gMoveNames[ItemIdToBattleMoveId(gSpecialVar_0x8000)]);
+}
+
+// special: re-buffers the TM in VAR_0x8006 as STR_VAR_2 / its move as STR_VAR_3
+// (the "put away in the TM CASE" message overwrites STR_VAR_3).
+void BufferGiftTMNames(void)
+{
+    CopyItemName(gSpecialVar_0x8006, gStringVar2);
+    StringCopy(gStringVar3, gMoveNames[ItemIdToBattleMoveId(gSpecialVar_0x8006)]);
 }
 
 // special: VAR_0x8005 holds a hidden item's ID.

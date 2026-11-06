@@ -27,6 +27,7 @@ Seeded from your Trainer ID, so every new game is different and a save always st
 - Gift Pokémon and Eggs become random non-legendaries of the same stage, and the "obtained" messages name the right Pokémon.
 - Static encounters: non-legendaries swap with non-legendaries of the same stage; legendaries swap with other legendaries.
 - Abilities: each species borrows another same-stage species' ability (a Pokémon keeps its ability slot).
+- TMs from Gym Leaders and other people (Brock, Misty, Lt. Surge, Erika, Koga, Sabrina, Blaine, Giovanni, the Cerulean Rocket, the Route 12 girl, Mr. Psychic, the Celadon roof girl and the Memorial Pillar man) are randomized too; they name the TM and move you actually got.
 - Items from item balls, hidden items and NPC gifts are randomized. Key items, HMs, Poké Balls and items any evolution needs are left alone; TMs become a TM you don't own yet when possible.
 
 ### Battle

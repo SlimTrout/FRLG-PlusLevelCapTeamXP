@@ -24,12 +24,13 @@ VermilionCity_Gym_Text_ExplainThunderBadgeTakeThis::
     .string "Take this!$"
 
 VermilionCity_Gym_Text_ReceivedTM34FromLtSurge::
-    .string "{PLAYER} received TM34\n"
+    .string "{PLAYER} received {STR_VAR_2}\n"
     .string "from LT. SURGE.$"
 
 VermilionCity_Gym_Text_ExplainTM34::
-    .string "TM34 contains SHOCK WAVE!\p"
-    .string "Teach it to an ELECTRIC POKéMON!$"
+    .string "That TM packs a real punch, kid!\p"
+    .string "Teach it to a POKéMON that can\n"
+    .string "make the most of it!$"
 
 VermilionCity_Gym_Text_MakeRoomInYourBag::
     .string "Yo, kid, make room in your BAG!$"

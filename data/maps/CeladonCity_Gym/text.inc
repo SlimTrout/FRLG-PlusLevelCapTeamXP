@@ -35,15 +35,13 @@ CeladonCity_Gym_Text_ExplainRainbowBadgeTakeThis::
     .string "Please also take this with you.$"
 
 CeladonCity_Gym_Text_ReceivedTM19FromErika::
-    .string "{PLAYER} received TM19\n"
+    .string "{PLAYER} received {STR_VAR_2}\n"
     .string "from ERIKA.$"
 
 CeladonCity_Gym_Text_ExplainTM19::
-    .string "TM19 contains GIGA DRAIN.\p"
-    .string "Half the damage it inflicts is\n"
-    .string "drained to heal your POKéMON.\p"
+    .string "I hope that TM serves you well.\p"
     .string "Wouldn't you agree that it's a\n"
-    .string "wonderful move?$"
+    .string "wonderful gift?$"
 
 CeladonCity_Gym_Text_ShouldMakeRoomForThis::
     .string "You should make room for this.$"

@@ -136,6 +136,9 @@ CeladonCity_DepartmentStore_Roof_EventScript_GiveLemonade::
 	end
 
 CeladonCity_DepartmentStore_Roof_EventScript_GiveDrink::
+	copyvar VAR_0x8000, VAR_0x8009
+	special RandomizeGiftTM
+	copyvar VAR_0x8009, VAR_0x8000
 	bufferitemname STR_VAR_1, VAR_0x8008
 	bufferitemname STR_VAR_2, VAR_0x8009
 	removeitem VAR_0x8008
@@ -149,6 +152,8 @@ CeladonCity_DepartmentStore_Roof_EventScript_GiveDrink::
 	waitfanfare
 	putitemaway VAR_0x8009
 	call EventScript_RestorePrevTextColor
+	copyvar VAR_0x8006, VAR_0x8009
+	special BufferGiftTMNames
 	call_if_eq VAR_0x8008, ITEM_FRESH_WATER, CeladonCity_DepartmentStore_Roof_EventScript_ExplainTM16
 	call_if_eq VAR_0x8008, ITEM_SODA_POP, CeladonCity_DepartmentStore_Roof_EventScript_ExplainTM20
 	call_if_eq VAR_0x8008, ITEM_LEMONADE, CeladonCity_DepartmentStore_Roof_EventScript_ExplainTM33

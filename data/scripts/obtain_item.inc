@@ -242,3 +242,7 @@ EventScript_NoCaseForHiddenCoins::
 	setvar VAR_RESULT, 0
 	releaseall
 	end
+
+Text_RandomTMContains::
+	.string "{STR_VAR_2} contains\n"
+	.string "{STR_VAR_3}.$"

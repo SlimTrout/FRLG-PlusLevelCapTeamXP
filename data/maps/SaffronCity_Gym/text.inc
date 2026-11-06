@@ -31,13 +31,12 @@ SaffronCity_Gym_Text_ExplainMarshBadgeTakeThis::
     .string "Wait, please take this TM with you.$"
 
 SaffronCity_Gym_Text_ReceivedTM04FromSabrina::
-    .string "{PLAYER} received TM04 from\n"
+    .string "{PLAYER} received {STR_VAR_2} from\n"
     .string "SABRINA.$"
 
 SaffronCity_Gym_Text_ExplainTM04::
-    .string "TM04 is CALM MIND.\p"
-    .string "It makes the POKéMON concentrate\n"
-    .string "to raise both SP. ATK and SP. DEF.$"
+    .string "I foresaw that you would put\n"
+    .string "that TM to good use.$"
 
 SaffronCity_Gym_Text_BagFullOfOtherItems::
     .string "Your BAG is full of other items.$"
