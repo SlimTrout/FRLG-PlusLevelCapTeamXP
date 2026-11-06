@@ -25,6 +25,8 @@
 #include "constants/event_object_movement.h"
 #include "constants/flags.h"
 #include "constants/maps.h"
+#include "constants/moves.h"
+#include "constants/species.h"
 
 // Brainy Blue Co-op.
 //
@@ -48,6 +50,7 @@ extern const u8 Coop_EventScript_ControlRequest[];
 extern const u8 Coop_EventScript_Notice[];
 extern const u8 Coop_EventScript_FollowerMenu[];
 extern const u8 Coop_EventScript_SaveWithHost[];
+extern const u8 Coop_EventScript_LearnMoves[];
 
 extern const u8 Coop_Text_PartnerLinkedYouLead[];
 extern const u8 Coop_Text_PartnerDeclinedLink[];
@@ -76,6 +79,7 @@ static EWRAM_DATA bool8 sCoopScriptRunning = FALSE; // its messages aren't mirro
 static bool8 sFollowerMenuRequested;
 static bool8 sSaveWithHost;
 static bool8 sCoopBattlePending; // the leader started a wild battle
+static u8 sMovesPending; // own party slots with level-up moves they couldn't learn in a co-op battle
 
 // step recording (always recorded)
 static s16 sLastX;
@@ -456,7 +460,19 @@ static void RunPendingScripts(void)
 {
     if (!CanRunCoopScript())
         return;
-    if (sSaveWithHost)
+    if (sMovesPending)
+    {
+        u8 slot = 0;
+
+        while (!(sMovesPending & (1 << slot)))
+            slot++;
+        sMovesPending &= ~(1 << slot);
+        gSpecialVar_0x8004 = slot;
+        gSpecialVar_0x8005 = GetNumberOfRelearnableMoves(&gPlayerParty[slot]);
+        if (gSpecialVar_0x8005 != 0)
+            RunCoopScript(Coop_EventScript_LearnMoves);
+    }
+    else if (sSaveWithHost)
     {
         sSaveWithHost = FALSE;
         RunCoopScript(Coop_EventScript_SaveWithHost);
@@ -969,11 +985,52 @@ void Coop_BuildBattleParties(void)
     CalculateEnemyPartyCount();
 }
 
+
+// A Pokemon with four moves that leveled up past moves it doesn't know.
+static bool8 MissedLevelUpMoves(struct Pokemon *mon, u8 oldLevel)
+{
+    const u16 *learnset;
+    u16 species = GetMonData(mon, MON_DATA_SPECIES);
+    u8 newLevel = GetMonData(mon, MON_DATA_LEVEL);
+    u8 i, j;
+
+    if (species == SPECIES_NONE || newLevel <= oldLevel || GetMonData(mon, MON_DATA_MOVE4) == MOVE_NONE)
+        return FALSE;
+    learnset = gLevelUpLearnsets[species];
+    for (i = 0; learnset[i] != LEVEL_UP_END; i++)
+    {
+        u8 level = (learnset[i] & LEVEL_UP_MOVE_LV) >> 9;
+        u16 move = learnset[i] & LEVEL_UP_MOVE_ID;
+
+        if (level <= oldLevel || level > newLevel)
+            continue;
+        for (j = 0; j < MAX_MON_MOVES; j++)
+        {
+            if (GetMonData(mon, MON_DATA_MOVE1 + j) == move)
+                break;
+        }
+        if (j == MAX_MON_MOVES)
+            return TRUE;
+    }
+    return FALSE;
+}
+
 // After the battle: this player's three Pokemon come back from the battle party.
 void Coop_RestoreParty(void)
 {
+    u8 k;
+
     if (sOwnParty == NULL)
         return;
+    sMovesPending = 0;
+    if (gCoopMailbox.playerIndex != 0)
+    {
+        for (k = 0; k < MULTI_PARTY_SIZE; k++)
+        {
+            if (MissedLevelUpMoves(&gPlayerParty[gCoopMailbox.playerIndex * 3 + k], GetMonData(&sOwnParty[k], MON_DATA_LEVEL)))
+                sMovesPending |= 1 << k;
+        }
+    }
     memcpy(&sOwnParty[0], &gPlayerParty[gCoopMailbox.playerIndex * 3], sizeof(struct Pokemon) * 3);
     memcpy(gPlayerParty, sOwnParty, sizeof(struct Pokemon) * PARTY_SIZE);
     CalculatePlayerPartyCount();

@@ -5251,6 +5251,11 @@ static void Cmd_handlelearnnewmove(void)
     u16 learnMove = MonTryLearningNewMove(&gPlayerParty[gBattleStruct->expGetterMonId], gBattlescriptCurrInstr[9]);
     while (learnMove == MON_ALREADY_KNOWS_MOVE)
         learnMove = MonTryLearningNewMove(&gPlayerParty[gBattleStruct->expGetterMonId], FALSE);
+    // Co-op: the host's game can't ask the guest which move to forget; the guest's
+    // game offers the new moves after the battle instead (see Coop_RestoreParty).
+    while (Coop_IsLinkOpen() && gBattleStruct->expGetterMonId >= MULTI_PARTY_SIZE
+        && (learnMove == MON_HAS_MAX_MOVES || learnMove == MON_ALREADY_KNOWS_MOVE))
+        learnMove = MonTryLearningNewMove(&gPlayerParty[gBattleStruct->expGetterMonId], FALSE);
 
     if (learnMove == MOVE_NONE)
     {

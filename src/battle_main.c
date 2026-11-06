@@ -3301,7 +3301,8 @@ static void HandleTurnActionSelectionState(void)
         {
         case STATE_BEFORE_ACTION_CHOSEN: // Choose an action.
             *(gBattleStruct->monToSwitchIntoId + gActiveBattler) = PARTY_SIZE;
-            if (gBattleTypeFlags & BATTLE_TYPE_MULTI
+            // Co-op: both players choose at the same time, as in multi battles.
+            if (gBattleTypeFlags & BATTLE_TYPE_MULTI || Coop_IsLinkOpen()
              || (position & BIT_FLANK) == B_FLANK_LEFT
              || gBattleStruct->absentBattlerFlags & gBitTable[GetBattlerAtPosition(BATTLE_PARTNER(position))]
              || gBattleCommunication[GetBattlerAtPosition(BATTLE_PARTNER(position))] == STATE_WAIT_ACTION_CONFIRMED)
@@ -3309,7 +3310,7 @@ static void HandleTurnActionSelectionState(void)
                 if (gBattleStruct->absentBattlerFlags & gBitTable[gActiveBattler])
                 {
                     gChosenActionByBattler[gActiveBattler] = B_ACTION_NOTHING_FAINTED;
-                    if (!(gBattleTypeFlags & BATTLE_TYPE_MULTI))
+                    if (!(gBattleTypeFlags & BATTLE_TYPE_MULTI) && !Coop_IsLinkOpen())
                         gBattleCommunication[gActiveBattler] = STATE_WAIT_ACTION_CONFIRMED;
                     else
                         gBattleCommunication[gActiveBattler] = STATE_WAIT_ACTION_CONFIRMED_STANDBY;
@@ -3544,7 +3545,7 @@ static void HandleTurnActionSelectionState(void)
         case STATE_WAIT_ACTION_CONFIRMED_STANDBY:
             if (!(gBattleControllerExecFlags & ((gBitTable[gActiveBattler]) | (0xF0000000) | (gBitTable[gActiveBattler] << 4) | (gBitTable[gActiveBattler] << 8) | (gBitTable[gActiveBattler] << 0xC))))
             {
-                if (((gBattleTypeFlags & (BATTLE_TYPE_MULTI | BATTLE_TYPE_DOUBLE)) != BATTLE_TYPE_DOUBLE)
+                if (((gBattleTypeFlags & (BATTLE_TYPE_MULTI | BATTLE_TYPE_DOUBLE)) != BATTLE_TYPE_DOUBLE) || Coop_IsLinkOpen()
                  || (position & BIT_FLANK) != B_FLANK_LEFT
                  || (*(&gBattleStruct->absentBattlerFlags) & gBitTable[GetBattlerAtPosition(position ^ BIT_FLANK)]))
                     BtlController_EmitLinkStandbyMsg(BUFFER_A, LINK_STANDBY_MSG_STOP_BOUNCE);
@@ -4490,7 +4491,29 @@ bool8 TryRunFromBattle(u8 battler)
     }
     else
     {
-        if (!(gBattleTypeFlags & BATTLE_TYPE_DOUBLE))
+        if (Coop_IsLinkOpen())
+        {
+            // Co-op wild doubles: outrun the faster of the two wild Pokemon.
+            u16 foeSpeed = 0;
+            u8 foe;
+
+            for (foe = 0; foe < gBattlersCount; foe++)
+            {
+                if (GetBattlerSide(foe) != GetBattlerSide(battler) && gBattleMons[foe].hp != 0 && gBattleMons[foe].speed > foeSpeed)
+                    foeSpeed = gBattleMons[foe].speed;
+            }
+            if (gBattleMons[battler].speed < foeSpeed)
+            {
+                speedVar = (gBattleMons[battler].speed * 128) / foeSpeed + (gBattleStruct->runTries * 30);
+                if (speedVar > (Random() & 0xFF))
+                    effect++;
+            }
+            else
+            {
+                effect++;
+            }
+        }
+        else if (!(gBattleTypeFlags & BATTLE_TYPE_DOUBLE))
         {
             if (gBattleMons[battler].speed < gBattleMons[BATTLE_OPPOSITE(battler)].speed)
             {

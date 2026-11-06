@@ -79,6 +79,18 @@ Coop_EventScript_SaveWithHost::
 	releaseall
 	end
 
+@ After a co-op battle: one of the guest's Pokemon leveled up past new moves while it
+@ already knew four (VAR_0x8004 = its party slot). The move reminder lets the player
+@ pick which one to learn.
+Coop_EventScript_LearnMoves::
+	lockall
+	bufferpartymonnick STR_VAR_1, VAR_0x8004
+	msgbox Coop_Text_TryingToLearnMoves
+	special DisplayMoveTutorMenu
+	waitstate
+	releaseall
+	end
+
 Coop_EventScript_Notice::
 	lockall
 	msgbox gStringVar4
@@ -150,3 +162,7 @@ Coop_Text_SavedWithHost::
 Coop_Text_SplitForStarters::
 	.string "You split up from {STR_VAR_1}\n"
 	.string "to pick your own POKéMON.$"
+
+Coop_Text_TryingToLearnMoves::
+	.string "{STR_VAR_1} is trying to learn\n"
+	.string "new moves!$"

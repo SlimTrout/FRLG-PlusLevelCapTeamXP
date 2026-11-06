@@ -64,3 +64,9 @@ link.c: SendBlock / IsLinkTaskFinished / GetMultiplayerId get a co-op branch.
   flags/vars pointers cleared when save blocks move (battle start) so world sync pauses.
 - Still to do in milestone 1: second player-side healthbox not visible; move learning
   with 4 moves for the guest's Pokemon prompts on the host; evolutions after battle.
+- Fixed: missing healthbox (the link VS-letter intro hijacked sprite 0; co-op now uses the
+  normal intro and background); running in doubles (speed vs the faster wild Pokemon);
+  both players choose at the same time (multi-battle style selection).
+- Guest's Pokemon with 4 moves don't prompt the host; after the battle the guest's game
+  opens the move reminder for each such Pokemon (Coop_EventScript_LearnMoves).
+- Next: story battles auto-link (needs linked trainer battles first), bag/catching.

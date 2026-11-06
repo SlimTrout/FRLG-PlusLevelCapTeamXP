@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "gflib.h"
 #include "battle.h"
 #include "battle_anim.h"
@@ -96,7 +97,7 @@ void HandleIntroSlide(u8 terrain)
 {
     u8 taskId;
 
-    if (gBattleTypeFlags & BATTLE_TYPE_LINK)
+    if (BATTLE_IS_REAL_LINK)
     {
         taskId = CreateTask(BattleIntroSlideLink, 0);
     }
@@ -140,7 +141,7 @@ static void BattleIntroSlide1(u8 taskId)
     switch (gTasks[taskId].data[0])
     {
     case 0:
-        if (gBattleTypeFlags & BATTLE_TYPE_LINK)
+        if (BATTLE_IS_REAL_LINK)
         {
             gTasks[taskId].data[2] = 16;
             ++gTasks[taskId].data[0];
@@ -257,7 +258,7 @@ static void BattleIntroSlide2(u8 taskId)
     {
     case 0:
         gTasks[taskId].data[4] = 16;
-        if (gBattleTypeFlags & BATTLE_TYPE_LINK)
+        if (BATTLE_IS_REAL_LINK)
         {
             gTasks[taskId].data[2] = 16;
             ++gTasks[taskId].data[0];
@@ -360,7 +361,7 @@ static void BattleIntroSlide3(u8 taskId)
         SetGpuReg(REG_OFFSET_BLDALPHA, BLDALPHA_BLEND(8, 8));
         SetGpuReg(REG_OFFSET_BLDY, 0);
         gTasks[taskId].data[4] = BLDALPHA_BLEND(8, 8);
-        if (gBattleTypeFlags & BATTLE_TYPE_LINK)
+        if (BATTLE_IS_REAL_LINK)
         {
             gTasks[taskId].data[2] = 16;
             ++gTasks[taskId].data[0];

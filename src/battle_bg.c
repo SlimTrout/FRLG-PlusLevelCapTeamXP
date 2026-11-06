@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "gflib.h"
 #include "battle.h"
 #include "battle_bg.h"
@@ -992,7 +993,7 @@ void DrawBattleEntryBackground(void)
     else
         sTrainers = (struct Trainer*)gTrainers;
 
-    if (gBattleTypeFlags & BATTLE_TYPE_LINK)
+    if (BATTLE_IS_REAL_LINK)
     {
         LZDecompressVram(gFile_graphics_battle_transitions_vs_frame_sheet, (void *)(BG_CHAR_ADDR(1)));
         LZDecompressVram(gVsLettersGfx, (void *)(VRAM + 0x10000));
@@ -1013,7 +1014,7 @@ void DrawBattleEntryBackground(void)
     {
         LoadBattleTerrainEntryGfx(BATTLE_TERRAIN_GRASS);
     }
-    else if (gBattleTypeFlags & (BATTLE_TYPE_TRAINER_TOWER | BATTLE_TYPE_LINK | BATTLE_TYPE_BATTLE_TOWER | BATTLE_TYPE_EREADER_TRAINER))
+    else if (BATTLE_IS_REAL_LINK || (gBattleTypeFlags & (BATTLE_TYPE_TRAINER_TOWER | BATTLE_TYPE_BATTLE_TOWER | BATTLE_TYPE_EREADER_TRAINER)))
     {
         LoadBattleTerrainEntryGfx(BATTLE_TERRAIN_BUILDING);
     }
@@ -1066,7 +1067,7 @@ static u8 GetBattleTerrainOverride(void)
     else
         sTrainers = (struct Trainer*)gTrainers;
 
-    if (gBattleTypeFlags & (BATTLE_TYPE_TRAINER_TOWER | BATTLE_TYPE_LINK | BATTLE_TYPE_BATTLE_TOWER | BATTLE_TYPE_EREADER_TRAINER))
+    if (BATTLE_IS_REAL_LINK || (gBattleTypeFlags & (BATTLE_TYPE_TRAINER_TOWER | BATTLE_TYPE_BATTLE_TOWER | BATTLE_TYPE_EREADER_TRAINER)))
     {
         return BATTLE_TERRAIN_LINK;
     }

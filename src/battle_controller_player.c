@@ -293,7 +293,8 @@ static void HandleInputChooseAction(void)
         if ((gBattleTypeFlags & BATTLE_TYPE_DOUBLE)
          && GetBattlerPosition(gActiveBattler) == B_POSITION_PLAYER_RIGHT
          && !(gAbsentBattlerFlags & gBitTable[GetBattlerAtPosition(B_POSITION_PLAYER_LEFT)])
-         && !(gBattleTypeFlags & BATTLE_TYPE_MULTI))
+         && !(gBattleTypeFlags & BATTLE_TYPE_MULTI)
+         && !Coop_IsLinkOpen()) // co-op: the left Pokemon is the partner's
         {
             if (gBattleBufferA[gActiveBattler][1] == B_ACTION_USE_ITEM)
             {
