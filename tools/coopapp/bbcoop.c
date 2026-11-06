@@ -453,10 +453,29 @@ int main(int argc, char **argv) {
         app.core->setKeys(app.core, readInput(pad));
         stepFrame(&app);
         if (app.net.everConnected && !app.net.connected) { saveStateAndQuit(&app); break; }
-        if (lastConnected != app.net.connected) {
-            lastConnected = app.net.connected;
-            SDL_SetWindowTitle(win, app.net.connected ? "Pokemon Brainy Blue - Co-op (partner connected)"
-                                                      : "Pokemon Brainy Blue - Co-op (waiting for partner)");
+        {
+            // Window title says what's going on, so a missing partner is easy to explain.
+            int status;
+            if (!app.net.connected) status = 0;                                   // no connection yet
+            else if (!app.mailbox) status = 1;                                    // not in the overworld yet (or not a co-op ROM)
+            else if (!app.net.havePartnerState) status = 2;                       // partner not in the overworld yet
+            else {
+                struct mCore *c = app.core;
+                int sameMap = c->busRead8(c, app.mailbox + MB_LOCAL + 2) == app.net.partnerState[2]
+                           && c->busRead8(c, app.mailbox + MB_LOCAL + 3) == app.net.partnerState[3];
+                status = sameMap ? 4 : 3;
+            }
+            if (status != lastConnected) {
+                static const char *const titles[] = {
+                    "Pokemon Brainy Blue - Co-op (waiting for partner to connect)",
+                    "Pokemon Brainy Blue - Co-op (connected; start or load your game)",
+                    "Pokemon Brainy Blue - Co-op (connected; partner is still loading)",
+                    "Pokemon Brainy Blue - Co-op (connected; partner is on another map)",
+                    "Pokemon Brainy Blue - Co-op (connected; partner is on this map)",
+                };
+                lastConnected = status;
+                SDL_SetWindowTitle(win, titles[status]);
+            }
         }
 
         // sound
