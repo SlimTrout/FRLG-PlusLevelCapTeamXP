@@ -2559,6 +2559,25 @@ static u16 GetObjectEventFlagIdByLocalIdAndMap(u8 localId, u8 mapNum, u8 mapGrou
     return obj->flagId;
 }
 
+// Co-op: the partner changed shared flags; take away anything on this map that
+// is now hidden (an item ball they picked up, someone who left in their game).
+void Coop_RemoveObjectsHiddenByFlags(void)
+{
+    u8 i;
+
+    for (i = 0; i < OBJECT_EVENTS_COUNT; i++)
+    {
+        struct ObjectEvent *obj = &gObjectEvents[i];
+        const struct ObjectEventTemplate *template;
+
+        if (!obj->active || obj->isPlayer)
+            continue;
+        template = GetObjectEventTemplateByLocalIdAndMap(obj->localId, obj->mapNum, obj->mapGroup);
+        if (template != NULL && template->flagId != 0 && FlagGet(template->flagId))
+            RemoveObjectEvent(obj);
+    }
+}
+
 static u16 GetObjectEventFlagIdByObjectEventId(u8 objectEventId)
 {
     return GetObjectEventFlagIdByLocalIdAndMap(gObjectEvents[objectEventId].localId, gObjectEvents[objectEventId].mapNum, gObjectEvents[objectEventId].mapGroup);

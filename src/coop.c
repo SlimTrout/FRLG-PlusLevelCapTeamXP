@@ -6,6 +6,8 @@
 #include "field_fadetransition.h"
 #include "field_message_box.h"
 #include "field_specials.h"
+#include "save.h"
+#include "task.h"
 #include "field_player_avatar.h"
 #include "fieldmap.h"
 #include "main.h"
@@ -38,6 +40,7 @@ extern const u8 Coop_EventScript_LinkRequest[];
 extern const u8 Coop_EventScript_ControlRequest[];
 extern const u8 Coop_EventScript_Notice[];
 extern const u8 Coop_EventScript_FollowerMenu[];
+extern const u8 Coop_EventScript_SaveWithHost[];
 
 extern const u8 Coop_Text_PartnerLinkedYouLead[];
 extern const u8 Coop_Text_PartnerDeclinedLink[];
@@ -63,6 +66,7 @@ static EWRAM_DATA const u8 *sPendingNotice = NULL;
 static EWRAM_DATA bool8 sWasActive = FALSE;
 static EWRAM_DATA bool8 sCoopScriptRunning = FALSE; // its messages aren't mirrored
 static EWRAM_DATA bool8 sFollowerMenuRequested = FALSE;
+static EWRAM_DATA bool8 sSaveWithHost = FALSE;
 
 // step recording (always recorded)
 static EWRAM_DATA s16 sLastX = 0;
@@ -415,6 +419,10 @@ static void HandlePartnerCommand(void)
             ShowNotice(Coop_Text_PartnerSplitOff);
         }
         break;
+    case COOP_CMD_SAVED:
+        if (Coop_IsGuest())
+            sSaveWithHost = TRUE;
+        break;
     }
 }
 
@@ -433,7 +441,12 @@ static void RunPendingScripts(void)
 {
     if (!CanRunCoopScript())
         return;
-    if (sPendingScript != NULL)
+    if (sSaveWithHost)
+    {
+        sSaveWithHost = FALSE;
+        RunCoopScript(Coop_EventScript_SaveWithHost);
+    }
+    else if (sPendingScript != NULL)
     {
         RunCoopScript(sPendingScript);
         sPendingScript = NULL;
@@ -675,6 +688,13 @@ void Coop_Update(void)
         sCoopScriptRunning = FALSE;
     TrackSteps();
     WriteLocalState();
+    gCoopMailbox.flagsPtr = (u32)gSaveBlock1Ptr->flags;
+    gCoopMailbox.varsPtr = (u32)gSaveBlock1Ptr->vars;
+    if (gCoopMailbox.worldChanged)
+    {
+        gCoopMailbox.worldChanged = FALSE;
+        Coop_RemoveObjectsHiddenByFlags();
+    }
 
     if (!gCoopMailbox.active)
     {
@@ -757,4 +777,31 @@ void Coop_SplitOff(void)
 {
     SendCommand(COOP_CMD_SPLIT);
     Split();
+}
+
+bool8 Coop_IsGuest(void)
+{
+    return gCoopMailbox.active && gCoopMailbox.playerIndex == 1;
+}
+
+// Every successful save goes through here (save.c).
+void Coop_OnGameSaved(void)
+{
+    if (gCoopMailbox.active && gCoopMailbox.playerIndex == 0)
+        SendCommand(COOP_CMD_SAVED);
+}
+
+// The guest's half of a save: its own team, bag and the shared world as it is now.
+// Runs in a task while the script waits, the way the game's own saves do.
+static void Task_SaveWithHost(u8 taskId)
+{
+    SaveMapView();
+    TrySavingData(SAVE_NORMAL);
+    DestroyTask(taskId);
+    ScriptContext_Enable();
+}
+
+void Coop_SaveWithHost(void)
+{
+    CreateTask(Task_SaveWithHost, 80);
 }

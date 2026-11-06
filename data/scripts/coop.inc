@@ -70,6 +70,15 @@ Coop_EventScript_ControlRequest::
 	releaseall
 	end
 
+Coop_EventScript_SaveWithHost::
+	lockall
+	special Coop_BufferPartnerName
+	special Coop_SaveWithHost
+	waitstate
+	msgbox Coop_Text_SavedWithHost
+	releaseall
+	end
+
 Coop_EventScript_Notice::
 	lockall
 	msgbox gStringVar4
@@ -133,3 +142,7 @@ Coop_Text_PartnerKeptControl::
 
 Coop_Text_PartnerSplitOff::
 	.string "{STR_VAR_1} split off.$"
+
+Coop_Text_SavedWithHost::
+	.string "{STR_VAR_1} saved the game.\n"
+	.string "Your game was saved too.$"

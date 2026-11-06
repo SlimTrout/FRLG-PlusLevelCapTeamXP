@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "save.h"
 #include "decompress.h"
 #include "overworld.h"
@@ -694,6 +695,7 @@ u8 TrySavingData(u8 saveType)
     if (!gDamagedSaveSectors)
     {
         gSaveAttemptStatus = SAVE_STATUS_OK;
+        Coop_OnGameSaved();
         return SAVE_STATUS_OK;
     }
     else

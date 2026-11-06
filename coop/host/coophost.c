@@ -14,6 +14,7 @@
 #include <mgba/internal/gba/input.h>
 #include <mgba-util/vfs.h>
 #include <mgba/core/log.h>
+#include "../app/world_sync.h"
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -57,7 +58,14 @@ struct Player {
     struct mCore *core;
     mColor *buf;
     uint32_t mailbox; // 0 until found
+    struct WorldSync ws;
+    struct Player *other;
 };
+
+static void wsSendDirect(void *ctx, int type, const void *payload, int len) {
+    struct Player *p = ctx;
+    wsReceive(&p->other->ws, type, payload, len);
+}
 
 static int initPlayer(struct Player *p, const char *rom, const char *save) {
     p->core = GBACoreCreate();
@@ -117,6 +125,9 @@ int main(int argc, char **argv) {
     mLogSetDefaultLogger(&sQuiet);
     if (argc < 6) { fprintf(stderr, "usage: coophost rom script outdir saveA saveB\n"); return 1; }
     if (!initPlayer(&a, argv[1], argv[4]) || !initPlayer(&b, argv[1], argv[5])) { fprintf(stderr, "init fail\n"); return 1; }
+    a.other = &b; b.other = &a;
+    wsInit(&a.ws, 1);
+    wsInit(&b.ws, 0);
 
     FILE *f = fopen(argv[2], "r");
     char line[256];
@@ -132,6 +143,8 @@ int main(int argc, char **argv) {
             a.core->runFrame(a.core);
             b.core->runFrame(b.core);
             if ((frame & 63) == 0) { findMailbox(&a); findMailbox(&b); }
+            if (a.mailbox) wsTick(&a.ws, a.core, a.mailbox, b.mailbox != 0, wsSendDirect, &a);
+            if (b.mailbox) wsTick(&b.ws, b.core, b.mailbox, a.mailbox != 0, wsSendDirect, &b);
             relay(&a, &b, 1);
             relay(&b, &a, 0);
             frame++;
@@ -144,5 +157,20 @@ int main(int argc, char **argv) {
         }
     }
     fclose(f);
+    // Report how far the two worlds differ (shared flags and vars only).
+    if (a.mailbox && b.mailbox) {
+        uint32_t fa, va, fb, vb;
+        unsigned char ia[WS_IMAGE], ib[WS_IMAGE];
+        if (wsInGame(a.core, a.mailbox, &fa, &va) && wsInGame(b.core, b.mailbox, &fb, &vb)) {
+            int df = 0, dv = 0;
+            wsRead(a.core, fa, va, ia);
+            wsRead(b.core, fb, vb, ib);
+            for (int fl = 0; fl < WS_FLAG_BYTES * 8; fl++)
+                if (wsFlagShared(fl) && ((ia[fl / 8] ^ ib[fl / 8]) >> (fl % 8) & 1)) df++;
+            for (int v = 0; v < WS_VARS; v++)
+                if (wsVarShared(v) && memcmp(ia + WS_FLAG_BYTES + v * 2, ib + WS_FLAG_BYTES + v * 2, 2)) dv++;
+            printf("world: %d shared flags and %d shared vars differ\n", df, dv);
+        }
+    }
     return 0;
 }

@@ -28,6 +28,7 @@ enum
     COOP_CMD_CONTROL_ASK,     // follower asks the leader for control
     COOP_CMD_CONTROL_DECLINE,
     COOP_CMD_SPLIT,
+    COOP_CMD_SAVED,           // the host saved; the guest saves too
 };
 
 #define COOP_TEXT_SIZE 400
@@ -72,6 +73,11 @@ struct CoopMailbox
     /*0x2C*/ struct CoopPlayerState partner; // written by the app
     /*0x4C*/ u8 localText[COOP_TEXT_SIZE];   // this game's current field message
     /*0x1DC*/ u8 partnerText[COOP_TEXT_SIZE]; // the partner's, written by the app
+    // Shared world: the app keeps both games' story flags and variables in step.
+    /*0x36C*/ u32 flagsPtr;    // this game's flags and vars, 0 until it's in the overworld
+    /*0x370*/ u32 varsPtr;
+    /*0x374*/ u8 worldChanged; // set by the app after it applied the partner's changes
+    /*0x375*/ u8 padding3[3];
 };
 
 extern struct CoopMailbox gCoopMailbox;
@@ -101,5 +107,10 @@ void Coop_AnswerControlRequest(void);
 void Coop_GiveControl(void);
 void Coop_AskForControl(void);
 void Coop_SplitOff(void);
+void Coop_SaveWithHost(void);
+
+// saving: only the host saves, and the guest's game saves along with it
+bool8 Coop_IsGuest(void);
+void Coop_OnGameSaved(void);
 
 #endif // GUARD_COOP_H

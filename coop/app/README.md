@@ -37,6 +37,18 @@ If the partner disconnects, the game is saved to `<rom>.coop.ss` and the app clo
 - **Follower:** press A or R to ask to lead, or to split off. Start still opens the menu.
 - While following you don't trigger wild Pokémon or trainers; the leader's steps do.
 
+
+## Shared world and saving
+
+- **One story for both players.** Badges, beaten trainers, items picked up and story
+  events are shared. When the guest joins, their game takes the host's progress, and
+  from then on anything either player does shows up in the other's game (an item ball
+  your partner picked up disappears from your map too).
+- **Your own stuff stays yours.** Team, bag, money, PC, Pokédex and Nuzlocke
+  encounters are kept per player.
+- **Only the host saves.** The guest's Start menu has no Save. When the host saves,
+  the guest's game saves at the same moment.
+
 ## Status
 
 Working: window, sound, controls, the connection, seeing each other on the map,

@@ -29,6 +29,7 @@
 #include <mgba/internal/gba/input.h>
 #include <mgba-util/audio-buffer.h>
 #include <mgba-util/vfs.h>
+#include "world_sync.h"
 
 #define SDL_MAIN_HANDLED // we provide main() ourselves
 #include <SDL.h>
@@ -87,7 +88,7 @@ static void sock_nonblock(sock_t s) { fcntl(s, F_SETFL, fcntl(s, F_GETFL, 0) | O
 #define MSG_HELLO 1 // payload: protocol version
 #define MSG_STATE 2 // payload: STATE_SIZE bytes of the sender's local block
 #define MSG_TEXT 3  // payload: chunk index, then up to TEXT_CHUNK bytes of the sender's message text
-#define PROTOCOL_VERSION 2
+#define PROTOCOL_VERSION 3
 #define DEFAULT_PORT 27450
 
 struct Net {
@@ -102,6 +103,7 @@ struct Net {
     int havePartnerState;
     unsigned char partnerText[TEXT_SIZE];
     int sentMsgSeq; // -1 until the first message text has been sent
+    struct WorldSync ws;
 };
 
 struct App {
@@ -158,6 +160,7 @@ static int netJoin(struct Net *n, const char *host, int port) {
     n->everConnected = 1;
     n->sentMsgSeq = -1;
     n->isHost = 0;
+    wsInit(&n->ws, 0);
     printf("Connected to your partner.\n");
     return 1;
 }
@@ -166,7 +169,7 @@ static void netSend(struct Net *n, int type, const void *payload, int len) {
     unsigned char msg[4 + 255];
     if (!n->connected) return;
     msg[0] = 'B'; msg[1] = 'B'; msg[2] = (unsigned char)type; msg[3] = (unsigned char)len;
-    memcpy(msg + 4, payload, len);
+    if (len) memcpy(msg + 4, payload, len);
     if (send(n->peer, (const char *)msg, 4 + len, 0) < 0 && !sock_would_block())
         n->connected = 0;
 }
@@ -182,6 +185,7 @@ static void netPoll(struct Net *n) {
             n->connected = 1;
             n->everConnected = 1;
             n->sentMsgSeq = -1;
+            wsInit(&n->ws, 1);
             printf("Your partner joined.\n");
             unsigned char v = PROTOCOL_VERSION;
             netSend(n, MSG_HELLO, &v, 1);
@@ -204,6 +208,8 @@ static void netPoll(struct Net *n) {
         if (m[2] == MSG_STATE && len == STATE_SIZE) {
             memcpy(n->partnerState, m + 4, STATE_SIZE);
             n->havePartnerState = 1;
+        } else if (m[2] >= MSG_WORLD_CHANGES && m[2] <= MSG_WORLD_REQUEST) {
+            wsReceive(&n->ws, m[2], m + 4, (int)len);
         } else if (m[2] == MSG_TEXT && len >= 1) {
             size_t at = (size_t)m[4] * TEXT_CHUNK;
             if (at + len - 1 <= TEXT_SIZE)
@@ -225,6 +231,10 @@ static void findMailbox(struct App *app) {
             return;
         }
     }
+}
+
+static void wsSendNet(void *ctx, int type, const void *payload, int len) {
+    netSend((struct Net *)ctx, type, payload, len);
 }
 
 static void exchangeMailbox(struct App *app) {
@@ -254,6 +264,8 @@ static void exchangeMailbox(struct App *app) {
         }
         app->net.sentMsgSeq = local[STATE_MSGSEQ];
     }
+    // Shared world: story flags and variables both ways (after the game ran this frame).
+    wsTick(&app->net.ws, c, app->mailbox, app->net.connected, wsSendNet, &app->net);
     netSend(&app->net, MSG_STATE, local, STATE_SIZE);
 
     c->busWrite8(c, app->mailbox + MB_INDEX, app->net.isHost ? 0 : 1);

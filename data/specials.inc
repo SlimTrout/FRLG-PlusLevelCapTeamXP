@@ -465,4 +465,5 @@ gSpecials::
 	def_special Coop_GiveControl
 	def_special Coop_AskForControl
 	def_special Coop_SplitOff
+	def_special Coop_SaveWithHost
 gSpecialsEnd::
