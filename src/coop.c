@@ -24,6 +24,7 @@
 #include "constants/event_objects.h"
 #include "constants/event_object_movement.h"
 #include "constants/flags.h"
+#include "constants/maps.h"
 
 // Brainy Blue Co-op.
 //
@@ -54,6 +55,7 @@ extern const u8 Coop_Text_YouHaveControl[];
 extern const u8 Coop_Text_PartnerKeptControl[];
 extern const u8 Coop_Text_PartnerSplitOff[];
 extern const u8 Coop_Text_PartnerDisconnected[];
+extern const u8 Coop_Text_SplitForStarters[];
 
 EWRAM_DATA struct CoopMailbox gCoopMailbox = {0};
 u8 gCoopTextPages;
@@ -730,6 +732,16 @@ void Coop_Update(void)
     }
 
     HandlePartnerCommand();
+    // Picking starters in Oak's lab: each player picks their own, so a linked pair
+    // splits up there as long as this player has no Pokemon yet.
+    if (Coop_IsLinked() && CalculatePlayerPartyCount() == 0
+     && gSaveBlock1Ptr->location.mapGroup == MAP_GROUP(PALLET_TOWN_PROFESSOR_OAKS_LAB)
+     && gSaveBlock1Ptr->location.mapNum == MAP_NUM(PALLET_TOWN_PROFESSOR_OAKS_LAB))
+    {
+        SendCommand(COOP_CMD_SPLIT);
+        Split();
+        ShowNotice(Coop_Text_SplitForStarters);
+    }
     TryStartPartnersWildBattle();
     if (Coop_IsFollowing())
         UpdateFollowing();

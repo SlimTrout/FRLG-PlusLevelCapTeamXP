@@ -146,3 +146,7 @@ Coop_Text_PartnerSplitOff::
 Coop_Text_SavedWithHost::
 	.string "{STR_VAR_1} saved the game.\n"
 	.string "Your game was saved too.$"
+
+Coop_Text_SplitForStarters::
+	.string "You split up from {STR_VAR_1}\n"
+	.string "to pick your own POKéMON.$"
