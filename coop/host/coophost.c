@@ -24,8 +24,8 @@
 #define MB_ACTIVE 8
 #define MB_INDEX 9
 #define MB_LOCAL 12
-#define MB_PARTNER 24
-#define STATE_SIZE 12
+#define MB_PARTNER 40
+#define STATE_SIZE 28
 
 static int parseKeys(const char *s) {
     int k = 0;

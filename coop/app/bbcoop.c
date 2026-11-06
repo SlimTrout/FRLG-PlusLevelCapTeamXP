@@ -63,14 +63,14 @@ static void sock_nonblock(sock_t s) { fcntl(s, F_SETFL, fcntl(s, F_GETFL, 0) | O
 #endif
 
 // ------------------------------------------------------------------ mailbox layout
-// Must match struct CoopMailbox in include/coop.h.
+// Must match struct CoopMailbox in include/coop.h (28-byte player state).
 #define COOP_MAGIC_0 0x4F434242u
 #define COOP_MAGIC_1 0x3130504Fu
 #define MB_ACTIVE 8
 #define MB_INDEX 9
 #define MB_LOCAL 12
-#define MB_PARTNER 24
-#define STATE_SIZE 12
+#define MB_PARTNER 40
+#define STATE_SIZE 28
 
 #define EWRAM_START 0x02000000u
 #define EWRAM_END 0x02040000u

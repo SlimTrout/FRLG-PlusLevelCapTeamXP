@@ -26,8 +26,19 @@ If the partner disconnects, the game is saved to `<rom>.coop.ss` and the app clo
 - Linux, or Windows 11 through WSL: `./build_linux.sh`
 - A Windows .exe (cross-built from WSL): `./build_windows.sh`
 
+## Linked play
+
+- **Link up:** walk up to your partner and press A, then choose to link. Your partner
+  is asked to accept; whoever asked leads.
+- **Following:** the follower walks one step behind and goes wherever the leader goes,
+  through doors, stairs, ledges and map edges. If the leader flies or is moved by an
+  event, the follower is brought along after a moment.
+- **Leader:** face your partner and press A to let them lead, or to split off.
+- **Follower:** press A to ask to lead, or to split off. Start and Select still work.
+- While following you don't trigger wild Pokémon or trainers; the leader's steps do.
+
 ## Status
 
-Working: window, sound, controls, the connection, and each player seeing the
-other walk around the same map. Tested here with two copies of the app talking
-over a local connection. Not yet: linked following, trades, co-op battles.
+Working: window, sound, controls, the connection, seeing each other on the map,
+linking up, following, handing over the lead and splitting off.
+Not yet: co-op double battles, trades, story-battle rules.

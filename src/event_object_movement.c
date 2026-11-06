@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "gflib.h"
 #include "event_data.h"
 #include "event_object_movement.h"
@@ -4954,6 +4955,9 @@ static bool8 DoesObjectCollideWithObjectAt(struct ObjectEvent *objectEvent, s16 
         curObject = &gObjectEvents[i];
         if (curObject->active && curObject != objectEvent)
         {
+            // Linked co-op partners walk through each other.
+            if (Coop_IsLinked() && (Coop_IsPartnerObject(curObject) || Coop_IsPartnerObject(objectEvent)))
+                continue;
             if ((curObject->currentCoords.x == x && curObject->currentCoords.y == y) || (curObject->previousCoords.x == x && curObject->previousCoords.y == y))
             {
                 if (AreElevationsCompatible(objectEvent->currentElevation, curObject->currentElevation))

@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "randomizer.h"
 #include "random.h"
 #include "wild_encounter.h"
@@ -433,6 +434,9 @@ bool8 StandardWildEncounter(u32 currMetatileAttrs, u16 previousMetatileBehavior)
     struct Roamer * roamer;
     const struct WildPokemonInfo * currentLandTable;
     const struct WildPokemonInfo * currentWaterTable;
+
+    if (Coop_IsFollowing()) // the leader's steps decide encounters
+        return FALSE;
 
     headerId = GetCurrentMapWildMonHeaderId();
     if(gSaveBlock1Ptr->keyFlags.version == 0)

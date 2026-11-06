@@ -1548,6 +1548,12 @@ static void DoCB1_Overworld_QuestLogPlayback(void)
     FieldClearPlayerInput(&gQuestLogFieldInput);
 }
 
+// Co-op: TRUE while the normal overworld is running (not a menu, battle or warp).
+bool8 Coop_IsInOverworld(void)
+{
+    return gMain.callback2 == CB2_Overworld;
+}
+
 void CB1_Overworld(void)
 {
     if (gMain.callback2 == CB2_Overworld)
@@ -1555,7 +1561,12 @@ void CB1_Overworld(void)
         if (QL_GetPlaybackState() == QL_PLAYBACK_STATE_RUNNING || gQuestLogState == QL_STATE_PLAYBACK)
             DoCB1_Overworld_QuestLogPlayback();
         else
-            DoCB1_Overworld(gMain.newKeys, gMain.heldKeys);
+        {
+            u16 newKeys = gMain.newKeys, heldKeys = gMain.heldKeys;
+
+            Coop_FilterInput(&newKeys, &heldKeys);
+            DoCB1_Overworld(newKeys, heldKeys);
+        }
     }
 }
 

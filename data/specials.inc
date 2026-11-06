@@ -457,4 +457,12 @@ gSpecials::
 	def_special RandomizeGiftTM
 	def_special BufferGiftTMNames
 	def_special ShufflePrizeTM
+	def_special Coop_BufferPartnerName
+	def_special Coop_GetLinkMode
+	def_special Coop_SendLinkRequest
+	def_special Coop_AnswerLinkRequest
+	def_special Coop_AnswerControlRequest
+	def_special Coop_GiveControl
+	def_special Coop_AskForControl
+	def_special Coop_SplitOff
 gSpecialsEnd::

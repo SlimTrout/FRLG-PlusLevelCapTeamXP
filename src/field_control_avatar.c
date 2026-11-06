@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "gflib.h"
 #include "bike.h"
 #include "coord_event_weather.h"
@@ -472,6 +473,9 @@ static const u8 *GetInteractedObjectEventScript(struct MapPosition *position, u8
     gSelectedObjectEvent = objectEventId;
     gSpecialVar_LastTalked = gObjectEvents[objectEventId].localId;
     gSpecialVar_Facing = direction;
+
+    if (Coop_IsPartnerObject(&gObjectEvents[objectEventId]))
+        return Coop_GetPartnerInteractionScript();
 
     script = GetObjectEventScriptPointerByObjectEventId(objectEventId);
 

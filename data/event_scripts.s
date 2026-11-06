@@ -1246,6 +1246,7 @@ EventScript_NoMoreRoomForPokemon::
 	.include "data/maps/FarawayIsland_Interior/text.inc"
 	.include "data/scripts/fuji_event.inc"
 	.include "data/scripts/national_dex_aide.inc"
+	.include "data/scripts/coop.inc"
 	.include "data/maps/OneIsland_KindleRoad_GlassWorkshop/scripts.inc"
 	.include "data/maps/Route20_Underwater/scripts.inc"
 	.include "data/maps/Route20_Underwater/text.inc"
