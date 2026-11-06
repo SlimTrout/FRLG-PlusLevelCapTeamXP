@@ -11,6 +11,13 @@ This is a fork of [FRLG+ by Deokishisu](https://github.com/Deokishisu/FRLG-Plus)
 - **Team Exp.** (off/1/2×/full): Pokémon that didn't battle still get experience, like the modern Exp. Share. Fainted Pokémon and Eggs get none.
 - **Exp. Modifier** now goes up to 4×: 0×, 1/2×, 1×, 2×, 3×, 4×.
 
+### Defaults and presentation (Brainy Blue)
+- New animated title screen, "Pokémon Brainy Blue".
+- Always FireRed: the game no longer asks FireRed or LeafGreen, and the Version key is gone.
+- New games start with **Challenge Mode, Level Cap on, Team Exp. 1/2×, Nuzlocke on and Exp. Modifier 2×**. All of these can still be changed from the Key System menu.
+- Shiny odds are 1/512 (vanilla 1/8192).
+- Nuzlocke "cemetery" look: Pokémon that have fainted in Nuzlocke mode are shown in grayscale in the party menu, the PC and the summary screen, like Modern Emerald's cemetery setting.
+
 ### Randomizer (always on)
 Seeded from your Trainer ID, so every new game is different and a save always stays the same.
 - Wild Pokémon (grass, water, fishing, Rock Smash, Safari Zone) become a random Pokémon of the same evolution stage, differently in each area. No legendaries.

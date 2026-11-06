@@ -2278,6 +2278,11 @@ static void LoadDisplayMonGfx(u16 species, u32 personality)
         LZ77UnCompWram(gStorage->displayMonPalette, gStorage->displayMonPalBuffer);
         CpuCopy32(gStorage->tileBuffer, gStorage->displayMonTilePtr, 0x800);
         LoadPalette(gStorage->displayMonPalBuffer, gStorage->displayMonPalOffset, PLTT_SIZE_4BPP);
+        if (gStorage->displayMonDead)
+        {
+            TintPalette_GrayScale(&gPlttBufferUnfaded[gStorage->displayMonPalOffset], 16);
+            TintPalette_GrayScale(&gPlttBufferFaded[gStorage->displayMonPalOffset], 16);
+        }
         gStorage->displayMonSprite->invisible = FALSE;
     }
     else

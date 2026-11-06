@@ -18,8 +18,7 @@ bool32 IsActiveOverworldLinkBusy(void);
 // Menu items
 enum
 {
-    MENUITEM_VERSION = 0,
-    MENUITEM_DIFFICULTY,
+    MENUITEM_DIFFICULTY = 0, // Version row removed: Brainy Blue is always FireRed
     MENUITEM_LEVEL_CAP,
     MENUITEM_TEAM_EXP,
     MENUITEM_ADVANCED,
@@ -145,12 +144,11 @@ static const struct BgTemplate sKeySystemMenuBgTemplates[] =
 };
 
 static const u16 sKeySystemMenuPalette[] = INCBIN_U16("graphics/misc/option_menu.gbapal");
-static const u16 sKeySystemMenuItemCounts[MENUITEM_COUNT] = {2, 3, 2, 3, 1, 0};
+static const u16 sKeySystemMenuItemCounts[MENUITEM_COUNT] = {3, 2, 3, 1, 0};
 static const u16 sKeySystemSubMenuItemCounts[MENUITEM_COUNT2] = {2, 3, 2, 2, 6, 0};
 
 static const u8 *const sKeySystemMenuItemsNames[MENUITEM_COUNT] =
 {
-    [MENUITEM_VERSION]    = gText_Version,
     [MENUITEM_DIFFICULTY] = gText_Difficulty,
     [MENUITEM_LEVEL_CAP]  = gText_LevelCap,
     [MENUITEM_TEAM_EXP]   = gText_TeamExp,
@@ -165,12 +163,6 @@ static const u8 *const sKeySystemSubMenuItemsNames[MENUITEM_COUNT2] ={
     [MENUITEM_NO_PMC]     = gText_NoPMC,
     [MENUITEM_EXP_MOD]    = gText_ExpMod,
     [MENUITEM_BACK]       = gText_Back,
-};
-
-static const u8 *const sVersionOptions[] =
-{
-    gText_FireredVersion, 
-    gText_LeafgreenVersion
 };
 
 static const u8 *const sDifficultyOptions[] =
@@ -257,7 +249,6 @@ void CB2_KeySystemMenuFromContinueScreen(void)
     sKeySystemMenuPtr->state = 0;
     sKeySystemMenuPtr->cursorPos = 0;
     sKeySystemMenuPtr->inSubMenu = 0;
-    sKeySystemMenuPtr->option[MENUITEM_VERSION] = gSaveBlock1Ptr->keyFlags.version;
     sKeySystemMenuPtr->option[MENUITEM_DIFFICULTY] = gSaveBlock1Ptr->keyFlags.difficulty;
     sKeySystemMenuPtr->option[MENUITEM_LEVEL_CAP] = gSaveBlock1Ptr->keyFlags.levelCap;
     sKeySystemMenuPtr->option[MENUITEM_TEAM_EXP] = gSaveBlock1Ptr->keyFlags.teamExp;
@@ -576,7 +567,7 @@ static u8 KeySystemMenu_ProcessInput(void)
     {
         if(!sKeySystemMenuPtr->inSubMenu)
         {
-            if (sKeySystemMenuPtr->cursorPos == MENUITEM_VERSION)
+            if (sKeySystemMenuPtr->cursorPos == MENUITEM_DIFFICULTY)
                 sKeySystemMenuPtr->cursorPos = MENUITEM_CANCEL;
             else
                 sKeySystemMenuPtr->cursorPos = sKeySystemMenuPtr->cursorPos - 1;
@@ -596,7 +587,7 @@ static u8 KeySystemMenu_ProcessInput(void)
         if(!sKeySystemMenuPtr->inSubMenu)
         {
             if (sKeySystemMenuPtr->cursorPos == MENUITEM_CANCEL)
-                sKeySystemMenuPtr->cursorPos = MENUITEM_VERSION;
+                sKeySystemMenuPtr->cursorPos = MENUITEM_DIFFICULTY;
             else
                 sKeySystemMenuPtr->cursorPos = sKeySystemMenuPtr->cursorPos + 1;
         }
@@ -651,9 +642,6 @@ static void BufferKeySystemMenuString(u8 selection)
     {
         switch (selection)
         {
-            case MENUITEM_VERSION:
-                AddTextPrinterParameterized3(1, 2, x, y, dst, -1, sVersionOptions[sKeySystemMenuPtr->option[selection]]);
-                break;
             case MENUITEM_DIFFICULTY:
                 AddTextPrinterParameterized3(1, 2, x, y, dst, -1, sDifficultyOptions[sKeySystemMenuPtr->option[selection]]);
                 break;
@@ -702,7 +690,7 @@ static void CloseAndSaveKeySystemMenu(u8 taskId)
     gFieldCallback = FieldCB_DefaultWarpExit;
     SetMainCallback2(gMain.savedCallback);
     FreeAllWindowBuffers();
-    gSaveBlock1Ptr->keyFlags.version = sKeySystemMenuPtr->option[MENUITEM_VERSION];
+    gSaveBlock1Ptr->keyFlags.version = 0; // always FireRed
     gSaveBlock1Ptr->keyFlags.difficulty = sKeySystemMenuPtr->option[MENUITEM_DIFFICULTY];
     gSaveBlock1Ptr->keyFlags.levelCap = sKeySystemMenuPtr->option[MENUITEM_LEVEL_CAP];
     gSaveBlock1Ptr->keyFlags.teamExp = sKeySystemMenuPtr->option[MENUITEM_TEAM_EXP];

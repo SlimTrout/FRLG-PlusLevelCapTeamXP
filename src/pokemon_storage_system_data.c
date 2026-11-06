@@ -7,6 +7,7 @@
 #include "new_menu_helpers.h"
 #include "party_menu.h"
 #include "pokemon_storage_system_internal.h"
+#include "pokemon_icon.h"
 #include "pokemon_summary_screen.h"
 #include "strings.h"
 #include "constants/items.h"
@@ -1231,6 +1232,7 @@ static void SetDisplayMonData(void *pokemon, u8 mode)
     bool8 sanityIsBagEgg;
 
     gStorage->displayMonItemId = ITEM_NONE;
+    gStorage->displayMonDead = FALSE;
     gender = MON_MALE;
     sanityIsBagEgg = FALSE;
     if (mode == MODE_PARTY)
@@ -1254,6 +1256,7 @@ static void SetDisplayMonData(void *pokemon, u8 mode)
                 gStorage->displayMonSpecies = GetDeoxysSpeciesFromForme(GetMonData(mon, MON_DATA_FORME));
             gStorage->displayMonPersonality = GetMonData(mon, MON_DATA_PERSONALITY);
             gStorage->displayMonPalette = GetMonFrontSpritePal(mon);
+            gStorage->displayMonDead = IsNuzlockeDeadMon(mon);
             gender = GetMonGender(mon);
             gStorage->displayMonItemId = GetMonData(mon, MON_DATA_HELD_ITEM);
         }
@@ -1280,6 +1283,7 @@ static void SetDisplayMonData(void *pokemon, u8 mode)
                 gStorage->displayMonSpecies = GetDeoxysSpeciesFromForme(GetBoxMonData(boxMon, MON_DATA_FORME));
             gStorage->displayMonPersonality = GetBoxMonData(boxMon, MON_DATA_PERSONALITY);
             gStorage->displayMonPalette = GetMonSpritePalFromSpeciesAndPersonality(gStorage->displayMonSpecies, otId, gStorage->displayMonPersonality);
+            gStorage->displayMonDead = IsNuzlockeDeadBoxMon(boxMon);
             gender = GetGenderFromSpeciesAndPersonality(gStorage->displayMonSpecies, gStorage->displayMonPersonality);
             gStorage->displayMonItemId = GetBoxMonData(boxMon, MON_DATA_HELD_ITEM);
         }

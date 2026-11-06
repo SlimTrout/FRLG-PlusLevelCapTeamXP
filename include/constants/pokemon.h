@@ -190,7 +190,7 @@
 #define MAX_STAT_STAGE    12
 
 // Shiny odds
-#define SHINY_ODDS 8 // Actual probability is SHINY_ODDS/65536
+#define SHINY_ODDS 128 // Actual probability is SHINY_ODDS/65536 (1/512; vanilla is 8, 1/8192)
 
 #define MAX_LEVEL 100
 

@@ -154,7 +154,13 @@ void NewGameInitData(void)
     RunScriptImmediately(EventScript_ResetAllMapFlags);
     StringCopy(gSaveBlock1Ptr->rivalName, rivalName);
     ResetTrainerTowerResults();
-    gSaveBlock1Ptr->keyFlags.expMod = 2; // normal exp
+    // Brainy Blue default Key System settings
+    gSaveBlock1Ptr->keyFlags.version = 0;                         // FireRed (no version choice)
+    gSaveBlock1Ptr->keyFlags.difficulty = DIFFICULTY_CHALLENGE;
+    gSaveBlock1Ptr->keyFlags.levelCap = 1;
+    gSaveBlock1Ptr->keyFlags.teamExp = TEAM_EXP_HALF;
+    gSaveBlock1Ptr->keyFlags.nuzlocke = 1;
+    gSaveBlock1Ptr->keyFlags.expMod = 3;                          // 2x
 }
 
 static void ResetMiniGamesResults(void)

@@ -22,7 +22,12 @@ static void DestroyMonIconInternal(struct Sprite *sprite);
 const u16 gMonIconPalettes[][16] = {
     INCBIN_U16("graphics/pokemon/icon_palettes/icon_palette_0.gbapal"),
     INCBIN_U16("graphics/pokemon/icon_palettes/icon_palette_1.gbapal"),
-    INCBIN_U16("graphics/pokemon/icon_palettes/icon_palette_2.gbapal")
+    INCBIN_U16("graphics/pokemon/icon_palettes/icon_palette_2.gbapal"),
+    // Nuzlocke "cemetery" look: grayscale copies used for fainted Pokémon.
+    // gMonIconPaletteTable[3-5] (formerly unused) point at these.
+    INCBIN_U16("graphics/pokemon/icon_palettes/icon_palette_0_grey.gbapal"),
+    INCBIN_U16("graphics/pokemon/icon_palettes/icon_palette_1_grey.gbapal"),
+    INCBIN_U16("graphics/pokemon/icon_palettes/icon_palette_2_grey.gbapal")
 };
 
 const u8 *const gMonIconTable[] = {
@@ -997,8 +1002,7 @@ const struct SpritePalette gMonIconPaletteTable[] = {
     { gMonIconPalettes[0], POKE_ICON_BASE_PAL_TAG + 0 },
     { gMonIconPalettes[1], POKE_ICON_BASE_PAL_TAG + 1 },
     { gMonIconPalettes[2], POKE_ICON_BASE_PAL_TAG + 2 },
-    // The following three point outside the gMonIconPalettes array
-    // and are therefore invalid. Fortunately, they are never used.
+    // Grayscale versions of the three palettes above (Nuzlocke fainted Pokémon).
     { gMonIconPalettes[3], POKE_ICON_BASE_PAL_TAG + 3 },
     { gMonIconPalettes[4], POKE_ICON_BASE_PAL_TAG + 4 },
     { gMonIconPalettes[5], POKE_ICON_BASE_PAL_TAG + 5 }
@@ -1403,4 +1407,60 @@ void SetPartyHPBarSprite(struct Sprite *sprite, u8 animNum)
     sprite->animNum = animNum;
     sprite->animDelayCounter = 0;
     sprite->animCmdIndex = 0;
+}
+
+// ---------------------------------------------------------------- Nuzlocke cemetery look
+// In Nuzlocke mode a fainted Pokémon is gone for good, so it is drawn in grayscale
+// wherever it appears (party menu, PC, summary), like Modern Emerald's cemetery.
+
+#define NUM_REAL_ICON_PALETTES 3
+
+bool8 IsNuzlockeDeadMon(struct Pokemon *mon)
+{
+    u16 species;
+
+    if (!gSaveBlock1Ptr->keyFlags.nuzlocke)
+        return FALSE;
+    species = GetMonData(mon, MON_DATA_SPECIES);
+    if (species == SPECIES_NONE || GetMonData(mon, MON_DATA_IS_EGG))
+        return FALSE;
+    return GetMonData(mon, MON_DATA_HP) == 0;
+}
+
+bool8 IsNuzlockeDeadBoxMon(struct BoxPokemon *boxMon)
+{
+    u16 species;
+
+    if (!gSaveBlock1Ptr->keyFlags.nuzlocke)
+        return FALSE;
+    species = GetBoxMonData(boxMon, MON_DATA_SPECIES);
+    if (species == SPECIES_NONE || GetBoxMonData(boxMon, MON_DATA_IS_EGG))
+        return FALSE;
+    return GetBoxMonData(boxMon, MON_DATA_BOX_HP) == 0;
+}
+
+// Switches an icon sprite to the grayscale copy of its palette.
+void SetMonIconNuzlockeGrey(struct Sprite *sprite)
+{
+    u16 tag;
+    u8 slot;
+
+    if (sprite == NULL)
+        return;
+    tag = GetSpritePaletteTagByPaletteNum(sprite->oam.paletteNum);
+    if (tag < POKE_ICON_BASE_PAL_TAG || tag >= POKE_ICON_BASE_PAL_TAG + NUM_REAL_ICON_PALETTES)
+        return;
+    tag += NUM_REAL_ICON_PALETTES;
+    slot = IndexOfSpritePaletteTag(tag);
+    if (slot == 0xFF)
+        slot = LoadSpritePalette(&gMonIconPaletteTable[tag - POKE_ICON_BASE_PAL_TAG]);
+    if (slot != 0xFF)
+        sprite->oam.paletteNum = slot;
+}
+
+// Grays out the 16 colors at an OBJ palette slot (for a front pic with its own palette).
+void TintObjPaletteNuzlockeGrey(u8 paletteNum)
+{
+    TintPalette_GrayScale(&gPlttBufferUnfaded[OBJ_PLTT_ID(paletteNum)], 16);
+    TintPalette_GrayScale(&gPlttBufferFaded[OBJ_PLTT_ID(paletteNum)], 16);
 }

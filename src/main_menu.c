@@ -312,10 +312,11 @@ static void Task_SetWin0BldRegsAndCheckSaveFile(u8 taskId)
             }
             break;
         case SAVE_STATUS_EMPTY:
-            SetStdFrame0OnBg(0);
+            // Brainy Blue: no version prompt, just the NEW GAME menu (always FireRed).
+            gSaveBlock1Ptr->keyFlags.version = 0;
+            LoadUserFrameToBg(0);
             gTasks[taskId].tMenuType = MAIN_MENU_NEWGAME;
-            gTasks[taskId].tUnused8 = 3;
-            PrintSaveErrorStatus(taskId, gChooseVersionNewGame);
+            gTasks[taskId].func = Task_SetWin0BldRegsNoSaveFileCheck;
             break;
         default:
             LoadUserFrameToBg(0);
@@ -566,9 +567,9 @@ static void Task_ExecuteMainMenuSelection(u8 taskId)
         {
         default:
         case MAIN_MENU_NEWGAME:
-            SetStdFrame0OnBg(0);
-            gTasks[taskId].func = Task_ChooseVersionOnNewGame;
-            BeginNormalPaletteFade(PALETTES_ALL, 0, 16, 0, RGB_BLACK);
+            // Brainy Blue: always FireRed, no version prompt.
+            gSaveBlock1Ptr->keyFlags.version = 0;
+            gTasks[taskId].func = Task_StartNewGame;
             return;
         case MAIN_MENU_CONTINUE:
             gPlttBufferUnfaded[0] = RGB_BLACK;

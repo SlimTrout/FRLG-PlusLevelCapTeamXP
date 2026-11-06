@@ -1924,11 +1924,7 @@ static void IntroCB_ExitToTitleScreen(struct IntroSequenceData * this)
             SetHBlankCallback(NULL);
             if(gSaveFileStatus == SAVE_STATUS_EMPTY || gSaveFileStatus == SAVE_STATUS_NO_FLASH || gSaveFileStatus == SAVE_STATUS_INVALID)
             {
-                u16 rand = Random();
-                if(rand % 2 == 0)
-                    gSaveBlock1Ptr->keyFlags.version = 0;
-                else
-                    gSaveBlock1Ptr->keyFlags.version = 1;
+                gSaveBlock1Ptr->keyFlags.version = 0; // Brainy Blue: always FireRed
             }
             SetMainCallback2(CB2_InitTitleScreen);
         }

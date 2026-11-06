@@ -4339,6 +4339,8 @@ static void PokeSum_CreateMonPicSprite(void)
         gSprites[spriteId].hFlip = FALSE;
 
     sMonSummaryScreen->monPicSpriteId = spriteId;
+    if (IsNuzlockeDeadMon(&sMonSummaryScreen->currentMon))
+        TintObjPaletteNuzlockeGrey(gSprites[spriteId].oam.paletteNum);
 
     PokeSum_ShowOrHideMonPicSprite(TRUE);
     PokeSum_SetMonPicSpriteCallback(spriteId);
@@ -4479,6 +4481,9 @@ static void PokeSum_CreateMonIconSprite(void)
         else
             sMonSummaryScreen->monIconSpriteId = CreateMonIcon(species, SpriteCallbackDummy, 24, 32, 0, personality, 1);
     }
+
+    if (IsNuzlockeDeadMon(&sMonSummaryScreen->currentMon))
+        SetMonIconNuzlockeGrey(&gSprites[sMonSummaryScreen->monIconSpriteId]);
 
     if (!IsMonSpriteNotFlipped(species))
         gSprites[sMonSummaryScreen->monIconSpriteId].hFlip = TRUE;

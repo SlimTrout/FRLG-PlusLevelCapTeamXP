@@ -29,5 +29,9 @@ void LoadMonIconPalettesAt(u16 offset);
 u8 GetValidMonIconPalIndex(u16 species);
 void SafeLoadMonIconPalette(u16 species);
 void SafeFreeMonIconPalette(u16 species);
+bool8 IsNuzlockeDeadMon(struct Pokemon *mon);
+bool8 IsNuzlockeDeadBoxMon(struct BoxPokemon *boxMon);
+void SetMonIconNuzlockeGrey(struct Sprite *sprite);
+void TintObjPaletteNuzlockeGrey(u8 paletteNum);
 
 #endif // GUARD_POKEMON_ICON_H

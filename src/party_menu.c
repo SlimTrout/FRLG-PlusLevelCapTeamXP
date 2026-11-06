@@ -2684,6 +2684,8 @@ static void CreatePartyMonIconSprite(struct Pokemon *mon, struct PartyMenuBox *m
     }
 
     CreatePartyMonIconSpriteParameterized(species2, personality, menuBox, 1, handleDeoxys);
+    if (species2 != SPECIES_NONE && IsNuzlockeDeadMon(mon))
+        SetMonIconNuzlockeGrey(&gSprites[menuBox->monSpriteId]);
     UpdatePartyMonHPBar(menuBox->monSpriteId, mon);
 }
 

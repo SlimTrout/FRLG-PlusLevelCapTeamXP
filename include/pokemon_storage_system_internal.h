@@ -373,6 +373,7 @@ struct PokemonStorageSystemData
     u8 cursorPalNums[2];
     const u32 *displayMonPalette;
     u32 displayMonPersonality;
+    bool8 displayMonDead; // Nuzlocke: fainted, drawn in grayscale
     u16 displayMonSpecies;
     u16 displayMonItemId;
     u16 displayUnusedVar;
