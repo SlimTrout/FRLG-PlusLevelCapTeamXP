@@ -490,6 +490,8 @@ extern struct BattleStruct *gBattleStruct;
 
 #define IS_TYPE_PHYSICAL(moveType)(moveType < TYPE_MYSTERY)
 #define IS_TYPE_SPECIAL(moveType)(moveType > TYPE_MYSTERY)
+#define IS_MOVE_PHYSICAL(move)(gBattleMoves[move].category == MOVE_CATEGORY_PHYSICAL)
+#define IS_MOVE_SPECIAL(move)(gBattleMoves[move].category == MOVE_CATEGORY_SPECIAL)
 
 #define TARGET_TURN_DAMAGED ((gSpecialStatuses[gBattlerTarget].physicalDmg != 0 || gSpecialStatuses[gBattlerTarget].specialDmg != 0))
 

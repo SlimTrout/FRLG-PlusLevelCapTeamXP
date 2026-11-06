@@ -117,6 +117,11 @@
 #define TYPE_DARK           17
 #define NUMBER_OF_MON_TYPES 18
 
+// Physical/special split: each move has its own category instead of using its type.
+#define MOVE_CATEGORY_PHYSICAL 0
+#define MOVE_CATEGORY_SPECIAL  1
+#define MOVE_CATEGORY_STATUS   2
+
 // Pokemon egg groups
 #define EGG_GROUP_NONE         0
 #define EGG_GROUP_MONSTER      1

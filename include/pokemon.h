@@ -243,6 +243,7 @@ struct BattleMove
     u8 effect;
     u8 power;
     u8 type;
+    u8 category; // MOVE_CATEGORY_*
     u8 accuracy;
     u8 pp;
     u8 secondaryEffectChance;
