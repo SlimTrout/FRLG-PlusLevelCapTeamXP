@@ -1,5 +1,18 @@
 ## Features
 
+#### Additions in this fork (from Modern Emerald):
+- __Randomizer__ (always on, different for every new game; it is seeded from your Trainer ID so a save keeps the same randomization):
+	* Wild Pokémon in grass, water, fishing, Rock Smash and the Safari Zone are replaced by a random Pokémon of the same evolution stage, differently in each area. Legendaries never appear in the wild.
+	* The three starters are random unevolved Pokémon. Oak names whichever is in the ball you check. Your rival keeps his usual team.
+	* Gift Pokémon and Eggs are replaced by a random non-legendary of the same stage. Static encounters swap non-legendaries with non-legendaries of the same stage, and legendaries with other legendaries.
+	* Abilities are randomized: each species borrows the ability of another species of the same stage (Pokémon keep their ability slot).
+	* Items from item balls, hidden items and most NPC gifts are randomized. Key items, HMs and Poké Balls are never changed, and TMs become a TM you don't already have when possible.
+- __Physical/Special Split__: Every move is Physical, Special or Status on its own, as in Generation IV onward. Weather and Flash Fire boost physical Fire and Water moves too, and Thick Fat, Hustle, type-boosting items and Counter/Mirror Coat follow the move's category.
+- __41 new Pokémon__ from Modern Emerald: Mime Jr., Munchlax, Bonsly, Mantyke, Happiny, Chingling, Budew, Roserade, Dusknoir, Ambipom, Electivire, Froslass, Gallade, Gliscor, Honchkrow, Lickilicky, Magmortar, Magnezone, Mamoswine, Mismagius, Porygon-Z, Probopass, Rhyperior, Tangrowth, Togekiss, Weavile, Yanmega, Leafeon, Glaceon, Sylveon, Annihilape, Farigiraf, Dudunsparce, Regidrago, Regieleki, Regigigas, Arceus, Wyrdeer, Kleavor, Ursaluna and Bloodmoon Ursaluna (Modern Emerald's count of 44 includes the Deoxys formes FRLG+ already has). They use Gen 3 typings since there is no Fairy type (Sylveon is Normal, Togekiss is Normal/Flying), and get Pokédex entries and habitats after Deoxys.
+	* Evolutions follow Modern Emerald. As with Espeon and Umbreon, "day" means outdoors and "night" means indoors or in a cave. Hold-item evolutions (Magnezone, Probopass, Leafeon, Glaceon, Sylveon, Togekiss, Happiny, Mismagius) happen on level up and use the item. Rhyperior, Porygon-Z and Dusknoir also evolve with the Link Bracelet. Roselia evolves with a Sun Stone. Wyrdeer, Kleavor, the Ursaluna and the new legendaries are found through the randomizer.
+	* New abilities: Transistor and Dragon's Maw (1.5× Electric/Dragon moves) and Multitype (extra boost with a matching type item).
+- Trading new Pokémon or new moves' categories to the original games isn't supported.
+
 #### Mechanical Additions:
 - A Key System has been implemented, similar to Black 2 and White 2. Press the L Button while on the Key System Menu to access the Help System, which has detailed information on each key. Use the keys to change various settings about your game. Those settings are:
 	*  __Version__: Switch between FireRed and LeafGreen to catch version-exclusive Pokémon.
