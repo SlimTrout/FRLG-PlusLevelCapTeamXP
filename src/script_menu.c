@@ -1,4 +1,7 @@
 #include "global.h"
+#include "randomizer.h"
+#include "constants/items.h"
+#include "string_util.h"
 #include "gflib.h"
 #include "menu.h"
 #include "task.h"
@@ -187,6 +190,30 @@ static const struct MenuAction sMultichoiceList_GameCornerTMPrizes[] = {
     { gText_Tm35_4000Coins },
     { gText_NoThanks_2 }
 };
+
+// Brainy Blue: the Game Corner's TM prizes go through the TM shuffle, so the menu
+// shows the shuffled TM numbers (prices stay the same).
+static const u16 sGameCornerPrizeTMs[] = { ITEM_TM13, ITEM_TM23, ITEM_TM24, ITEM_TM30, ITEM_TM35 };
+static EWRAM_DATA u8 sShuffledTMPrizeText[ARRAY_COUNT(sGameCornerPrizeTMs)][40] = {0};
+static EWRAM_DATA struct MenuAction sShuffledTMPrizeList[ARRAY_COUNT(sGameCornerPrizeTMs) + 1] = {0};
+
+static const struct MenuAction *GetShuffledTMPrizeList(void)
+{
+    u32 i;
+
+    for (i = 0; i < ARRAY_COUNT(sGameCornerPrizeTMs); i++)
+    {
+        u16 tmNum = GetShuffledTM(sGameCornerPrizeTMs[i]) - ITEM_TM01 + 1;
+
+        // "TM13{CLEAR_TO}…COINS" -> replace the two digits
+        StringCopy(sShuffledTMPrizeText[i], sMultichoiceList_GameCornerTMPrizes[i].text);
+        sShuffledTMPrizeText[i][2] = CHAR_0 + tmNum / 10;
+        sShuffledTMPrizeText[i][3] = CHAR_0 + tmNum % 10;
+        sShuffledTMPrizeList[i].text = sShuffledTMPrizeText[i];
+    }
+    sShuffledTMPrizeList[i] = sMultichoiceList_GameCornerTMPrizes[i];
+    return sShuffledTMPrizeList;
+}
 
 static const struct MenuAction sMultichoiceList_GameCornerBattleItemPrizes[] = {
     { gText_SmokeBall_800Coins },
@@ -865,6 +892,8 @@ static void DrawVerticalMultichoiceMenu(u8 left, u8 top, u8 mcId, u8 ignoreBpres
         ignoreBpress &= 1;
         count = sMultichoiceLists[mcId].count;
         list = sMultichoiceLists[mcId].list;
+        if (mcId == MULTICHOICE_GAME_CORNER_TMPRIZES)
+            list = GetShuffledTMPrizeList();
         strWidth = 0;
         for (i = 0; i < count; i++)
         {

@@ -337,6 +337,7 @@ CeladonCity_GameCorner_PrizeRoom_EventScript_TM35::
 	end
 
 CeladonCity_GameCorner_PrizeRoom_EventScript_ConfirmPrizeTM::
+	special ShufflePrizeTM
 	checkitem VAR_TEMP_1, 1
 	goto_if_eq VAR_RESULT, TRUE, CeladonCity_GameCorner_PrizeRoom_EventScript_AlreadyHaveTM
 	msgbox CeladonCity_GameCorner_PrizeRoom_Text_YouWantTM, MSGBOX_YESNO

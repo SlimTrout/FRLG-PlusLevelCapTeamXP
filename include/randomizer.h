@@ -17,6 +17,8 @@ u16 RandomizerSeededModulo(u32 value, u16 modulo);
 u16 GetRandomizedSpecies(u16 species, u8 kind);
 u16 GetRandomizedStarter(u8 starterId);
 u16 GetRandomizedItem(u16 itemId);
+u16 GetShuffledTM(u16 itemId);
+void ShufflePrizeTM(void);
 
 // Gift text: scripts buffer the original species' name after giving it, so the
 // last gift's original species is shown as what was actually received.

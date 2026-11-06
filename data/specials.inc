@@ -456,4 +456,5 @@ gSpecials::
 	def_special RandomizeHiddenItem
 	def_special RandomizeGiftTM
 	def_special BufferGiftTMNames
+	def_special ShufflePrizeTM
 gSpecialsEnd::

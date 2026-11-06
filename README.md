@@ -27,8 +27,8 @@ Seeded from your Trainer ID, so every new game is different and a save always st
 - Gift Pokémon and Eggs become random non-legendaries of the same stage, and the "obtained" messages name the right Pokémon.
 - Static encounters: non-legendaries swap with non-legendaries of the same stage; legendaries swap with other legendaries.
 - Abilities: each species borrows another same-stage species' ability (a Pokémon keeps its ability slot).
-- TMs from Gym Leaders and other people (Brock, Misty, Lt. Surge, Erika, Koga, Sabrina, Blaine, Giovanni, the Cerulean Rocket, the Route 12 girl, Mr. Psychic, the Celadon roof girl and the Memorial Pillar man) are randomized too; they name the TM and move you actually got.
-- Items from item balls, hidden items and NPC gifts are randomized. Key items, HMs, Poké Balls and items any evolution needs are left alone; TMs become a TM you don't own yet when possible.
+- Items from item balls, hidden items and NPC gifts are randomized. Key items, HMs, Poké Balls and items any evolution needs are left alone.
+- **TM shuffle:** every new game shuffles TM01–TM50 among each other, and every TM source follows it: TMs on the ground, hidden TMs, TMs from Gym Leaders and other people, the Celadon Department Store and the Game Corner. Each TM still exists the same number of times, just somewhere else. Gifts name the TM and move you actually got; shop prices are the shuffled TM's own price. HMs aren't shuffled.
 
 ### Battle
 - **Physical/special split**: every move is physical, special or status on its own (categories from Modern Emerald). Weather and Flash Fire also boost physical Fire and Water moves, and Thick Fat, Hustle, type-boosting items and Counter/Mirror Coat follow the category.

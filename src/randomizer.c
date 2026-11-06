@@ -128,6 +128,41 @@ u16 GetRandomizedStarter(u8 starterId)
     return list[(starterId * 27) % ARRAY_COUNT(list)];
 }
 
+// TM shuffle: every new game shuffles TM01-TM50 among each other (a seeded
+// permutation), and every TM source (ground, gifts, shops, Game Corner) goes
+// through it. So each TM still exists exactly as often as before, just elsewhere.
+// HMs are never shuffled.
+#define NUM_SHUFFLED_TMS (ITEM_TM50 - ITEM_TM01 + 1)
+
+u16 GetShuffledTM(u16 itemId)
+{
+    u8 perm[NUM_SHUFFLED_TMS];
+    u8 i, j, tmp;
+
+    if (itemId < ITEM_TM01 || itemId > ITEM_TM50)
+        return itemId;
+    for (i = 0; i < NUM_SHUFFLED_TMS; i++)
+        perm[i] = i;
+    for (i = NUM_SHUFFLED_TMS - 1; i > 0; i--)
+    {
+        j = RandomizerSeededModulo(0x7A00 + i, i + 1);
+        tmp = perm[i];
+        perm[i] = perm[j];
+        perm[j] = tmp;
+    }
+    return ITEM_TM01 + perm[itemId - ITEM_TM01];
+}
+
+// special: VAR_TEMP_1 holds a Game Corner prize TM. Swaps in the shuffled TM and
+// buffers its move as STR_VAR_2.
+void ShufflePrizeTM(void)
+{
+    u16 tm = GetShuffledTM(VarGet(VAR_TEMP_1));
+
+    VarSet(VAR_TEMP_1, tm);
+    StringCopy(gStringVar2, gMoveNames[ItemIdToBattleMoveId(tm)]);
+}
+
 // Items some evolution needs stay where FRLG+ puts them, so those evolutions stay possible.
 static const u16 sEvolutionItems[] =
 {
@@ -156,20 +191,7 @@ u16 GetRandomizedItem(u16 itemId)
         return itemId;
 
     if (pocket == POCKET_TM_CASE)
-    {
-        u16 i;
-
-        if (itemId >= ITEM_HM01)
-            return itemId;
-        itemId = ITEM_TM01 + RandomizerSeededModulo(itemId, ITEM_TM50 - ITEM_TM01 + 1);
-        for (i = 0; i < 255; i++)
-        {
-            if (!CheckBagHasItem(itemId, 1))
-                break;
-            itemId = ITEM_TM01 + RandomizerSeededModulo(itemId, ITEM_TM50 - ITEM_TM01 + 1);
-        }
-        return itemId;
-    }
+        return GetShuffledTM(itemId);
 
     return sRandomItems[RandomizerSeededModulo(itemId + gMapHeader.regionMapSectionId, ARRAY_COUNT(sRandomItems))];
 }

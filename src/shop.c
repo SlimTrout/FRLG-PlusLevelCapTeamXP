@@ -1,4 +1,5 @@
 #include "global.h"
+#include "randomizer.h"
 #include "gflib.h"
 #include "shop.h"
 #include "menu.h"
@@ -237,8 +238,17 @@ static u8 GetMartTypeFromItemList(u32 martType)
     return MART_TYPE_REGULAR;
 }
 
+// Brainy Blue: TMs for sale go through the TM shuffle.
+static EWRAM_DATA u16 sShuffledShopItems[64] = {0};
+
 static void SetShopItemsForSale(const u16 *items)
 {
+    u32 i;
+
+    for (i = 0; i < ARRAY_COUNT(sShuffledShopItems) - 1 && items[i] != ITEM_NONE; i++)
+        sShuffledShopItems[i] = GetShuffledTM(items[i]);
+    sShuffledShopItems[i] = ITEM_NONE;
+    items = sShuffledShopItems;
     sShopData.itemList = items;
     sShopData.itemCount = 0;
     if (sShopData.itemList[0] == 0)
