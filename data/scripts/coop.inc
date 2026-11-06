@@ -56,8 +56,6 @@ Coop_EventScript_LinkRequest::
 	msgbox Coop_Text_PartnerWantsLink, MSGBOX_YESNO
 	copyvar VAR_0x8004, VAR_RESULT
 	special Coop_AnswerLinkRequest
-	goto_if_eq VAR_0x8004, NO, Coop_EventScript_ReleaseAll
-	msgbox Coop_Text_NowFollowing
 	releaseall
 	end
 

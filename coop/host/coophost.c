@@ -24,8 +24,11 @@
 #define MB_ACTIVE 8
 #define MB_INDEX 9
 #define MB_LOCAL 12
-#define MB_PARTNER 40
-#define STATE_SIZE 28
+#define MB_PARTNER 44
+#define MB_LOCALTEXT 76
+#define MB_PARTNERTEXT 476
+#define STATE_SIZE 32
+#define TEXT_SIZE 400
 
 static int parseKeys(const char *s) {
     int k = 0;
@@ -86,6 +89,11 @@ static void relay(struct Player *from, struct Player *to, int index) {
     if (!from->mailbox || !to->mailbox) return;
     to->core->busWrite8(to->core, to->mailbox + MB_ACTIVE, 1);
     to->core->busWrite8(to->core, to->mailbox + MB_INDEX, index);
+    for (int i = 0; i < TEXT_SIZE; i++) {
+        unsigned char ch = from->core->busRead8(from->core, from->mailbox + MB_LOCALTEXT + i);
+        to->core->busWrite8(to->core, to->mailbox + MB_PARTNERTEXT + i, ch);
+        if (ch == 0xFF) break;
+    }
     for (int i = 0; i < STATE_SIZE; i++)
         to->core->busWrite8(to->core, to->mailbox + MB_PARTNER + i,
                             from->core->busRead8(from->core, from->mailbox + MB_LOCAL + i));

@@ -30,11 +30,11 @@ If the partner disconnects, the game is saved to `<rom>.coop.ss` and the app clo
 
 - **Link up:** walk up to your partner and press A, then choose to link. Your partner
   is asked to accept; whoever asked leads.
-- **Following:** the follower walks one step behind and goes wherever the leader goes,
-  through doors, stairs, ledges and map edges. If the leader flies or is moved by an
-  event, the follower is brought along after a moment.
-- **Leader:** face your partner and press A to let them lead, or to split off.
-- **Follower:** press A to ask to lead, or to split off. Start and Select still work.
+- **Following:** the follower has no character of its own. Its screen follows the
+  leader everywhere (doors, stairs, ledges, map edges, cutscenes), and it sees the
+  leader's dialogue: the text box turns its pages and closes when the leader's does.
+- **Leader:** press R to let your partner lead, or to split off.
+- **Follower:** press A or R to ask to lead, or to split off. Start still opens the menu.
 - While following you don't trigger wild Pokémon or trainers; the leader's steps do.
 
 ## Status

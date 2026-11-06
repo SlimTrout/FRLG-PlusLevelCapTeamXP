@@ -63,14 +63,21 @@ static void sock_nonblock(sock_t s) { fcntl(s, F_SETFL, fcntl(s, F_GETFL, 0) | O
 #endif
 
 // ------------------------------------------------------------------ mailbox layout
-// Must match struct CoopMailbox in include/coop.h (28-byte player state).
+// Must match struct CoopMailbox in include/coop.h (32-byte player state, then
+// this game's and the partner's current field message text).
 #define COOP_MAGIC_0 0x4F434242u
 #define COOP_MAGIC_1 0x3130504Fu
 #define MB_ACTIVE 8
 #define MB_INDEX 9
 #define MB_LOCAL 12
-#define MB_PARTNER 40
-#define STATE_SIZE 28
+#define MB_PARTNER 44
+#define MB_LOCALTEXT 76
+#define MB_PARTNERTEXT 476
+#define STATE_SIZE 32
+#define STATE_MSGSEQ 0x1C
+#define TEXT_SIZE 400
+#define TEXT_CHUNK 200
+#define TEXT_EOS 0xFF
 
 #define EWRAM_START 0x02000000u
 #define EWRAM_END 0x02040000u
@@ -79,7 +86,8 @@ static void sock_nonblock(sock_t s) { fcntl(s, F_SETFL, fcntl(s, F_GETFL, 0) | O
 // Every message: 'B' 'B' type len, then len bytes.
 #define MSG_HELLO 1 // payload: protocol version
 #define MSG_STATE 2 // payload: STATE_SIZE bytes of the sender's local block
-#define PROTOCOL_VERSION 1
+#define MSG_TEXT 3  // payload: chunk index, then up to TEXT_CHUNK bytes of the sender's message text
+#define PROTOCOL_VERSION 2
 #define DEFAULT_PORT 27450
 
 struct Net {
@@ -92,6 +100,8 @@ struct Net {
     size_t inlen;
     unsigned char partnerState[STATE_SIZE];
     int havePartnerState;
+    unsigned char partnerText[TEXT_SIZE];
+    int sentMsgSeq; // -1 until the first message text has been sent
 };
 
 struct App {
@@ -146,6 +156,7 @@ static int netJoin(struct Net *n, const char *host, int port) {
     sock_nonblock(n->peer);
     n->connected = 1;
     n->everConnected = 1;
+    n->sentMsgSeq = -1;
     n->isHost = 0;
     printf("Connected to your partner.\n");
     return 1;
@@ -170,6 +181,7 @@ static void netPoll(struct Net *n) {
             sock_nonblock(s);
             n->connected = 1;
             n->everConnected = 1;
+            n->sentMsgSeq = -1;
             printf("Your partner joined.\n");
             unsigned char v = PROTOCOL_VERSION;
             netSend(n, MSG_HELLO, &v, 1);
@@ -192,6 +204,10 @@ static void netPoll(struct Net *n) {
         if (m[2] == MSG_STATE && len == STATE_SIZE) {
             memcpy(n->partnerState, m + 4, STATE_SIZE);
             n->havePartnerState = 1;
+        } else if (m[2] == MSG_TEXT && len >= 1) {
+            size_t at = (size_t)m[4] * TEXT_CHUNK;
+            if (at + len - 1 <= TEXT_SIZE)
+                memcpy(n->partnerText + at, m + 5, len - 1);
         }
         pos += 4 + len;
     }
@@ -219,10 +235,33 @@ static void exchangeMailbox(struct App *app) {
     if (c->busRead32(c, app->mailbox) != COOP_MAGIC_0) { app->mailbox = 0; return; } // game reset
     for (int i = 0; i < STATE_SIZE; i++)
         local[i] = c->busRead8(c, app->mailbox + MB_LOCAL + i);
+    // A new field message: send its text first, so it's there when the state says so.
+    if (app->net.connected && app->net.sentMsgSeq != local[STATE_MSGSEQ]) {
+        unsigned char text[TEXT_SIZE];
+        int len = 0;
+        while (len < TEXT_SIZE - 1) {
+            text[len] = c->busRead8(c, app->mailbox + MB_LOCALTEXT + len);
+            if (text[len++] == TEXT_EOS) break;
+        }
+        if (text[len - 1] != TEXT_EOS) text[len++] = TEXT_EOS;
+        for (int chunk = 0; chunk * TEXT_CHUNK < len; chunk++) {
+            unsigned char payload[1 + TEXT_CHUNK];
+            int n = len - chunk * TEXT_CHUNK;
+            if (n > TEXT_CHUNK) n = TEXT_CHUNK;
+            payload[0] = (unsigned char)chunk;
+            memcpy(payload + 1, text + chunk * TEXT_CHUNK, n);
+            netSend(&app->net, MSG_TEXT, payload, 1 + n);
+        }
+        app->net.sentMsgSeq = local[STATE_MSGSEQ];
+    }
     netSend(&app->net, MSG_STATE, local, STATE_SIZE);
 
     c->busWrite8(c, app->mailbox + MB_INDEX, app->net.isHost ? 0 : 1);
     if (app->net.connected && app->net.havePartnerState) {
+        for (int i = 0; i < TEXT_SIZE; i++) {
+            c->busWrite8(c, app->mailbox + MB_PARTNERTEXT + i, app->net.partnerText[i]);
+            if (app->net.partnerText[i] == TEXT_EOS) break;
+        }
         for (int i = 0; i < STATE_SIZE; i++)
             c->busWrite8(c, app->mailbox + MB_PARTNER + i, app->net.partnerState[i]);
         c->busWrite8(c, app->mailbox + MB_ACTIVE, 1);

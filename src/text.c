@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "gflib.h"
 #include "m4a.h"
 #include "quest_log.h"
@@ -552,7 +553,13 @@ bool8 TextPrinterWaitAutoMode(struct TextPrinter *textPrinter)
 bool16 TextPrinterWaitWithDownArrow(struct TextPrinter *textPrinter)
 {
     bool8 result = FALSE;
-    if (gTextFlags.autoScroll != 0)
+    if (Coop_IsMirroringText())
+    {
+        // Co-op follower: the page turns when the leader's does.
+        TextPrinterDrawDownArrow(textPrinter);
+        result = Coop_ShouldAdvanceText();
+    }
+    else if (gTextFlags.autoScroll != 0)
     {
         result = TextPrinterWaitAutoMode(textPrinter);
     }
@@ -565,13 +572,19 @@ bool16 TextPrinterWaitWithDownArrow(struct TextPrinter *textPrinter)
             PlaySE(SE_SELECT);
         }
     }
+    if (result)
+        gCoopTextPages++;
     return result;
 }
 
 bool16 TextPrinterWait(struct TextPrinter *textPrinter)
 {
     bool16 result = FALSE;
-    if (gTextFlags.autoScroll != 0)
+    if (Coop_IsMirroringText())
+    {
+        result = Coop_ShouldAdvanceText();
+    }
+    else if (gTextFlags.autoScroll != 0)
     {
         result = TextPrinterWaitAutoMode(textPrinter);
     }
@@ -583,6 +596,8 @@ bool16 TextPrinterWait(struct TextPrinter *textPrinter)
             PlaySE(SE_SELECT);
         }
     }
+    if (result)
+        gCoopTextPages++;
     return result;
 }
 

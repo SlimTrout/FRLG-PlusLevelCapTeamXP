@@ -4,6 +4,8 @@
 #include "event_object_movement.h"
 #include "event_scripts.h"
 #include "field_fadetransition.h"
+#include "field_message_box.h"
+#include "field_specials.h"
 #include "field_player_avatar.h"
 #include "fieldmap.h"
 #include "main.h"
@@ -20,11 +22,16 @@
 // Partner on the map: the partner is shown as a walking character, driven by the
 // state the app copies into gCoopMailbox.partner every frame.
 //
-// Linked play: the leader records every step it takes by input (its direction) in
-// a small ring. The follower replays those directions as if its own player had
-// pressed them, one step behind, so doors, stairs, ledges and map edges all work
-// exactly as they do for the leader. If the follower ever loses track (the leader
-// flew, fell through a hole, or a script moved them), it warps to the leader.
+// Linked play: the follower has no character of its own. Its (invisible) player
+// stands on the leader's tile and walks the leader's steps, so its camera follows
+// the leader. The leader records every step it takes in a small ring; the follower
+// moves its player straight along them, with no collision and nothing on the map
+// reacting to it. If it ever loses track (the leader went through a door, flew, or
+// fell through a hole), it warps to the leader.
+//
+// Dialogue: whenever the leader has a field message on screen, the follower shows
+// the same text and turns its pages when the leader does, and it closes when the
+// leader's closes.
 
 extern const u8 Coop_EventScript_TalkToPartner[];
 extern const u8 Coop_EventScript_LinkRequest[];
@@ -40,6 +47,7 @@ extern const u8 Coop_Text_PartnerSplitOff[];
 extern const u8 Coop_Text_PartnerDisconnected[];
 
 EWRAM_DATA struct CoopMailbox gCoopMailbox = {0};
+u8 gCoopTextPages;
 
 static EWRAM_DATA u8 sPartnerObjId = 0;
 static EWRAM_DATA u8 sPartnerMapGroup = 0;
@@ -53,8 +61,10 @@ static EWRAM_DATA bool8 sAwaitingControlAnswer = FALSE;
 static EWRAM_DATA const u8 *sPendingScript = NULL;
 static EWRAM_DATA const u8 *sPendingNotice = NULL;
 static EWRAM_DATA bool8 sWasActive = FALSE;
+static EWRAM_DATA bool8 sCoopScriptRunning = FALSE; // its messages aren't mirrored
+static EWRAM_DATA bool8 sFollowerMenuRequested = FALSE;
 
-// step recording (leader side; always recorded)
+// step recording (always recorded)
 static EWRAM_DATA s16 sLastX = 0;
 static EWRAM_DATA s16 sLastY = 0;
 static EWRAM_DATA u8 sLastMapGroup = 0;
@@ -62,17 +72,20 @@ static EWRAM_DATA u8 sLastMapNum = 0;
 static EWRAM_DATA u32 sLastFrame = 0;
 
 // following
-static EWRAM_DATA u8 sConsumed = 0;     // leader steps already replayed
-static EWRAM_DATA u8 sInitialDir = 0;   // first step: into the leader's tile
-static EWRAM_DATA u8 sInjectDir = 0;    // direction being "pressed" right now
-static EWRAM_DATA bool8 sInjectFresh = FALSE;
-static EWRAM_DATA s16 sInjectFromX = 0;
-static EWRAM_DATA s16 sInjectFromY = 0;
-static EWRAM_DATA u8 sInjectFromMapNum = 0;
-static EWRAM_DATA u8 sInjectFromMapGroup = 0;
-static EWRAM_DATA u16 sLostFrames = 0;
-static EWRAM_DATA u16 sInjectFrames = 0;
-static EWRAM_DATA bool8 sFollowerMenuRequested = FALSE;
+static EWRAM_DATA u8 sConsumed = 0;     // leader steps already walked
+static EWRAM_DATA u8 sIdleFrames = 0;
+static EWRAM_DATA bool8 sWarping = FALSE;
+static EWRAM_DATA bool8 sResync = FALSE;
+static EWRAM_DATA u16 sWarpFrames = 0;
+static EWRAM_DATA u32 sFollowFrame = 0;
+
+// dialogue mirroring
+static EWRAM_DATA bool8 sMsgShown = FALSE;     // leader: a field message is up
+static EWRAM_DATA u8 sMsgPageBase = 0;         // leader: gCoopTextPages when it started
+static EWRAM_DATA bool8 sMirroring = FALSE;    // follower: showing the leader's message
+static EWRAM_DATA bool8 sShowingMirror = FALSE;
+static EWRAM_DATA u8 sMirrorSeq = 0;
+static EWRAM_DATA u8 sMirrorPageBase = 0;
 
 // ---------------------------------------------------------------- helpers
 
@@ -98,20 +111,6 @@ static u8 GetDirectionTo(s16 dx, s16 dy)
     return DIR_NORTH;
 }
 
-// Direction from the player to the partner if they stand side by side, else 0.
-static u8 GetAdjacentDirToPartner(void)
-{
-    struct ObjectEvent *player = GetPlayerObject();
-    s16 dx = gCoopMailbox.partner.x - player->currentCoords.x;
-    s16 dy = gCoopMailbox.partner.y - player->currentCoords.y;
-
-    if (!OnSameMapAsPartner())
-        return 0;
-    if ((dx == 0 && (dy == 1 || dy == -1)) || (dy == 0 && (dx == 1 || dx == -1)))
-        return GetDirectionTo(dx, dy);
-    return 0;
-}
-
 static void SendCommand(u8 cmd)
 {
     gCoopMailbox.local.cmd = cmd;
@@ -123,25 +122,39 @@ static void ShowNotice(const u8 *text)
     sPendingNotice = text;
 }
 
+static void StopMirroring(void)
+{
+    if (sMirroring)
+        HideFieldMessageBox();
+    sMirroring = FALSE;
+}
+
+static void ShowOwnPlayer(void)
+{
+    GetPlayerObject()->invisible = FALSE;
+}
+
 static void StartFollowing(void)
 {
     gCoopMailbox.local.mode = COOP_MODE_FOLLOW;
     sConsumed = gCoopMailbox.partner.stepCount;
-    sInitialDir = GetAdjacentDirToPartner();
-    sInjectDir = 0;
-    sLostFrames = 0;
+    sIdleFrames = 0;
+    sWarping = FALSE;
+    sResync = FALSE;
 }
 
 static void StartLeading(void)
 {
     gCoopMailbox.local.mode = COOP_MODE_LEAD;
-    sInjectDir = 0;
+    StopMirroring();
+    ShowOwnPlayer();
 }
 
 static void Split(void)
 {
     gCoopMailbox.local.mode = COOP_MODE_SPLIT;
-    sInjectDir = 0;
+    StopMirroring();
+    ShowOwnPlayer();
 }
 
 bool8 Coop_IsLinked(void)
@@ -161,6 +174,16 @@ bool8 Coop_IsPartnerObject(struct ObjectEvent *objectEvent)
 
 const u8 *Coop_GetPartnerInteractionScript(void)
 {
+    sCoopScriptRunning = TRUE;
+    return Coop_EventScript_TalkToPartner;
+}
+
+// R while linked: the leader's or follower's co-op menu.
+const u8 *Coop_GetMenuScript(void)
+{
+    sCoopScriptRunning = TRUE;
+    if (Coop_IsFollowing())
+        return Coop_EventScript_FollowerMenu;
     return Coop_EventScript_TalkToPartner;
 }
 
@@ -183,20 +206,27 @@ static u8 GetPartnerStep(u8 index)
     return ((gCoopMailbox.partner.steps[slot / 4] >> ((slot % 4) * 2)) & 3) + 1;
 }
 
-// A step counts if the player moved by input on the overworld without a gap in
-// frames (a gap means a warp or a screen in between).
+// Every tile the player moves on the overworld is a step, whether by input, a
+// script or a slide (a ledge jump is two). A gap in frames means a warp or a
+// screen in between, and a map change is crossing into a connected map; neither
+// is a step.
 static void TrackSteps(void)
 {
     struct ObjectEvent *player = GetPlayerObject();
     u32 frame = gMain.vblankCounter2;
-    bool8 moved = player->currentCoords.x != sLastX || player->currentCoords.y != sLastY
-               || gSaveBlock1Ptr->location.mapNum != sLastMapNum || gSaveBlock1Ptr->location.mapGroup != sLastMapGroup;
+    s16 dx = player->currentCoords.x - sLastX;
+    s16 dy = player->currentCoords.y - sLastY;
 
-    // Crossing into a connected map shows up as a second coordinate change on the
-    // next frame (the coordinates move to the new map); that isn't a new step.
-    if (moved && frame - sLastFrame <= 2 && !ArePlayerFieldControlsLocked()
-     && gSaveBlock1Ptr->location.mapNum == sLastMapNum && gSaveBlock1Ptr->location.mapGroup == sLastMapGroup)
-        RecordStep(player->movementDirection);
+    if ((dx != 0 || dy != 0) && frame - sLastFrame <= 2
+     && gSaveBlock1Ptr->location.mapNum == sLastMapNum && gSaveBlock1Ptr->location.mapGroup == sLastMapGroup
+     && (dx == 0 || dy == 0) && dx >= -2 && dx <= 2 && dy >= -2 && dy <= 2)
+    {
+        u8 dir = GetDirectionTo(dx, dy);
+        u8 n = (dx != 0) ? (dx > 0 ? dx : -dx) : (dy > 0 ? dy : -dy);
+
+        while (n--)
+            RecordStep(dir);
+    }
     sLastX = player->currentCoords.x;
     sLastY = player->currentCoords.y;
     sLastMapNum = gSaveBlock1Ptr->location.mapNum;
@@ -216,8 +246,11 @@ static void WriteLocalState(void)
     s->facing = player->facingDirection;
     s->elevation = player->currentElevation;
     s->gender = gSaveBlock2Ptr->playerGender;
-    s->running = (gPlayerAvatar.flags & (PLAYER_AVATAR_FLAG_DASH | PLAYER_AVATAR_FLAG_MACH_BIKE | PLAYER_AVATAR_FLAG_ACRO_BIKE)) != 0;
+    s->running = (gPlayerAvatar.flags & PLAYER_AVATAR_FLAG_DASH) != 0;
+    s->biking = (gPlayerAvatar.flags & (PLAYER_AVATAR_FLAG_MACH_BIKE | PLAYER_AVATAR_FLAG_ACRO_BIKE)) != 0;
     s->inOverworld = TRUE;
+    s->msgActive = sMsgShown;
+    s->msgPage = gCoopTextPages - sMsgPageBase;
     StringCopyN(s->name, gSaveBlock2Ptr->playerName, PLAYER_NAME_LENGTH + 1);
     s->seq++;
 }
@@ -269,7 +302,8 @@ static void UpdatePartnerSprite(void)
     struct ObjectEvent *obj = GetPartnerObject();
     s16 dx, dy;
 
-    if (!OnSameMapAsPartner())
+    // A follower has no character of its own: the leader sees nobody.
+    if (!OnSameMapAsPartner() || p->mode == COOP_MODE_FOLLOW)
     {
         RemovePartner();
         return;
@@ -310,8 +344,15 @@ static void UpdatePartnerSprite(void)
     else if ((dx == 0 || dy == 0) && (dx * dx + dy * dy) == 1)
     {
         u8 dir = GetDirectionTo(dx, dy);
+        u8 action;
 
-        ObjectEventSetHeldMovement(obj, p->running ? GetWalkFastMovementAction(dir) : GetWalkNormalMovementAction(dir));
+        if (p->biking)
+            action = GetWalkFasterMovementAction(dir);
+        else if (p->running)
+            action = GetWalkFastMovementAction(dir);
+        else
+            action = GetWalkNormalMovementAction(dir);
+        ObjectEventSetHeldMovement(obj, action);
     }
     else
     {
@@ -379,7 +420,13 @@ static void HandlePartnerCommand(void)
 
 static bool8 CanRunCoopScript(void)
 {
-    return Coop_IsInOverworld() && !ArePlayerFieldControlsLocked() && !ScriptContext_IsEnabled();
+    return Coop_IsInOverworld() && !ArePlayerFieldControlsLocked() && !ScriptContext_IsEnabled() && !sMirroring;
+}
+
+static void RunCoopScript(const u8 *script)
+{
+    sCoopScriptRunning = TRUE;
+    ScriptContext_SetupScript(script);
 }
 
 static void RunPendingScripts(void)
@@ -388,7 +435,7 @@ static void RunPendingScripts(void)
         return;
     if (sPendingScript != NULL)
     {
-        ScriptContext_SetupScript(sPendingScript);
+        RunCoopScript(sPendingScript);
         sPendingScript = NULL;
     }
     else if (sPendingNotice != NULL)
@@ -396,12 +443,13 @@ static void RunPendingScripts(void)
         Coop_BufferPartnerName();
         StringExpandPlaceholders(gStringVar4, sPendingNotice);
         sPendingNotice = NULL;
-        ScriptContext_SetupScript(Coop_EventScript_Notice);
+        RunCoopScript(Coop_EventScript_Notice);
     }
     else if (sFollowerMenuRequested)
     {
         sFollowerMenuRequested = FALSE;
-        ScriptContext_SetupScript(Coop_EventScript_FollowerMenu);
+        if (Coop_IsFollowing())
+            RunCoopScript(Coop_EventScript_FollowerMenu);
     }
 }
 
@@ -413,52 +461,67 @@ static void WarpToLeader(void)
 
     SetWarpDestination(p->mapGroup, p->mapNum, -1, p->x - MAP_OFFSET, p->y - MAP_OFFSET);
     DoWarp();
-    sConsumed = p->stepCount;
-    sInitialDir = 0;
-    sInjectDir = 0;
-    sLostFrames = 0;
+    sWarping = TRUE;
+    sWarpFrames = 0;
+    sIdleFrames = 0;
 }
 
-static void InjectStep(u8 dir)
+// Walk the invisible player one tile, ignoring collision and tile effects.
+static void FollowerStep(u8 dir, u8 pending)
 {
+    struct CoopPlayerState *p = &gCoopMailbox.partner;
     struct ObjectEvent *player = GetPlayerObject();
+    u8 action;
 
-    sInjectDir = dir;
-    sInjectFresh = TRUE;
-    sInjectFrames = 0;
-    sInjectFromX = player->currentCoords.x;
-    sInjectFromY = player->currentCoords.y;
-    sInjectFromMapNum = gSaveBlock1Ptr->location.mapNum;
-    sInjectFromMapGroup = gSaveBlock1Ptr->location.mapGroup;
+    if (pending >= 4 || p->biking)
+        action = GetWalkFasterMovementAction(dir);
+    else if (pending >= 2 || p->running)
+        action = GetWalkFastMovementAction(dir);
+    else
+        action = GetWalkNormalMovementAction(dir);
+    player->currentElevation = p->elevation;
+    player->previousElevation = p->elevation;
+    ObjectEventClearHeldMovementIfActive(player);
+    ObjectEventSetHeldMovement(player, action);
 }
 
 static void UpdateFollowing(void)
 {
     struct CoopPlayerState *p = &gCoopMailbox.partner;
     struct ObjectEvent *player = GetPlayerObject();
+    u32 frame = gMain.vblankCounter2;
     u8 pending;
+    s16 dx, dy;
 
     if (!Coop_IsInOverworld())
         return;
+    player->invisible = TRUE;
 
-    // The injected step has started once the player's position changes.
-    if (sInjectDir != 0)
+    // A warp is done once the overworld has been reloaded (a gap in frames).
+    if (sWarping)
     {
-        if (player->currentCoords.x != sInjectFromX || player->currentCoords.y != sInjectFromY
-         || gSaveBlock1Ptr->location.mapNum != sInjectFromMapNum || gSaveBlock1Ptr->location.mapGroup != sInjectFromMapGroup)
+        if (frame - sFollowFrame > 2 || ++sWarpFrames > 300)
         {
-            sInjectDir = 0;
+            sWarping = FALSE;
+            sResync = TRUE;
         }
-        else
-        {
-            // A step that never starts (something odd in the way): go to the leader.
-            if (++sInjectFrames > 40 && !ArePlayerFieldControlsLocked())
-                WarpToLeader();
-            return;
-        }
+        sFollowFrame = frame;
+        return;
     }
+    sFollowFrame = frame;
+
+    // The follower's own menus and warp transitions pause it.
     if (ArePlayerFieldControlsLocked())
         return;
+    if (sResync)
+    {
+        // Steps taken during the warp are made up by walking straight there.
+        sConsumed = p->stepCount;
+        sResync = FALSE;
+    }
+    if (ObjectEventCheckHeldMovementStatus(player) == 0)
+        return; // a step is under way
+    ObjectEventClearHeldMovementIfFinished(player);
 
     pending = p->stepCount - sConsumed;
     if (pending > COOP_STEP_RING - 2)
@@ -466,64 +529,137 @@ static void UpdateFollowing(void)
         WarpToLeader();
         return;
     }
-    if (sInitialDir != 0 && pending >= 1)
+    if (pending > 0)
     {
-        InjectStep(sInitialDir);
-        sInitialDir = 0;
-        return;
-    }
-    if (pending >= 2 || (pending >= 1 && !OnSameMapAsPartner()))
-    {
-        InjectStep(GetPartnerStep(sConsumed));
+        FollowerStep(GetPartnerStep(sConsumed), pending);
         sConsumed++;
-        sLostFrames = 0;
+        sIdleFrames = 0;
         return;
     }
-    // Leader went through a door or warp, flew, or was moved by an event: go there.
-    if (pending == 0 && !OnSameMapAsPartner() && p->inOverworld)
+
+    // Caught up. Went through a door or warp, flew, or fell: go there.
+    if (!OnSameMapAsPartner())
     {
-        if (++sLostFrames > 4)
+        if (++sIdleFrames > 4)
             WarpToLeader();
+        return;
     }
-    else
+    dx = p->x - player->currentCoords.x;
+    dy = p->y - player->currentCoords.y;
+    if (dx == 0 && dy == 0)
     {
-        sLostFrames = 0;
+        sIdleFrames = 0;
+        if (player->facingDirection != p->facing)
+            SetObjectEventDirection(player, p->facing);
+        return;
     }
+    // Off by a little (just linked, or after a warp): walk straight there.
+    if (dx > 12 || dx < -12 || dy > 12 || dy < -12)
+    {
+        if (++sIdleFrames > 4)
+            WarpToLeader();
+        return;
+    }
+    if (++sIdleFrames > 2)
+        FollowerStep(GetDirectionTo(dx, dx != 0 ? 0 : dy), 2);
 }
 
-// Called from CB1_Overworld before the game reads input. The follower's own
-// movement and A/B are replaced by the replayed steps; Start and Select still work.
+// Called from CB1_Overworld before the game reads input. The follower's buttons
+// do nothing but open the Start menu (and A or R, the co-op menu).
 void Coop_FilterInput(u16 *newKeys, u16 *heldKeys)
 {
-    u16 dirKey;
-
     if (!Coop_IsFollowing())
         return;
 
-    // A opens the follower menu, but not the press that closes a message.
-    if ((*newKeys & A_BUTTON) && sInjectDir == 0 && !ArePlayerFieldControlsLocked() && !ScriptContext_IsEnabled())
+    if ((*newKeys & (A_BUTTON | R_BUTTON)) && !sMirroring && !ArePlayerFieldControlsLocked() && !ScriptContext_IsEnabled())
         sFollowerMenuRequested = TRUE;
-    *newKeys &= START_BUTTON | SELECT_BUTTON;
-    *heldKeys &= START_BUTTON | SELECT_BUTTON;
-    if (sInjectDir == 0)
-        return;
+    *newKeys &= sMirroring ? 0 : START_BUTTON;
+    *heldKeys = 0;
+}
 
-    switch (sInjectDir)
+// ---------------------------------------------------------------- dialogue mirroring
+
+// Field message boxes call these (field_message_box.c).
+void Coop_OnFieldMessage(const u8 *text)
+{
+    u16 i;
+
+    if (sShowingMirror)
+        return;
+    if (sCoopScriptRunning)
     {
-    case DIR_SOUTH: dirKey = DPAD_DOWN; break;
-    case DIR_NORTH: dirKey = DPAD_UP; break;
-    case DIR_WEST:  dirKey = DPAD_LEFT; break;
-    default:        dirKey = DPAD_RIGHT; break;
+        // The co-op menus and notices are this player's own business.
+        sMsgShown = FALSE;
+        return;
     }
-    *heldKeys |= dirKey;
-    if (sInjectFresh)
+    for (i = 0; i < COOP_TEXT_SIZE - 1 && text[i] != EOS; i++)
+        gCoopMailbox.localText[i] = text[i];
+    gCoopMailbox.localText[i] = EOS;
+    gCoopMailbox.local.msgColor = ContextNpcGetTextColor();
+    gCoopMailbox.local.msgSignpost = IsMsgSignpost();
+    gCoopMailbox.local.msgSeq++;
+    sMsgPageBase = gCoopTextPages;
+    sMsgShown = TRUE;
+}
+
+void Coop_OnFieldMessageHidden(void)
+{
+    if (!sShowingMirror)
+        sMsgShown = FALSE;
+}
+
+bool8 Coop_IsMirroringText(void)
+{
+    return sMirroring;
+}
+
+// The follower's text printer asks this instead of checking A/B.
+bool8 Coop_ShouldAdvanceText(void)
+{
+    return (s8)(gCoopMailbox.partner.msgPage - (u8)(gCoopTextPages - sMirrorPageBase)) > 0;
+}
+
+static void ShowMirror(void)
+{
+    u16 color = gSpecialVar_TextColor;
+
+    gCoopMailbox.partnerText[COOP_TEXT_SIZE - 1] = EOS;
+    sMirrorSeq = gCoopMailbox.partner.msgSeq;
+    sMirrorPageBase = gCoopTextPages;
+    sShowingMirror = TRUE;
+    gSpecialVar_TextColor = gCoopMailbox.partner.msgColor;
+    if (gCoopMailbox.partner.msgSignpost)
+        MsgSetSignpost();
+    else
+        MsgSetNotSignpost();
+    ForceShowFieldMessage(gCoopMailbox.partnerText); // copied into gStringVar4
+    gSpecialVar_TextColor = color;
+    sShowingMirror = FALSE;
+    sMirroring = TRUE;
+}
+
+static void UpdateMirroredText(void)
+{
+    struct CoopPlayerState *p = &gCoopMailbox.partner;
+    bool8 leaderTalking = Coop_IsFollowing() && p->mode == COOP_MODE_LEAD && p->msgActive;
+
+    if (sMirroring)
     {
-        *newKeys |= dirKey;
-        sInjectFresh = FALSE;
+        if (!leaderTalking)
+        {
+            sShowingMirror = TRUE;
+            StopMirroring();
+            sShowingMirror = FALSE;
+        }
+        else if (p->msgSeq != sMirrorSeq)
+        {
+            ShowMirror();
+        }
     }
-    // Run to catch up when the leader is running or a few steps ahead.
-    if (FlagGet(FLAG_SYS_B_DASH) && (gCoopMailbox.partner.running || (u8)(gCoopMailbox.partner.stepCount - sConsumed) >= 3))
-        *heldKeys |= B_BUTTON;
+    else if (leaderTalking && Coop_IsInOverworld() && !ScriptContext_IsEnabled() && !ArePlayerFieldControlsLocked())
+    {
+        ShowMirror();
+    }
 }
 
 // ---------------------------------------------------------------- main update
@@ -533,6 +669,10 @@ void Coop_Update(void)
 {
     gCoopMailbox.magic[0] = COOP_MAGIC_0;
     gCoopMailbox.magic[1] = COOP_MAGIC_1;
+    // A co-op script is over once it has released the player (it may wait on a
+    // yes/no box in between, when the script context isn't running).
+    if (sCoopScriptRunning && !ScriptContext_IsEnabled() && !ArePlayerFieldControlsLocked())
+        sCoopScriptRunning = FALSE;
     TrackSteps();
     WriteLocalState();
 
@@ -555,6 +695,7 @@ void Coop_Update(void)
     HandlePartnerCommand();
     if (Coop_IsFollowing())
         UpdateFollowing();
+    UpdateMirroredText();
     UpdatePartnerSprite();
     RunPendingScripts();
 }

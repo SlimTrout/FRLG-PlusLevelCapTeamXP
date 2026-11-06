@@ -206,7 +206,8 @@ int ProcessPlayerFieldInput(struct FieldInput *input)
     u16 metatileBehavior;
     u32 metatileAttributes;
 
-    ResetFacingNpcOrSignpostVars();
+    if (!Coop_IsMirroringText()) // keep the mirrored message's frame and color
+        ResetFacingNpcOrSignpostVars();
     playerDirection = GetPlayerFacingDirection();
     GetPlayerPosition(&position);
     metatileAttributes = MapGridGetMetatileAttributeAt(position.x, position.y, METATILE_ATTRIBUTES_ALL);
@@ -215,13 +216,10 @@ int ProcessPlayerFieldInput(struct FieldInput *input)
     FieldClearPlayerInput(&gFieldInputRecord);
     gFieldInputRecord.dpadDirection = input->dpadDirection;
 
-    // Co-op follower: it only walks behind the leader. Nothing on the map reacts to
-    // it (signs, events, NPCs, doors); stepping on a warp tile still takes it along,
-    // and the Start menu still opens.
+    // Co-op follower: it has no character of its own and only watches the leader.
+    // Nothing on the map reacts to it; the Start menu still opens.
     if (Coop_IsFollowing())
     {
-        if (input->tookStep && TryStartWarpEventScript(&position, metatileBehavior) == TRUE)
-            return TRUE;
         if (input->pressedStartButton)
         {
             PlaySE(SE_WIN_OPEN);
@@ -229,6 +227,13 @@ int ProcessPlayerFieldInput(struct FieldInput *input)
             return TRUE;
         }
         return FALSE;
+    }
+
+    // Co-op leader: R opens the co-op menu (hand over the lead, split off).
+    if (input->pressedRButton && Coop_IsLinked())
+    {
+        ScriptContext_SetupScript(Coop_GetMenuScript());
+        return TRUE;
     }
 
     if (CheckForTrainersWantingBattle() == TRUE)

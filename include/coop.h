@@ -30,8 +30,10 @@ enum
     COOP_CMD_SPLIT,
 };
 
-// 28 bytes. The app copies it byte for byte, so keep the layout in sync with
-// coop/app/bbcoop.c and coop/host/coophost.c (STATE_SIZE, MB_PARTNER).
+#define COOP_TEXT_SIZE 400
+
+// 32 bytes. The app copies it byte for byte, so keep the layout in sync with
+// coop/app/bbcoop.c and coop/host/coophost.c (STATE_SIZE, MB_PARTNER, MB_*TEXT).
 struct CoopPlayerState
 {
     /*0x00*/ u16 seq;          // bumped every frame the state is written
@@ -42,15 +44,22 @@ struct CoopPlayerState
     /*0x08*/ u8 facing;        // DIR_*
     /*0x09*/ u8 elevation;
     /*0x0A*/ u8 gender;
-    /*0x0B*/ u8 running:1;     // running or on a bike: partner walks fast
+    /*0x0B*/ u8 running:1;     // running: partner walks fast
              u8 inOverworld:1;
-             u8 padding:6;
+             u8 biking:1;      // on a bike: partner rides faster
+             u8 msgActive:1;   // a field message is on screen (the follower mirrors it)
+             u8 padding:4;
     /*0x0C*/ u8 mode;          // COOP_MODE_*
     /*0x0D*/ u8 stepCount;     // steps taken by input so far (wraps)
     /*0x0E*/ u8 steps[COOP_STEP_RING / 4]; // last 16 step directions, 2 bits each (DIR_* - 1)
     /*0x12*/ u8 cmdSeq;        // bumped when a new command is sent
     /*0x13*/ u8 cmd;           // COOP_CMD_*
     /*0x14*/ u8 name[8];       // player name
+    /*0x1C*/ u8 msgSeq;        // bumped when a new field message starts (text in localText)
+    /*0x1D*/ u8 msgPage;       // pages of that message the player has moved past
+    /*0x1E*/ u8 msgColor;      // NPC_TEXT_COLOR_* of that message
+    /*0x1F*/ u8 msgSignpost:1; // drawn in a signpost frame
+             u8 padding2:7;
 };
 
 struct CoopMailbox
@@ -60,7 +69,9 @@ struct CoopMailbox
     /*0x09*/ u8 playerIndex;   // set by the app: 0 = host, 1 = guest
     /*0x0A*/ u8 padding[2];
     /*0x0C*/ struct CoopPlayerState local;   // written by this game
-    /*0x28*/ struct CoopPlayerState partner; // written by the app
+    /*0x2C*/ struct CoopPlayerState partner; // written by the app
+    /*0x4C*/ u8 localText[COOP_TEXT_SIZE];   // this game's current field message
+    /*0x1DC*/ u8 partnerText[COOP_TEXT_SIZE]; // the partner's, written by the app
 };
 
 extern struct CoopMailbox gCoopMailbox;
@@ -72,6 +83,14 @@ bool8 Coop_IsLinked(void);
 bool8 Coop_IsFollowing(void);
 bool8 Coop_IsPartnerObject(struct ObjectEvent *objectEvent);
 const u8 *Coop_GetPartnerInteractionScript(void);
+const u8 *Coop_GetMenuScript(void);
+
+// dialogue mirroring
+extern u8 gCoopTextPages;
+void Coop_OnFieldMessage(const u8 *text);
+void Coop_OnFieldMessageHidden(void);
+bool8 Coop_IsMirroringText(void);
+bool8 Coop_ShouldAdvanceText(void);
 
 // specials
 void Coop_BufferPartnerName(void);

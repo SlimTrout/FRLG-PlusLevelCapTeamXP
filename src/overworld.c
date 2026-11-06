@@ -1511,7 +1511,7 @@ static void DoCB1_Overworld(u16 newKeys, u16 heldKeys)
             LockPlayerFieldControls();
             DismissMapNamePopup();
         }
-        else
+        else if (!Coop_IsFollowing()) // the co-op follower's player is moved by coop.c
         {
             player_step(fieldInput.dpadDirection, newKeys, heldKeys);
         }

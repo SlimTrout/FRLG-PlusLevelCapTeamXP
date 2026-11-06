@@ -13,6 +13,7 @@ enum {
 bool8 ShowFieldMessage(const u8 *message);
 bool8 ShowFieldAutoScrollMessage(const u8 *message);
 void HideFieldMessageBox(void);
+void ForceShowFieldMessage(const u8 *str);
 bool8 IsFieldMessageBoxHidden(void);
 u8 GetFieldMessageBoxType(void);
 void InitFieldMessageBox(void);

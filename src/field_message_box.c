@@ -5,6 +5,7 @@
 #include "quest_log.h"
 #include "script.h"
 #include "text_window.h"
+#include "coop.h"
 
 static EWRAM_DATA u8 sMessageBoxType = 0;
 
@@ -14,6 +15,7 @@ static void StartDrawFieldMessageBox(void);
 void InitFieldMessageBox(void)
 {
     sMessageBoxType = FIELD_MESSAGE_BOX_HIDDEN;
+    Coop_OnFieldMessageHidden();
     gTextFlags.canABSpeedUpPrint = FALSE;
     gTextFlags.useAlternateDownArrow = FALSE;
     gTextFlags.autoScroll = FALSE;
@@ -100,15 +102,25 @@ static bool8 ShowFieldMessageFromBuffer(void)
     return TRUE;
 }
 
+// Co-op: the follower shows the leader's message, replacing whatever it showed.
+void ForceShowFieldMessage(const u8 *str)
+{
+    DestroyTask_DrawFieldMessageBox();
+    sMessageBoxType = FIELD_MESSAGE_BOX_NORMAL;
+    ExpandStringAndStartDrawFieldMessageBox(str);
+}
+
 static void ExpandStringAndStartDrawFieldMessageBox(const u8 *str)
 {
     StringExpandPlaceholders(gStringVar4, str);
+    Coop_OnFieldMessage(gStringVar4);
     AddTextPrinterDiffStyle(TRUE);
     CreateTask_DrawFieldMessageBox();
 }
 
 static void StartDrawFieldMessageBox(void)
 {
+    Coop_OnFieldMessage(gStringVar4);
     AddTextPrinterDiffStyle(TRUE);
     CreateTask_DrawFieldMessageBox();
 }
@@ -118,6 +130,7 @@ void HideFieldMessageBox(void)
     DestroyTask_DrawFieldMessageBox();
     ClearDialogWindowAndFrame(0, TRUE);
     sMessageBoxType = FIELD_MESSAGE_BOX_HIDDEN;
+    Coop_OnFieldMessageHidden();
 }
 
 u8 GetFieldMessageBoxType(void)
