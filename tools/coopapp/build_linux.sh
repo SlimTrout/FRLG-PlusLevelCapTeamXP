@@ -12,11 +12,13 @@ if [ ! -d mgba ]; then
     git clone https://github.com/mgba-emu/mgba.git
 fi
 git -C mgba fetch --quiet origin && git -C mgba checkout --quiet $MGBA_COMMIT
+rm -rf mgba/build-linux
 cmake -S mgba -B mgba/build-linux -G Ninja -DCMAKE_BUILD_TYPE=Release \
     -DBUILD_STATIC=ON -DBUILD_SHARED=OFF -DBUILD_QT=OFF -DBUILD_SDL=OFF -DBUILD_HEADLESS=OFF \
     -DM_CORE_GB=OFF -DM_CORE_GBA=ON -DENABLE_SCRIPTING=OFF -DENABLE_DEBUGGERS=OFF -DENABLE_GDB_STUB=OFF \
     -DUSE_PNG=OFF -DUSE_ZLIB=OFF -DUSE_LZMA=OFF -DUSE_MINIZIP=OFF -DUSE_LIBZIP=OFF -DUSE_FREETYPE=OFF \
-    -DUSE_SQLITE3=OFF -DUSE_ELF=OFF -DUSE_EDITLINE=OFF -DUSE_JSON_C=OFF -DUSE_FFMPEG=OFF -DUSE_LUA=OFF
+    -DUSE_SQLITE3=OFF -DUSE_ELF=OFF -DUSE_EDITLINE=OFF -DUSE_JSON_C=OFF -DUSE_FFMPEG=OFF -DUSE_LUA=OFF \
+    -DBUILD_GL=OFF -DBUILD_GLES2=OFF -DBUILD_GLES3=OFF -DUSE_EPOXY=OFF -DUSE_DISCORD_RPC=OFF
 ninja -C mgba/build-linux mgba
 
 # 2. the app, compiled with the same defines the library was built with
