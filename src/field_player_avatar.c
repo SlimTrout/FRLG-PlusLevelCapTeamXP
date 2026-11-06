@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "item.h"
 #include "constants/items.h"
 #include "gflib.h"
@@ -608,6 +609,13 @@ static u8 CheckForPlayerAvatarCollision(u8 direction)
     if (IsDirectionalStairWarpMetatileBehavior(MapGridGetMetatileBehaviorAt(x, y), direction))
         return COLLISION_DIRECTIONAL_STAIR_WARP;
     MoveCoords(direction, &x, &y);
+    if (Coop_IsFollowing())
+    {
+        // The co-op follower walks through everything, but still hops ledges.
+        if (ShouldJumpLedge(x, y, direction))
+            return COLLISION_LEDGE_JUMP;
+        return COLLISION_NONE;
+    }
     return CheckForObjectEventCollision(playerObjEvent, x, y, direction, MapGridGetMetatileBehaviorAt(x, y));
 }
 

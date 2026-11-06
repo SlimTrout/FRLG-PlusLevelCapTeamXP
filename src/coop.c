@@ -71,6 +71,7 @@ static EWRAM_DATA s16 sInjectFromY = 0;
 static EWRAM_DATA u8 sInjectFromMapNum = 0;
 static EWRAM_DATA u8 sInjectFromMapGroup = 0;
 static EWRAM_DATA u16 sLostFrames = 0;
+static EWRAM_DATA u16 sInjectFrames = 0;
 static EWRAM_DATA bool8 sFollowerMenuRequested = FALSE;
 
 // ---------------------------------------------------------------- helpers
@@ -191,7 +192,10 @@ static void TrackSteps(void)
     bool8 moved = player->currentCoords.x != sLastX || player->currentCoords.y != sLastY
                || gSaveBlock1Ptr->location.mapNum != sLastMapNum || gSaveBlock1Ptr->location.mapGroup != sLastMapGroup;
 
-    if (moved && frame - sLastFrame <= 2 && !ArePlayerFieldControlsLocked())
+    // Crossing into a connected map shows up as a second coordinate change on the
+    // next frame (the coordinates move to the new map); that isn't a new step.
+    if (moved && frame - sLastFrame <= 2 && !ArePlayerFieldControlsLocked()
+     && gSaveBlock1Ptr->location.mapNum == sLastMapNum && gSaveBlock1Ptr->location.mapGroup == sLastMapGroup)
         RecordStep(player->movementDirection);
     sLastX = player->currentCoords.x;
     sLastY = player->currentCoords.y;
@@ -421,6 +425,7 @@ static void InjectStep(u8 dir)
 
     sInjectDir = dir;
     sInjectFresh = TRUE;
+    sInjectFrames = 0;
     sInjectFromX = player->currentCoords.x;
     sInjectFromY = player->currentCoords.y;
     sInjectFromMapNum = gSaveBlock1Ptr->location.mapNum;
@@ -441,9 +446,16 @@ static void UpdateFollowing(void)
     {
         if (player->currentCoords.x != sInjectFromX || player->currentCoords.y != sInjectFromY
          || gSaveBlock1Ptr->location.mapNum != sInjectFromMapNum || gSaveBlock1Ptr->location.mapGroup != sInjectFromMapGroup)
+        {
             sInjectDir = 0;
+        }
         else
+        {
+            // A step that never starts (something odd in the way): go to the leader.
+            if (++sInjectFrames > 40 && !ArePlayerFieldControlsLocked())
+                WarpToLeader();
             return;
+        }
     }
     if (ArePlayerFieldControlsLocked())
         return;
@@ -467,10 +479,10 @@ static void UpdateFollowing(void)
         sLostFrames = 0;
         return;
     }
-    // Leader is somewhere we can't walk to (flew, fell, was moved by a script).
+    // Leader went through a door or warp, flew, or was moved by an event: go there.
     if (pending == 0 && !OnSameMapAsPartner() && p->inOverworld)
     {
-        if (++sLostFrames > 90)
+        if (++sLostFrames > 4)
             WarpToLeader();
     }
     else

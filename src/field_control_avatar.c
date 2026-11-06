@@ -215,6 +215,22 @@ int ProcessPlayerFieldInput(struct FieldInput *input)
     FieldClearPlayerInput(&gFieldInputRecord);
     gFieldInputRecord.dpadDirection = input->dpadDirection;
 
+    // Co-op follower: it only walks behind the leader. Nothing on the map reacts to
+    // it (signs, events, NPCs, doors); stepping on a warp tile still takes it along,
+    // and the Start menu still opens.
+    if (Coop_IsFollowing())
+    {
+        if (input->tookStep && TryStartWarpEventScript(&position, metatileBehavior) == TRUE)
+            return TRUE;
+        if (input->pressedStartButton)
+        {
+            PlaySE(SE_WIN_OPEN);
+            ShowStartMenu();
+            return TRUE;
+        }
+        return FALSE;
+    }
+
     if (CheckForTrainersWantingBattle() == TRUE)
         return TRUE;
 
