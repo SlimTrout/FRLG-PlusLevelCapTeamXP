@@ -184,7 +184,6 @@ static const struct TrackerArea sTrackerAreas[] =
     AREA_NAMED(AREA_SAFARI_NE, sText_SafariNE),
     AREA(0x54, MAPSEC_ARTISAN_CAVE),
     AREA(0x55, MAPSEC_SOUTHERN_ISLAND),
-    AREA(0x56, MAPSEC_BATTLE_FRONTIER),
 };
 
 #define NUM_TRACKER_AREAS ARRAY_COUNT(sTrackerAreas)
