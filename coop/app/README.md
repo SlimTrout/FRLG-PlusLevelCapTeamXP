@@ -48,6 +48,13 @@ If the partner disconnects, the game is saved to `<rom>.coop.ss` and the app clo
   encounters are kept per player.
 - **Only the host saves.** The guest's Start menu has no Save. When the host saves,
   the guest's game saves at the same moment.
+- **Trainers.** While one player is talking to or fighting a trainer, that trainer
+  ignores the other player. Once it's beaten, it's beaten for both.
+- **Snapshots.** If your partner disconnects, or you close the window while connected,
+  the app saves a snapshot of that exact moment next to your save file
+  (`<your save>.coop.ss`) and closes. Start the app again with the same save and it
+  picks up from the snapshot (the snapshot is then renamed to `.coop.ss.used`). To
+  ignore a snapshot and load your normal save instead, delete the `.coop.ss` file first.
 
 ## Status
 

@@ -686,6 +686,9 @@ void Coop_Update(void)
     // yes/no box in between, when the script context isn't running).
     if (sCoopScriptRunning && !ScriptContext_IsEnabled() && !ArePlayerFieldControlsLocked())
         sCoopScriptRunning = FALSE;
+    // A trainer battle is over once the player is back and free to move.
+    if (gCoopMailbox.local.battleTrainer && Coop_IsInOverworld() && !ScriptContext_IsEnabled() && !ArePlayerFieldControlsLocked())
+        gCoopMailbox.local.battleTrainer = 0;
     TrackSteps();
     WriteLocalState();
     gCoopMailbox.flagsPtr = (u32)gSaveBlock1Ptr->flags;
@@ -804,4 +807,19 @@ static void Task_SaveWithHost(u8 taskId)
 void Coop_SaveWithHost(void)
 {
     CreateTask(Task_SaveWithHost, 80);
+}
+
+// ---------------------------------------------------------------- trainers
+
+// A trainer battle starts (the player talked to a trainer or was spotted). Until it
+// is over and the player is free again, the partner's game treats this trainer as
+// beaten, so the two of them can't end up fighting the same trainer.
+void Coop_OnTrainerBattle(u16 trainerId)
+{
+    gCoopMailbox.local.battleTrainer = trainerId + 1;
+}
+
+bool8 Coop_IsTrainerTakenByPartner(u16 trainerId)
+{
+    return gCoopMailbox.active && gCoopMailbox.partner.battleTrainer == trainerId + 1;
 }

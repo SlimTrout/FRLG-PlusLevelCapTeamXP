@@ -17,8 +17,9 @@
 // Keyboard: arrows, Z = A, X = B, Enter = Start, Backspace = Select, A = L, S = R,
 //           Escape = quit. A game controller works too.
 //
-// If the partner disconnects, the app saves a save state next to the ROM
-// (<rom>.coop.ss) and closes, so the game can be picked up from that moment.
+// If the partner disconnects, or you close the window while connected, the app saves
+// a snapshot of this moment next to your save file (<save>.coop.ss) and closes. The
+// next time you start the app with that save, it picks up from the snapshot.
 
 #include <mgba/core/core.h>
 #include <mgba/core/config.h>
@@ -64,17 +65,17 @@ static void sock_nonblock(sock_t s) { fcntl(s, F_SETFL, fcntl(s, F_GETFL, 0) | O
 #endif
 
 // ------------------------------------------------------------------ mailbox layout
-// Must match struct CoopMailbox in include/coop.h (32-byte player state, then
+// Must match struct CoopMailbox in include/coop.h (36-byte player state, then
 // this game's and the partner's current field message text).
 #define COOP_MAGIC_0 0x4F434242u
 #define COOP_MAGIC_1 0x3130504Fu
 #define MB_ACTIVE 8
 #define MB_INDEX 9
 #define MB_LOCAL 12
-#define MB_PARTNER 44
-#define MB_LOCALTEXT 76
-#define MB_PARTNERTEXT 476
-#define STATE_SIZE 32
+#define MB_PARTNER 48
+#define MB_LOCALTEXT 84
+#define MB_PARTNERTEXT 484
+#define STATE_SIZE 36
 #define STATE_MSGSEQ 0x1C
 #define TEXT_SIZE 400
 #define TEXT_CHUNK 200
@@ -111,6 +112,7 @@ struct App {
     mColor *video;
     uint32_t mailbox;
     const char *romPath;
+    char snapshotPath[1040];
     int headless;
     struct Net net;
 };
@@ -284,15 +286,33 @@ static void exchangeMailbox(struct App *app) {
 
 // ------------------------------------------------------------------ save state on disconnect
 
-static void saveStateAndQuit(struct App *app) {
-    char path[1024];
-    snprintf(path, sizeof path, "%s.coop.ss", app->romPath);
-    struct VFile *vf = VFileOpen(path, O_CREAT | O_TRUNC | O_RDWR);
+static void saveSnapshot(struct App *app, const char *why) {
+    struct VFile *vf = VFileOpen(app->snapshotPath, O_CREAT | O_TRUNC | O_RDWR);
     if (vf) {
         mCoreSaveStateNamed(app->core, vf, SAVESTATE_SAVEDATA | SAVESTATE_RTC);
         vf->close(vf);
     }
-    printf("Your partner disconnected. The game was saved to %s and will close.\n", path);
+    printf("%s A snapshot of this moment was saved to %s;\n"
+           "start the app again with the same save to pick up from it.\n", why, app->snapshotPath);
+}
+
+static void saveStateAndQuit(struct App *app) {
+    saveSnapshot(app, "Your partner disconnected.");
+}
+
+// A snapshot left by the last session: resume from it once, then set it aside.
+static void resumeSnapshot(struct App *app) {
+    struct VFile *vf = VFileOpen(app->snapshotPath, O_RDONLY);
+    char used[1100];
+    if (!vf) return;
+    if (mCoreLoadStateNamed(app->core, vf, SAVESTATE_SAVEDATA | SAVESTATE_RTC))
+        printf("Picking up from the snapshot of your last session (%s).\n", app->snapshotPath);
+    else
+        printf("Could not read the snapshot %s; starting from your save instead.\n", app->snapshotPath);
+    vf->close(vf);
+    snprintf(used, sizeof used, "%s.used", app->snapshotPath);
+    remove(used);
+    rename(app->snapshotPath, used);
 }
 
 // ------------------------------------------------------------------ input
@@ -421,9 +441,11 @@ int main(int argc, char **argv) {
             if (dot) strcpy(dot, ".sav"); else strcat(savePath, ".sav");
         }
         app.core->loadSave(app.core, VFileOpen(savePath, O_CREAT | O_RDWR));
+        snprintf(app.snapshotPath, sizeof app.snapshotPath, "%s.coop.ss", savePath);
     }
     app.core->setAudioBufferSize(app.core, 1024);
     app.core->reset(app.core);
+    resumeSnapshot(&app);
 
     // --- network
     if (!strcmp(mode, "host")) {
@@ -504,6 +526,11 @@ int main(int argc, char **argv) {
         app.core->setKeys(app.core, readInput(pad));
         stepFrame(&app);
         if (app.net.everConnected && !app.net.connected) { saveStateAndQuit(&app); break; }
+        if (!running && app.net.connected && app.mailbox) {
+            // Closing the window mid-game: keep this moment too.
+            saveSnapshot(&app, "You closed the game.");
+            break;
+        }
         {
             // Window title says what's going on, so a missing partner is easy to explain.
             int status;

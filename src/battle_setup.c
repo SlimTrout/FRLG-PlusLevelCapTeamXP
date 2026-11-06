@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "nuzlocke_tracker.h"
 #include "task.h"
 #include "help_system.h"
@@ -948,6 +949,7 @@ const u8 *BattleSetup_ConfigureTrainerBattle(const u8 *data)
 {
     InitTrainerBattleVariables();
     sTrainerBattleMode = TrainerBattleLoadArg8(data);
+    Coop_OnTrainerBattle(TrainerBattleLoadArg16(data + 1)); // co-op: keep the partner away from this trainer
     switch (sTrainerBattleMode)
     {
     case TRAINER_BATTLE_SINGLE_NO_INTRO_TEXT:
@@ -1002,6 +1004,8 @@ bool32 GetTrainerFlagFromScriptPointer(const u8 *data)
 {
     u32 flag = TrainerBattleLoadArg16(data + 2);
 
+    if (Coop_IsTrainerTakenByPartner(flag))
+        return TRUE;
     return FlagGet(TRAINER_FLAGS_START + flag);
 }
 
@@ -1028,6 +1032,8 @@ u16 Script_HasTrainerBeenFought(void)
     {
         return CheckMasterTrainerFlag(gSpecialVar_0x8009);
     }
+    if (Coop_IsTrainerTakenByPartner(gTrainerBattleOpponent_A))
+        return TRUE;
     return FlagGet(GetTrainerAFlag());
 }
 
@@ -1053,6 +1059,8 @@ bool8 HasTrainerBeenFought(u16 trainerId)
     {
         return CheckMasterTrainerFlag(gSpecialVar_0x8009);
     }
+    if (Coop_IsTrainerTakenByPartner(trainerId))
+        return TRUE;
     return FlagGet(TRAINER_FLAGS_START + trainerId);
 }
 

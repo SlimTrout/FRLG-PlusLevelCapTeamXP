@@ -33,7 +33,7 @@ enum
 
 #define COOP_TEXT_SIZE 400
 
-// 32 bytes. The app copies it byte for byte, so keep the layout in sync with
+// 36 bytes. The app copies it byte for byte, so keep the layout in sync with
 // coop/app/bbcoop.c and coop/host/coophost.c (STATE_SIZE, MB_PARTNER, MB_*TEXT).
 struct CoopPlayerState
 {
@@ -61,6 +61,10 @@ struct CoopPlayerState
     /*0x1E*/ u8 msgColor;      // NPC_TEXT_COLOR_* of that message
     /*0x1F*/ u8 msgSignpost:1; // drawn in a signpost frame
              u8 padding2:7;
+    /*0x20*/ u16 battleTrainer; // trainer ID + 1 of a trainer battle under way (talked to,
+                                // spotted or fighting), 0 if none: the partner's game
+                                // treats that trainer as taken
+    /*0x22*/ u8 padding4[2];
 };
 
 struct CoopMailbox
@@ -70,14 +74,14 @@ struct CoopMailbox
     /*0x09*/ u8 playerIndex;   // set by the app: 0 = host, 1 = guest
     /*0x0A*/ u8 padding[2];
     /*0x0C*/ struct CoopPlayerState local;   // written by this game
-    /*0x2C*/ struct CoopPlayerState partner; // written by the app
-    /*0x4C*/ u8 localText[COOP_TEXT_SIZE];   // this game's current field message
-    /*0x1DC*/ u8 partnerText[COOP_TEXT_SIZE]; // the partner's, written by the app
+    /*0x30*/ struct CoopPlayerState partner; // written by the app
+    /*0x54*/ u8 localText[COOP_TEXT_SIZE];   // this game's current field message
+    /*0x1E4*/ u8 partnerText[COOP_TEXT_SIZE]; // the partner's, written by the app
     // Shared world: the app keeps both games' story flags and variables in step.
-    /*0x36C*/ u32 flagsPtr;    // this game's flags and vars, 0 until it's in the overworld
-    /*0x370*/ u32 varsPtr;
-    /*0x374*/ u8 worldChanged; // set by the app after it applied the partner's changes
-    /*0x375*/ u8 padding3[3];
+    /*0x374*/ u32 flagsPtr;    // this game's flags and vars, 0 until it's in the overworld
+    /*0x378*/ u32 varsPtr;
+    /*0x37C*/ u8 worldChanged; // set by the app after it applied the partner's changes
+    /*0x37D*/ u8 padding3[3];
 };
 
 extern struct CoopMailbox gCoopMailbox;
@@ -111,6 +115,10 @@ void Coop_SaveWithHost(void);
 
 // saving: only the host saves, and the guest's game saves along with it
 bool8 Coop_IsGuest(void);
+
+// trainers: one player's battle keeps the trainer away from the other
+void Coop_OnTrainerBattle(u16 trainerId);
+bool8 Coop_IsTrainerTakenByPartner(u16 trainerId);
 void Coop_OnGameSaved(void);
 
 #endif // GUARD_COOP_H

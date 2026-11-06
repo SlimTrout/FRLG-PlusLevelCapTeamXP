@@ -25,10 +25,10 @@
 #define MB_ACTIVE 8
 #define MB_INDEX 9
 #define MB_LOCAL 12
-#define MB_PARTNER 44
-#define MB_LOCALTEXT 76
-#define MB_PARTNERTEXT 476
-#define STATE_SIZE 32
+#define MB_PARTNER 48
+#define MB_LOCALTEXT 84
+#define MB_PARTNERTEXT 484
+#define STATE_SIZE 36
 #define TEXT_SIZE 400
 
 static int parseKeys(const char *s) {

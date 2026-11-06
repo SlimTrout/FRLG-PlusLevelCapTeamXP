@@ -69,3 +69,4 @@ coop/app/sdl2-mingw.tar.gz
 coop/app/windows/
 coop/app/bbcoop
 *.coop.ss
+*.coop.ss.used

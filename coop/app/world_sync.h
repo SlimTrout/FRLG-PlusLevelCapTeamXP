@@ -17,9 +17,10 @@
 #include <mgba/core/core.h>
 #include <string.h>
 
-#define WS_MB_FLAGS_PTR 0x36C
-#define WS_MB_VARS_PTR 0x370
-#define WS_MB_WORLD_CHANGED 0x374
+#define WS_MB_FLAGS_PTR 0x374
+#define WS_MB_VARS_PTR 0x378
+#define WS_MB_WORLD_CHANGED 0x37C
+#define WS_MB_LOCAL_BATTLE_TRAINER (0x0C + 0x20) // u16, nonzero during a trainer battle
 
 #define WS_FLAG_BYTES 288 // 0x900 flags
 #define WS_VARS 256       // 0x4000-0x40FF
@@ -206,7 +207,10 @@ static int wsTick(struct WorldSync *ws, struct mCore *c, uint32_t mb, int connec
         ws->snapshotRequested = 0;
     }
 
-    // Then the partner's changes come in.
+    // Then the partner's changes come in, unless this player is in the middle of a
+    // trainer battle: they wait until it's over, so nothing shifts under its script.
+    if (c->busRead16(c, mb + WS_MB_LOCAL_BATTLE_TRAINER))
+        return 0;
     for (int at = 0; at + 4 <= ws->pendingLen; at += 4) {
         const unsigned char *e = ws->pending + at;
         int key = e[0] | (e[1] << 8);
