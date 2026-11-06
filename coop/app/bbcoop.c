@@ -17,9 +17,8 @@
 // Keyboard: arrows, Z = A, X = B, Enter = Start, Backspace = Select, A = L, S = R,
 //           Escape = quit. A game controller works too.
 //
-// If the partner disconnects, or you close the window while connected, the app saves
-// a snapshot of this moment next to your save file (<save>.coop.ss) and closes. The
-// next time you start the app with that save, it picks up from the snapshot.
+// If the partner disconnects, the app closes. Only the host saves (and the guest's
+// game saves along with it), so progress since the host's last save is not kept.
 
 #include <mgba/core/core.h>
 #include <mgba/core/config.h>
@@ -112,7 +111,6 @@ struct App {
     mColor *video;
     uint32_t mailbox;
     const char *romPath;
-    char snapshotPath[1040];
     int headless;
     struct Net net;
 };
@@ -284,35 +282,13 @@ static void exchangeMailbox(struct App *app) {
     }
 }
 
-// ------------------------------------------------------------------ save state on disconnect
+// ------------------------------------------------------------------ partner disconnected
 
-static void saveSnapshot(struct App *app, const char *why) {
-    struct VFile *vf = VFileOpen(app->snapshotPath, O_CREAT | O_TRUNC | O_RDWR);
-    if (vf) {
-        mCoreSaveStateNamed(app->core, vf, SAVESTATE_SAVEDATA | SAVESTATE_RTC);
-        vf->close(vf);
-    }
-    printf("%s A snapshot of this moment was saved to %s;\n"
-           "start the app again with the same save to pick up from it.\n", why, app->snapshotPath);
-}
-
-static void saveStateAndQuit(struct App *app) {
-    saveSnapshot(app, "Your partner disconnected.");
-}
-
-// A snapshot left by the last session: resume from it once, then set it aside.
-static void resumeSnapshot(struct App *app) {
-    struct VFile *vf = VFileOpen(app->snapshotPath, O_RDONLY);
-    char used[1100];
-    if (!vf) return;
-    if (mCoreLoadStateNamed(app->core, vf, SAVESTATE_SAVEDATA | SAVESTATE_RTC))
-        printf("Picking up from the snapshot of your last session (%s).\n", app->snapshotPath);
-    else
-        printf("Could not read the snapshot %s; starting from your save instead.\n", app->snapshotPath);
-    vf->close(vf);
-    snprintf(used, sizeof used, "%s.used", app->snapshotPath);
-    remove(used);
-    rename(app->snapshotPath, used);
+// The game is only played with both players there: when the partner drops, the app
+// closes. Anything since the host's last save is not kept.
+static void partnerLeft(void) {
+    printf("Your partner disconnected, so the game will close.\n"
+           "Progress since the host last saved is not kept.\n");
 }
 
 // ------------------------------------------------------------------ input
@@ -441,11 +417,9 @@ int main(int argc, char **argv) {
             if (dot) strcpy(dot, ".sav"); else strcat(savePath, ".sav");
         }
         app.core->loadSave(app.core, VFileOpen(savePath, O_CREAT | O_RDWR));
-        snprintf(app.snapshotPath, sizeof app.snapshotPath, "%s.coop.ss", savePath);
     }
     app.core->setAudioBufferSize(app.core, 1024);
     app.core->reset(app.core);
-    resumeSnapshot(&app);
 
     // --- network
     if (!strcmp(mode, "host")) {
@@ -473,7 +447,7 @@ int main(int argc, char **argv) {
             for (int i = 0; i < count; i++) {
                 stepFrame(&app);
                 SDL_Delay(1); // let the partner's packets arrive, like real play
-                if (app.net.everConnected && !app.net.connected) { saveStateAndQuit(&app); return 0; }
+                if (app.net.everConnected && !app.net.connected) { partnerLeft(); return 0; }
             }
             if (shots && !strcmp(extra, "shot")) { writeShot(&app, shots, n++); printf("shot %d\n", n - 1); }
         }
@@ -525,12 +499,7 @@ int main(int argc, char **argv) {
 
         app.core->setKeys(app.core, readInput(pad));
         stepFrame(&app);
-        if (app.net.everConnected && !app.net.connected) { saveStateAndQuit(&app); break; }
-        if (!running && app.net.connected && app.mailbox) {
-            // Closing the window mid-game: keep this moment too.
-            saveSnapshot(&app, "You closed the game.");
-            break;
-        }
+        if (app.net.everConnected && !app.net.connected) { partnerLeft(); break; }
         {
             // Window title says what's going on, so a missing partner is easy to explain.
             int status;

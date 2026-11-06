@@ -19,7 +19,7 @@ uses their own ROM copy and save file (`--save` picks a different one).
 Controls: arrows, Z = A, X = B, Enter = Start, Backspace = Select, A = L, S = R,
 Escape = quit. A game controller also works.
 
-If the partner disconnects, the game is saved to `<rom>.coop.ss` and the app closes.
+If the partner disconnects, the app closes. Only the host saves, so progress since the host last saved is not kept.
 
 ## Building
 
@@ -50,11 +50,11 @@ If the partner disconnects, the game is saved to `<rom>.coop.ss` and the app clo
   the guest's game saves at the same moment.
 - **Trainers.** While one player is talking to or fighting a trainer, that trainer
   ignores the other player. Once it's beaten, it's beaten for both.
-- **Snapshots.** If your partner disconnects, or you close the window while connected,
-  the app saves a snapshot of that exact moment next to your save file
-  (`<your save>.coop.ss`) and closes. Start the app again with the same save and it
-  picks up from the snapshot (the snapshot is then renamed to `.coop.ss.used`). To
-  ignore a snapshot and load your normal save instead, delete the `.coop.ss` file first.
+- **Items on the ground are your own.** Item balls and hidden items aren't shared:
+  each player picks up their own (Oak's starter balls and the fossils included). A
+  follower can't pick things up, so split off to grab them.
+- **If one player disconnects,** the game closes for both. Anything since the host
+  last saved isn't kept.
 
 ## Status
 
