@@ -1,6 +1,6 @@
 #!/bin/bash
 # Builds the Brainy Blue Co-op app for Linux (also runs on Windows 11 through WSL).
-# Run from tools/coopapp:  ./build_linux.sh
+# Run from coop/app:  ./build_linux.sh
 set -e
 MGBA_COMMIT=662dada8b79070bde93829a44d583c517fc5ec2d
 cd "$(dirname "$0")"

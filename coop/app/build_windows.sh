@@ -1,5 +1,5 @@
 #!/bin/bash
-# Cross-builds bbcoop.exe for Windows from Ubuntu/WSL. Run from tools/coopapp:  ./build_windows.sh
+# Cross-builds bbcoop.exe for Windows from Ubuntu/WSL. Run from coop/app:  ./build_windows.sh
 # Produces windows/bbcoop.exe and windows/SDL2.dll; give both to each player with the ROM.
 set -e
 MGBA_COMMIT=662dada8b79070bde93829a44d583c517fc5ec2d
