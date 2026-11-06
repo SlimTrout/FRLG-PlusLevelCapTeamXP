@@ -39,8 +39,18 @@ If the partner disconnects, the app closes. Only the host saves, so progress sin
   up, the partner sees "... is starting a big battle! You're joining in.", is taken
   to the other player, follows them and joins the battle. Losing the first rival
   battle doesn't white out, as in the normal game.
-- Not yet: the bag and catching in linked battles, money for the guest, evolutions
-  after a linked battle.
+- **Story battles ask first.** The player who starts the story battle is told their
+  partner will be pulled in and chooses when: "Bring ... in now?" Saying no shows
+  "Press A when you're ready", and A asks again.
+- **The bag works in linked battles.** Each player uses their own bag. Potions and
+  other medicine work as usual, and the partner's screen shows the healing.
+- **Catching.** Each player's ball goes at the wild Pokemon across from them (or the
+  other one if that one's gone). The Pokemon goes to whoever threw the ball, into
+  their team or their PC, and into their Pokedex. There's no nickname prompt in a
+  linked battle.
+- **Prize money.** Both players get the prize money for beating a trainer.
+- **Evolutions.** After a linked battle that was won, each game shows its own
+  player's evolutions.
 
 ## Building
 
@@ -82,4 +92,4 @@ If the partner disconnects, the app closes. Only the host saves, so progress sin
 Working: window, sound, controls, the connection, seeing each other on the map,
 linking up, following, handing over the lead and splitting off.
 Also working: linked wild and trainer battles, story battles pulling the partner in.
-Not yet: trades, the bag and catching in linked battles.
+Not yet: trades.

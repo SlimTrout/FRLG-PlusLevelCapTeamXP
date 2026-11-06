@@ -781,6 +781,17 @@ void BtlController_EmitBallThrowAnim(u8 bufferId, u8 caseId)
     PrepareBufferDataTransfer(bufferId, sBattleBuffersTransferData, 2);
 }
 
+// Co-op: the ball throw also says which Pokemon it's thrown at and which ball it is,
+// since the other game doesn't know either.
+void BtlController_EmitCoopBallThrowAnim(u8 bufferId, u8 caseId, u8 target, u16 ball)
+{
+    sBattleBuffersTransferData[0] = CONTROLLER_BALLTHROWANIM;
+    sBattleBuffersTransferData[1] = caseId;
+    sBattleBuffersTransferData[2] = target;
+    sBattleBuffersTransferData[3] = ball;
+    PrepareBufferDataTransfer(bufferId, sBattleBuffersTransferData, 4);
+}
+
 // Unused
 static void BtlController_EmitPause(u8 bufferId, u8 toWait, void *data)
 {
@@ -1085,6 +1096,18 @@ void BtlController_EmitOneReturnValue(u8 bufferId, u16 ret)
     sBattleBuffersTransferData[2] = (ret & 0xFF00) >> 8;
     sBattleBuffersTransferData[3] = 0;
     PrepareBufferDataTransfer(bufferId, sBattleBuffersTransferData, 4);
+}
+
+// Co-op: the item chosen from the bag, plus which Pokemon (battle party slot) and move it
+// was used on, so the host's game can use it there too.
+void BtlController_EmitCoopItemReturnValue(u8 bufferId, u16 item, u8 partyId, u8 moveIndex)
+{
+    sBattleBuffersTransferData[0] = CONTROLLER_ONERETURNVALUE;
+    sBattleBuffersTransferData[1] = item;
+    sBattleBuffersTransferData[2] = (item & 0xFF00) >> 8;
+    sBattleBuffersTransferData[3] = partyId;
+    sBattleBuffersTransferData[4] = moveIndex;
+    PrepareBufferDataTransfer(bufferId, sBattleBuffersTransferData, 5);
 }
 
 void BtlController_EmitOneReturnValue_Duplicate(u8 bufferId, u16 ret)

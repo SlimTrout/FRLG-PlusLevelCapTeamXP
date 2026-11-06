@@ -2,6 +2,7 @@
 #include "battle_main.h"
 #include "link.h"
 #include "coop.h"
+#include "money.h"
 #include "nuzlocke_tracker.h"
 #include "task.h"
 #include "help_system.h"
@@ -26,6 +27,10 @@
 #include "field_player_avatar.h"
 #include "field_screen_effect.h"
 #include "field_message_box.h"
+#include "menu.h"
+#include "window.h"
+#include "evolution_scene.h"
+#include "new_menu_helpers.h"
 #include "vs_seeker.h"
 #include "battle.h"
 #include "battle_transition.h"
@@ -348,10 +353,24 @@ static void CB2_EndCoopBattle(void);
 static void DoTrainerBattle(void);
 void BattleSetup_StartCoopTrainerBattle(bool8 starter, bool8 noWhiteOut);
 static void CB2_EndTrainerBattle(void);
+static void Task_CoopStoryPullPrompt(u8 taskId);
+extern const u8 Coop_Text_StoryPullIntro[];
+extern const u8 Coop_Text_StoryPullAsk[];
+extern const u8 Coop_Text_StoryPullWait[];
+extern const u8 Coop_Text_StoryPullBusy[];
 
 static u32 gBattleTypeFlags_Before;
 static MainCallback sCoopAfterBattle; // the starter's own end of battle (trainer battles)
 static bool8 sCoopNoWhiteOut;          // losing doesn't white out (the first rival battle)
+static MainCallback sCoopNext;         // where to go after the battle (and evolutions)
+static u8 sCoopEvolve;                 // own Pokemon still to check for evolving
+static u32 sCoopMoney;                 // host: prize money won in the co-op battle
+static void CB2_CoopEvolutions(void);
+
+void Coop_SetBattleMoney(u32 money)
+{
+    sCoopMoney = money;
+}
 
 // Co-op: both games go into the same double battle (see coop.c and battle_main.c).
 void BattleSetup_StartCoopWildBattle(void)
@@ -375,7 +394,7 @@ void BattleSetup_StartCoopWildBattle(void)
 static void CB2_EndCoopBattle(void)
 {
     static u8 sState;
-    u8 ready = 1;
+    u32 info[2]; // the host's: prize money won, who caught the wild Pokemon
     bool8 host = Coop_IsHost();
 
     switch (sState)
@@ -387,12 +406,24 @@ static void CB2_EndCoopBattle(void)
         sState++;
         break;
     case 1:
-        if (IsLinkTaskFinished() && SendBlock(0, &ready, sizeof(ready)))
+        // Both games are ready; the host's block also carries the prize money won and
+        // who caught the wild Pokemon, if anyone did.
+        info[0] = host ? sCoopMoney : 0;
+        info[1] = host ? Coop_GetCaughtBy() : 0xFF;
+        if (IsLinkTaskFinished() && SendBlock(0, info, sizeof(info)))
             sState++;
         break;
     case 2:
         if ((GetBlockReceivedStatus() & 3) == 3)
         {
+            if (!host)
+            {
+                memcpy(info, gBlockRecvBuffer[0], sizeof(info));
+                if (info[0] != 0)
+                    AddMoney(&gSaveBlock1Ptr->money, info[0]);
+                Coop_SetCaughtBy(info[1]);
+            }
+            sCoopMoney = 0;
             ResetBlockReceivedFlags();
             sState++;
         }
@@ -421,6 +452,21 @@ static void CB2_EndCoopBattle(void)
                 memcpy(&gPlayerParty[5], gBlockRecvBuffer[0], sizeof(struct Pokemon));
             ResetBlockReceivedFlags();
             sState++;
+            if (Coop_GetCaughtBy() != 1)
+                sState += 2; // the guest didn't catch anything
+        }
+        break;
+    case 7: // the guest caught the wild Pokemon: the host's game has it
+        if (!host || (IsLinkTaskFinished() && SendBlock(0, Coop_GetCaughtMon(), sizeof(struct Pokemon))))
+            sState++;
+        break;
+    case 8:
+        if (host ? IsLinkTaskFinished() : (GetBlockReceivedStatus() & 1) != 0)
+        {
+            if (!host)
+                memcpy(Coop_GetCaughtMon(), gBlockRecvBuffer[0], sizeof(struct Pokemon));
+            ResetBlockReceivedFlags();
+            sState++;
         }
         break;
     default:
@@ -432,15 +478,45 @@ static void CB2_EndCoopBattle(void)
         CpuFill16(0, (void *)BG_PLTT, BG_PLTT_SIZE);
         ResetOamRange(0, 128);
         if (sCoopAfterBattle != NULL)
-            SetMainCallback2(sCoopAfterBattle); // the trainer battle's own ending (flags, script)
+            sCoopNext = sCoopAfterBattle; // the trainer battle's own ending (flags, script)
         else if (IsPlayerDefeated(gBattleOutcome) == TRUE && !sCoopNoWhiteOut)
-            SetMainCallback2(CB2_WhiteOut);
+            sCoopNext = CB2_WhiteOut;
         else if (gBattleTypeFlags_Before & BATTLE_TYPE_TRAINER)
-            SetMainCallback2(CB2_ReturnToFieldContinueScriptPlayMapMusic);
+            sCoopNext = CB2_ReturnToFieldContinueScriptPlayMapMusic;
         else
-            SetMainCallback2(CB2_ReturnToField);
+            sCoopNext = CB2_ReturnToField;
+        // As after any battle that was won, Pokemon that leveled up may evolve.
+        sCoopEvolve = Coop_TakeLeveledUpMons();
+        if ((gBattleOutcome & ~B_OUTCOME_LINK_BATTLE_RAN) != B_OUTCOME_WON)
+            sCoopEvolve = 0;
+        SetMainCallback2(CB2_CoopEvolutions);
         break;
     }
+}
+
+// Each game shows its own player's evolutions, one after the other.
+static void CB2_CoopEvolutions(void)
+{
+    u8 i;
+
+    for (i = 0; i < MULTI_PARTY_SIZE; i++)
+    {
+        if (sCoopEvolve & (1 << i))
+        {
+            u16 species;
+
+            sCoopEvolve &= ~(1 << i);
+            species = GetEvolutionTargetSpecies(&gPlayerParty[i], EVO_MODE_NORMAL, 0);
+            if (species != SPECIES_NONE)
+            {
+                gCB2_AfterEvolution = CB2_CoopEvolutions;
+                FreeAllWindowBuffers();
+                EvolutionScene(&gPlayerParty[i], species, TRUE, i);
+                return;
+            }
+        }
+    }
+    SetMainCallback2(sCoopNext);
 }
 
 // Story battles: rivals, Gym Leaders, the Elite Four and Champion, the Rocket boss.
@@ -473,9 +549,100 @@ static bool8 TryStartCoopTrainerBattle(void)
     if (!Coop_IsLinked() && !story)
         return FALSE;
     sCoopNoWhiteOut = (sTrainerBattleMode == TRAINER_BATTLE_EARLY_RIVAL);
-    Coop_StartLinkedTrainerBattle(sCoopNoWhiteOut, !Coop_IsLinked());
+    if (!Coop_IsLinked())
+    {
+        // A story battle while split up: this player says when to pull the partner in.
+        CreateTask(Task_CoopStoryPullPrompt, 80);
+        return TRUE;
+    }
+    Coop_StartLinkedTrainerBattle(sCoopNoWhiteOut, FALSE);
     BattleSetup_StartCoopTrainerBattle(TRUE, sCoopNoWhiteOut);
     return TRUE;
+}
+
+// The story battle's trainer script is paused while this runs (the battle continues
+// it as usual afterwards).
+enum {
+    PULL_SHOW_INTRO,
+    PULL_WAIT_INTRO,
+    PULL_ASK,
+    PULL_WAIT_ANSWER,
+    PULL_WAIT_READY,
+    PULL_WAIT_BUSY,
+};
+
+static void Task_CoopStoryPullPrompt(u8 taskId)
+{
+    s16 *state = &gTasks[taskId].data[0];
+
+    switch (*state)
+    {
+    case PULL_SHOW_INTRO:
+        Coop_BufferPartnerName();
+        StringExpandPlaceholders(gStringVar4, Coop_Text_StoryPullIntro);
+        ShowFieldMessage(gStringVar4);
+        *state = PULL_WAIT_INTRO;
+        break;
+    case PULL_WAIT_INTRO:
+        if (IsFieldMessageBoxHidden())
+            *state = PULL_ASK;
+        break;
+    case PULL_ASK:
+        DisplayYesNoMenuDefaultYes();
+        *state = PULL_WAIT_ANSWER;
+        break;
+    case PULL_WAIT_ANSWER:
+        switch (Menu_ProcessInputNoWrapClearOnChoose())
+        {
+        case 0: // yes
+            if (!gCoopMailbox.active)
+            {
+                // The partner left: a normal battle on this player's own.
+                HideFieldMessageBox();
+                DestroyTask(taskId);
+                gBattleTypeFlags = BATTLE_TYPE_TRAINER;
+                if (sTrainerBattleMode == TRAINER_BATTLE_EARLY_RIVAL && sRivalBattleFlags & RIVAL_BATTLE_TUTORIAL)
+                    gBattleTypeFlags |= BATTLE_TYPE_FIRST_BATTLE;
+                gMain.savedCallback = CB2_EndTrainerBattle;
+                DoTrainerBattle();
+            }
+            else if (!gCoopMailbox.partner.inOverworld || gCoopMailbox.partner.battleTrainer != 0)
+            {
+                Coop_BufferPartnerName();
+                StringExpandPlaceholders(gStringVar4, Coop_Text_StoryPullBusy);
+                ShowFieldMessage(gStringVar4);
+                *state = PULL_WAIT_BUSY;
+            }
+            else
+            {
+                HideFieldMessageBox();
+                DestroyTask(taskId);
+                Coop_StartLinkedTrainerBattle(sCoopNoWhiteOut, TRUE);
+                BattleSetup_StartCoopTrainerBattle(TRUE, sCoopNoWhiteOut);
+            }
+            break;
+        case 1: // no
+        case MENU_B_PRESSED:
+            Coop_BufferPartnerName();
+            StringExpandPlaceholders(gStringVar4, Coop_Text_StoryPullWait);
+            ShowFieldMessage(gStringVar4);
+            *state = PULL_WAIT_READY;
+            break;
+        }
+        break;
+    case PULL_WAIT_BUSY:
+    case PULL_WAIT_READY:
+        // Shown until this player presses A to be asked again.
+        if (IsFieldMessageBoxHidden() && JOY_NEW(A_BUTTON))
+        {
+            PlaySE(SE_SELECT);
+            Coop_BufferPartnerName();
+            StringExpandPlaceholders(gStringVar4, Coop_Text_StoryPullAsk);
+            ShowFieldMessage(gStringVar4);
+            *state = PULL_WAIT_INTRO;
+        }
+        break;
+    }
 }
 
 // starter: this game ran into the trainer (and continues the trainer's script after)

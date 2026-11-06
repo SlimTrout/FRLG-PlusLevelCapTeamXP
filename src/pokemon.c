@@ -1,6 +1,7 @@
 #define IS_POKEMON_C
 
 #include "global.h"
+#include "coop.h"
 #include "randomizer.h"
 #include "gflib.h"
 #include "random.h"
@@ -5603,7 +5604,12 @@ static void CopyPlayerPartyMonToBattleData(u8 battlerId, u8 partyIndex)
 
 bool8 ExecuteTableBasedItemEffect(struct Pokemon *mon, u16 item, u8 partyIndex, u8 moveIndex)
 {
-    return PokemonUseItemEffects(mon, item, partyIndex, moveIndex, 0);
+    bool8 noEffect = PokemonUseItemEffects(mon, item, partyIndex, moveIndex, 0);
+
+    // Co-op battle: remember what it was used on, for the host's game (see Coop_ApplyPartnerItem).
+    if (!noEffect && gMain.inBattle && Coop_IsLinkOpen())
+        Coop_NoteItemUsed(partyIndex, moveIndex);
+    return noEffect;
 }
 
 #define UPDATE_FRIENDSHIP_FROM_ITEM()                                                                   \
@@ -5976,11 +5982,15 @@ bool8 PokemonUseItemEffects(struct Pokemon *mon, u16 item, u8 partyIndex, u8 mov
                                         if (gBattleResults.numHealingItemsUsed < 255)
                                             gBattleResults.numHealingItemsUsed++;
 
-                                        r5 = gActiveBattler;
-                                        gActiveBattler = battleMonId;
-                                        BtlController_EmitGetMonData(BUFFER_A, REQUEST_ALL_BATTLE, 0);
-                                        MarkBattlerForControllerExec(gActiveBattler);
-                                        gActiveBattler = r5;
+                                        // (co-op battles update both games when the item's turn comes)
+                                        if (!Coop_IsLinkOpen())
+                                        {
+                                            r5 = gActiveBattler;
+                                            gActiveBattler = battleMonId;
+                                            BtlController_EmitGetMonData(BUFFER_A, REQUEST_ALL_BATTLE, 0);
+                                            MarkBattlerForControllerExec(gActiveBattler);
+                                            gActiveBattler = r5;
+                                        }
                                     }
                                 }
                             }

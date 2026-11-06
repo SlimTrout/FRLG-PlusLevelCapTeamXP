@@ -1337,6 +1337,7 @@ static void OpenBagAndChooseItem(void)
     if (!gPaletteFade.active)
     {
         gBattlerControllerFuncs[gActiveBattler] = CompleteWhenChoseItem;
+        Coop_ResetItemUse();
         ReshowBattleScreenDummy();
         FreeAllWindowBuffers();
         CB2_BagMenuFromBattle();
@@ -1347,7 +1348,10 @@ static void CompleteWhenChoseItem(void)
 {
     if (gMain.callback2 == BattleMainCB2 && !gPaletteFade.active)
     {
-        BtlController_EmitOneReturnValue(1, gSpecialVar_ItemId);
+        if (Coop_IsLinkOpen())
+            BtlController_EmitCoopItemReturnValue(1, gSpecialVar_ItemId, Coop_GetItemParty(), Coop_GetItemMove());
+        else
+            BtlController_EmitOneReturnValue(1, gSpecialVar_ItemId);
         PlayerBufferExecCompleted();
     }
 }
@@ -2326,9 +2330,16 @@ static void PlayerHandleBallThrowAnim(void)
 {
     u8 ballThrowCaseId = gBattleBufferA[gActiveBattler][1];
 
+    u8 target = GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT);
+
+    if (Coop_IsLinkOpen())
+    {
+        target = gBattleBufferA[gActiveBattler][2];
+        gLastUsedItem = gBattleBufferA[gActiveBattler][3];
+    }
     gBattleSpritesDataPtr->animationData->ballThrowCaseId = ballThrowCaseId;
     gDoingBattleAnim = TRUE;
-    InitAndLaunchSpecialAnimation(gActiveBattler, gActiveBattler, GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT), B_ANIM_BALL_THROW);
+    InitAndLaunchSpecialAnimation(gActiveBattler, gActiveBattler, target, B_ANIM_BALL_THROW);
     gBattlerControllerFuncs[gActiveBattler] = CompleteOnSpecialAnimDone;
 }
 

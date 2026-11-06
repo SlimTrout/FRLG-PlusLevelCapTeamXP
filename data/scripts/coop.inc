@@ -170,3 +170,20 @@ Coop_Text_TryingToLearnMoves::
 Coop_Text_PulledIntoStoryBattle::
 	.string "{STR_VAR_1} is starting a big battle!\n"
 	.string "You're joining in.$"
+
+Coop_Text_StoryPullIntro::
+	.string "You're about to start a big battle!\p"
+	.string "{STR_VAR_1} will be pulled in\n"
+	.string "to battle with you.\p"
+	.string "Bring {STR_VAR_1} in now?$"
+
+Coop_Text_StoryPullAsk::
+	.string "Bring {STR_VAR_1} in now?$"
+
+Coop_Text_StoryPullWait::
+	.string "Press A when you're ready to\n"
+	.string "bring {STR_VAR_1} in.$"
+
+Coop_Text_StoryPullBusy::
+	.string "{STR_VAR_1} is busy right now.\n"
+	.string "Press A to ask again.$"

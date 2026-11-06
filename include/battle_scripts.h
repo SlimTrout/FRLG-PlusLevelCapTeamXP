@@ -211,6 +211,8 @@ extern const u8 BattleScript_BallThrow[];
 extern const u8 BattleScript_BallThrowByWally[];
 extern const u8 BattleScript_SafariBallThrow[];
 extern const u8 BattleScript_SuccessBallThrow[];
+extern const u8 BattleScript_CoopSuccessBallThrow[];
+extern const u8 BattleScript_CoopUseItem[];
 extern const u8 BattleScript_SuccessBallThrowForceNick[];
 extern const u8 BattleScript_WallyBallThrow[];
 extern const u8 BattleScript_ShakeBallThrow[];

@@ -150,6 +150,31 @@ BattleScript_PlayerUseItem::
 	moveendcase 15
 	end
 
+@ Co-op: bring both games' copies of the Pokemon the item was used on up to date.
+BattleScript_CoopUseItem::
+	printstring STRINGID_PLAYERUSEDITEM
+	waitmessage B_WAIT_TIME_MED
+	various BS_ATTACKER, VARIOUS_COOP_ITEM_HP
+	waitstate
+	various BS_ATTACKER, VARIOUS_COOP_ITEM_STATUS
+	waitstate
+	various BS_ATTACKER, VARIOUS_COOP_ITEM_PP
+	waitstate
+	various BS_ATTACKER, VARIOUS_COOP_ITEM_HEALTHBOX
+	waitstate
+	various BS_ATTACKER, VARIOUS_COOP_ITEM_STATUS_ICON
+	waitstate
+	moveendcase 15
+	end
+
+@ Co-op: no nickname or Pokedex screen here; the catcher's game gets the Pokemon after the battle.
+BattleScript_CoopSuccessBallThrow::
+	incrementgamestat GAME_STAT_POKEMON_CAPTURES
+	printstring STRINGID_GOTCHAPKMNCAUGHT
+	waitmessage B_WAIT_TIME_LONG
+	givecaughtmon
+	goto BattleScript_CaughtPokemonDone
+
 BattleScript_AIUseFullRestoreOrHpHeal::
 	printstring STRINGID_EMPTYSTRING3
 	pause B_WAIT_TIME_MED

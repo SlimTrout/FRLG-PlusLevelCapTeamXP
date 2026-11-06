@@ -37,6 +37,7 @@ struct BattleWindowText
 };
 
 static EWRAM_DATA u8 sBattlerAbilities[MAX_BATTLERS_COUNT] = {};
+static bool8 sCoopPartnerUsedItem; // co-op: "{B_PLAYER_NAME} used ..." is about the partner
 static EWRAM_DATA struct BattleMsgData *sBattleMsgDataPtr = NULL;
 
 static void ExpandBattleTextBuffPlaceholders(const u8 *src, u8 *dst);
@@ -1418,6 +1419,8 @@ void BufferStringBattle(u16 stringId)
     u8 multiplayerId = GetMultiplayerId();
 
     sBattleMsgDataPtr = (struct BattleMsgData *)(&gBattleBufferA[gActiveBattler][4]);
+    sCoopPartnerUsedItem = (stringId == STRINGID_PLAYERUSEDITEM && Coop_IsLinkOpen() && GetBattlerSide(gActiveBattler) == B_SIDE_PLAYER
+                            && gBattlerPositions[gActiveBattler] != (Coop_IsHost() ? B_POSITION_PLAYER_LEFT : B_POSITION_PLAYER_RIGHT));
     gLastUsedItem = sBattleMsgDataPtr->lastItem;
     gLastUsedAbility = sBattleMsgDataPtr->lastAbility;
     gBattleScripting.battler = sBattleMsgDataPtr->scrActive;
@@ -2148,6 +2151,11 @@ u32 BattleStringExpandPlaceholders(const u8 *src, u8 *dst)
                 break;
             case B_TXT_PLAYER_NAME: // player name
                 toCpy = gSaveBlock2Ptr->playerName;
+                if (sCoopPartnerUsedItem)
+                {
+                    Coop_BufferPartnerName();
+                    toCpy = gStringVar1;
+                }
                 break;
             case B_TXT_TRAINER1_LOSE_TEXT: // trainerA lose text
                 if (gBattleTypeFlags & BATTLE_TYPE_TRAINER_TOWER)

@@ -119,6 +119,19 @@ bool8 Coop_ShouldAdvanceText(void);
 
 // specials
 void Coop_BufferPartnerName(void);
+u8 Coop_TakeLeveledUpMons(void);
+void Coop_ResetItemUse(void);
+void Coop_NoteItemUsed(u8 partyIndex, u8 moveIndex);
+u8 Coop_GetItemParty(void);
+u8 Coop_GetItemMove(void);
+void Coop_OnItemChosen(u8 battler, u16 item, u8 partyId, u8 moveIndex);
+u8 Coop_GetItemMonForBattler(u8 battler);
+struct Pokemon;
+void Coop_OnMonCaught(u8 battler, struct Pokemon *mon);
+u8 Coop_GetCaughtBy(void);
+void Coop_SetCaughtBy(u8 playerIndex);
+struct Pokemon *Coop_GetCaughtMon(void);
+void Coop_SetBattleMoney(u32 money);
 u16 Coop_GetLinkMode(void);
 void Coop_SendLinkRequest(void);
 void Coop_AnswerLinkRequest(void);

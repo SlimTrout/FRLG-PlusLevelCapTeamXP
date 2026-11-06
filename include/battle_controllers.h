@@ -209,6 +209,8 @@ void PrepareBufferDataTransferLink(u8 bufferId, u16 size, u8 *data);
 
 // emitters
 void BtlController_EmitGetMonData(u8 bufferId, u8 requestId, u8 monToCheck);
+void BtlController_EmitCoopBallThrowAnim(u8 bufferId, u8 caseId, u8 target, u16 ball);
+void BtlController_EmitCoopItemReturnValue(u8 bufferId, u16 item, u8 partyId, u8 moveIndex);
 void BtlController_EmitSetMonData(u8 bufferId, u8 requestId, u8 monToCheck, u8 bytes, void *data);
 void BtlController_EmitLoadMonSprite(u8 bufferId);
 void BtlController_EmitSwitchInAnim(u8 bufferId, u8 partyId, bool8 dontClearSubstituteBit);

@@ -11,6 +11,8 @@
 #include "link.h"
 #include "malloc.h"
 #include "pokemon.h"
+#include "pokedex.h"
+#include "money.h"
 #include "battle_setup.h"
 #include "battle.h"
 #include "wild_encounter.h"
@@ -28,6 +30,7 @@
 #include "constants/maps.h"
 #include "constants/moves.h"
 #include "constants/species.h"
+#include "constants/items.h"
 
 // Brainy Blue Co-op.
 //
@@ -80,6 +83,13 @@ static bool8 sWasActive;
 static EWRAM_DATA bool8 sCoopScriptRunning = FALSE; // its messages aren't mirrored
 static bool8 sFollowerMenuRequested;
 static bool8 sSaveWithHost;
+static u8 sItemParty;              // co-op battle: battle party slot the bag item was used on
+static u8 sItemMove;               // ...and the move (PP items)
+static bool8 sApplyingItem;        // host: using the partner's item on its copy
+static u8 sItemMonByBattler[4];    // host: the item each battler used this turn went on this slot
+static u8 sCaughtBy;               // co-op battle: player index of who caught the wild Pokemon
+static struct Pokemon *sCaughtMon; // (on the heap while a co-op battle is on)
+static u8 sLeveledUp;             // own Pokemon that leveled up in the last co-op battle
 static u8 sCoopBattlePending;    // COOP_CMD_* of a battle the partner started, waiting to join
 static bool8 sStoryPullWarp;     // pulled into a story battle: warp to the partner first
 static bool8 sWarpArrived;       // that warp is done
@@ -980,6 +990,8 @@ void Coop_BackUpParty(void)
 {
     sOwnParty = AllocZeroed(sizeof(struct Pokemon) * PARTY_SIZE);
     sBattleMons = AllocZeroed(sizeof(struct Pokemon) * 8);
+    sCaughtMon = AllocZeroed(sizeof(struct Pokemon));
+    sCaughtBy = 0xFF;
     memcpy(sOwnParty, gPlayerParty, sizeof(struct Pokemon) * PARTY_SIZE);
     // This player's own wild Pokemon, rolled from their own encounter table.
     memcpy(&sBattleMons[gCoopMailbox.playerIndex * 4 + 3], &gEnemyParty[0], sizeof(struct Pokemon));
@@ -1044,6 +1056,16 @@ static bool8 MissedLevelUpMoves(struct Pokemon *mon, u8 oldLevel)
 }
 
 // After the battle: this player's three Pokemon come back from the battle party.
+// Which of this player's own Pokemon (party slots 0-2) went up a level in the last
+// co-op battle; they may evolve now.
+u8 Coop_TakeLeveledUpMons(void)
+{
+    u8 bits = sLeveledUp;
+
+    sLeveledUp = 0;
+    return bits;
+}
+
 void Coop_RestoreParty(void)
 {
     u8 k;
@@ -1051,6 +1073,12 @@ void Coop_RestoreParty(void)
     if (sOwnParty == NULL)
         return;
     sMovesPending = 0;
+    sLeveledUp = 0;
+    for (k = 0; k < MULTI_PARTY_SIZE; k++)
+    {
+        if (GetMonData(&gPlayerParty[gCoopMailbox.playerIndex * 3 + k], MON_DATA_LEVEL) > GetMonData(&sOwnParty[k], MON_DATA_LEVEL))
+            sLeveledUp |= 1 << k;
+    }
     if (gCoopMailbox.playerIndex != 0)
     {
         for (k = 0; k < MULTI_PARTY_SIZE; k++)
@@ -1062,10 +1090,104 @@ void Coop_RestoreParty(void)
     memcpy(&sOwnParty[0], &gPlayerParty[gCoopMailbox.playerIndex * 3], sizeof(struct Pokemon) * 3);
     memcpy(gPlayerParty, sOwnParty, sizeof(struct Pokemon) * PARTY_SIZE);
     CalculatePlayerPartyCount();
+    // This player caught the wild Pokemon: it joins their team (or goes to their PC).
+    if (sCaughtBy == gCoopMailbox.playerIndex && GetMonData(sCaughtMon, MON_DATA_SPECIES) != SPECIES_NONE)
+    {
+        u16 dexNum = SpeciesToNationalPokedexNum(GetMonData(sCaughtMon, MON_DATA_SPECIES));
+
+        GiveMonToPlayer(sCaughtMon);
+        GetSetPokedexFlag(dexNum, FLAG_SET_SEEN);
+        GetSetPokedexFlag(dexNum, FLAG_SET_CAUGHT);
+    }
+    sCaughtBy = 0xFF;
     Free(sOwnParty);
     Free(sBattleMons);
+    Free(sCaughtMon);
     sOwnParty = NULL;
     sBattleMons = NULL;
+    sCaughtMon = NULL;
+}
+
+// ---------------------------------------------------------------- bag in co-op battles
+//
+// Each player uses their own bag. Medicine and the like work on that player's game
+// right away (as normal); the host's game, which runs the battle, then uses the same
+// item on its copy of the Pokemon, and when the item's turn comes both games' copies
+// are brought in line (BattleScript_CoopUseItem).
+
+void Coop_ResetItemUse(void)
+{
+    sItemParty = 0xFF;
+    sItemMove = 0;
+}
+
+void Coop_NoteItemUsed(u8 partyIndex, u8 moveIndex)
+{
+    if (sApplyingItem)
+        return;
+    sItemParty = partyIndex;
+    sItemMove = moveIndex;
+}
+
+u8 Coop_GetItemParty(void)
+{
+    return sItemParty;
+}
+
+u8 Coop_GetItemMove(void)
+{
+    return sItemMove;
+}
+
+// Host: a player's item choice arrived (battler: who used it).
+void Coop_OnItemChosen(u8 battler, u16 item, u8 partyId, u8 moveIndex)
+{
+    sItemMonByBattler[battler] = partyId;
+    // The host's own items were already used in its own bag; the partner's still need
+    // using on the host's copy.
+    if (partyId < PARTY_SIZE && gBattlerPositions[battler] == B_POSITION_PLAYER_RIGHT)
+    {
+        u8 savedActive = gActiveBattler;
+        u8 savedInMenu = gBattlerInMenuId;
+
+        gBattlerInMenuId = battler;
+        sApplyingItem = TRUE;
+        ExecuteTableBasedItemEffect(&gPlayerParty[partyId], item, partyId, moveIndex);
+        sApplyingItem = FALSE;
+        gBattlerInMenuId = savedInMenu;
+        gActiveBattler = savedActive;
+    }
+}
+
+u8 Coop_GetItemMonForBattler(u8 battler)
+{
+    return sItemMonByBattler[battler];
+}
+
+// ---------------------------------------------------------------- catching in co-op battles
+
+// Host: a ball thrown by this battler worked.
+void Coop_OnMonCaught(u8 battler, struct Pokemon *mon)
+{
+    if (sCaughtMon == NULL)
+        return;
+    sCaughtBy = (gBattlerPositions[battler] == B_POSITION_PLAYER_LEFT) ? 0 : 1;
+    memcpy(sCaughtMon, mon, sizeof(struct Pokemon));
+}
+
+u8 Coop_GetCaughtBy(void)
+{
+    return sCaughtBy;
+}
+
+void Coop_SetCaughtBy(u8 playerIndex)
+{
+    sCaughtBy = playerIndex;
+}
+
+struct Pokemon *Coop_GetCaughtMon(void)
+{
+    return sCaughtMon;
 }
 
 // The leader ran into a wild Pokemon while linked: both games go into a co-op battle.

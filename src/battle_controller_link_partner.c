@@ -1181,9 +1181,25 @@ static void LinkPartnerHandleSuccessBallThrowAnim(void)
     LinkPartnerBufferExecCompleted();
 }
 
+static void LinkPartnerCompleteOnSpecialAnimDone(void)
+{
+    if (!gDoingBattleAnim || !gBattleSpritesDataPtr->healthBoxesData[gActiveBattler].specialAnimActive)
+        LinkPartnerBufferExecCompleted();
+}
+
+// Co-op: the partner threw a ball.
 static void LinkPartnerHandleBallThrowAnim(void)
 {
-    LinkPartnerBufferExecCompleted();
+    if (!Coop_IsLinkOpen())
+    {
+        LinkPartnerBufferExecCompleted();
+        return;
+    }
+    gBattleSpritesDataPtr->animationData->ballThrowCaseId = gBattleBufferA[gActiveBattler][1];
+    gLastUsedItem = gBattleBufferA[gActiveBattler][3];
+    gDoingBattleAnim = TRUE;
+    InitAndLaunchSpecialAnimation(gActiveBattler, gActiveBattler, gBattleBufferA[gActiveBattler][2], B_ANIM_BALL_THROW);
+    gBattlerControllerFuncs[gActiveBattler] = LinkPartnerCompleteOnSpecialAnimDone;
 }
 
 static void LinkPartnerHandlePause(void)

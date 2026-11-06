@@ -184,6 +184,8 @@ static void Cmd_hpthresholds(void);
 static void Cmd_hpthresholds2(void);
 static void Cmd_useitemonopponent(void);
 static void Cmd_various(void);
+static void CoopSyncItemMon(u8 step);
+static void EmitBallThrowAnim(u8 caseId);
 static void Cmd_setprotectlike(void);
 static void Cmd_tryexplosion(void);
 static void Cmd_setatkhptozero(void);
@@ -5533,9 +5535,12 @@ static void Cmd_getmoneyreward(void)
                     break;
             }
             party4 = sTrainers[gTrainerBattleOpponent_A].party.ItemCustomMoves; // Needed to Match. Has no effect.
-            moneyReward = 4 * lastMonLevel * gBattleStruct->moneyMultiplier * (gBattleTypeFlags & BATTLE_TYPE_DOUBLE ? 2 : 1) * gTrainerMoneyTable[i].value;
+            // A co-op battle is a double only because two players fight together: each gets the single reward.
+            moneyReward = 4 * lastMonLevel * gBattleStruct->moneyMultiplier * ((gBattleTypeFlags & BATTLE_TYPE_DOUBLE) && !Coop_IsLinkOpen() ? 2 : 1) * gTrainerMoneyTable[i].value;
         }
         AddMoney(&gSaveBlock1Ptr->money, moneyReward);
+        if (Coop_IsLinkOpen())
+            Coop_SetBattleMoney(moneyReward); // the guest gets the same after the battle
     }
     else
     {
@@ -6374,9 +6379,78 @@ static void Cmd_various(void)
         if (!IsFanfareTaskInactive())
             return;
         break;
+    case VARIOUS_COOP_ITEM_HP:
+    case VARIOUS_COOP_ITEM_STATUS:
+    case VARIOUS_COOP_ITEM_PP:
+    case VARIOUS_COOP_ITEM_HEALTHBOX:
+    case VARIOUS_COOP_ITEM_STATUS_ICON:
+        CoopSyncItemMon(gBattlescriptCurrInstr[2]);
+        break;
     }
 
     gBattlescriptCurrInstr += 3;
+}
+
+// Co-op: after a player used an item on a Pokemon, the host's game (which has the right
+// numbers) sends that Pokemon's HP, status and PP to both games' copies, then has
+// the healthbox redrawn if it's out.
+static void CoopSyncItemMon(u8 step)
+{
+    u8 partyId = Coop_GetItemMonForBattler(gBattlerAttacker);
+    struct Pokemon *mon;
+    u32 status;
+    u16 hp;
+    u8 pp[MAX_MON_MOVES + 1];
+    u8 i, battler = MAX_BATTLERS_COUNT;
+
+    if (partyId >= PARTY_SIZE)
+        return;
+    mon = &gPlayerParty[partyId];
+    for (i = 0; i < gBattlersCount; i++)
+    {
+        if (GetBattlerSide(i) == B_SIDE_PLAYER && gBattlerPartyIndexes[i] == partyId && !(gAbsentBattlerFlags & gBitTable[i]))
+            battler = i;
+    }
+    gActiveBattler = gBattlerAttacker;
+    switch (step)
+    {
+    case VARIOUS_COOP_ITEM_HP:
+        hp = GetMonData(mon, MON_DATA_HP);
+        BtlController_EmitSetMonData(BUFFER_A, REQUEST_HP_BATTLE, gBitTable[partyId], sizeof(hp), &hp);
+        break;
+    case VARIOUS_COOP_ITEM_STATUS:
+        status = GetMonData(mon, MON_DATA_STATUS);
+        BtlController_EmitSetMonData(BUFFER_A, REQUEST_STATUS_BATTLE, gBitTable[partyId], sizeof(status), &status);
+        break;
+    case VARIOUS_COOP_ITEM_PP:
+        for (i = 0; i < MAX_MON_MOVES; i++)
+            pp[i] = GetMonData(mon, MON_DATA_PP1 + i);
+        pp[i] = GetMonData(mon, MON_DATA_PP_BONUSES);
+        BtlController_EmitSetMonData(BUFFER_A, REQUEST_PP_DATA_BATTLE, gBitTable[partyId], sizeof(pp), pp);
+        break;
+    case VARIOUS_COOP_ITEM_HEALTHBOX:
+        if (battler == MAX_BATTLERS_COUNT)
+            return;
+        gActiveBattler = battler;
+        BtlController_EmitHealthBarUpdate(BUFFER_A, 0);
+        break;
+    case VARIOUS_COOP_ITEM_STATUS_ICON:
+        if (battler == MAX_BATTLERS_COUNT)
+            return;
+        gActiveBattler = battler;
+        BtlController_EmitStatusIconUpdate(BUFFER_A, gBattleMons[battler].status1, gBattleMons[battler].status2);
+        break;
+    }
+    MarkBattlerForControllerExec(gActiveBattler);
+}
+
+// Co-op: the ball animation needs the target and ball in both games.
+static void EmitBallThrowAnim(u8 caseId)
+{
+    if (Coop_IsLinkOpen())
+        BtlController_EmitCoopBallThrowAnim(BUFFER_A, caseId, gBattlerTarget, gLastUsedItem);
+    else
+        BtlController_EmitBallThrowAnim(BUFFER_A, caseId);
 }
 
  // Protect and Endure
@@ -9657,22 +9731,25 @@ static void Cmd_handleballthrow(void)
 
     gActiveBattler = gBattlerAttacker;
     gBattlerTarget = gBattlerAttacker ^ BIT_SIDE;
+    // Co-op: each player throws at the wild Pokemon across from them, or the other one if that one's gone.
+    if (Coop_IsLinkOpen() && ((gAbsentBattlerFlags & gBitTable[gBattlerTarget]) || gBattleMons[gBattlerTarget].hp == 0))
+        gBattlerTarget ^= BIT_FLANK;
 
     if (gBattleTypeFlags & BATTLE_TYPE_GHOST)
     {
-        BtlController_EmitBallThrowAnim(BUFFER_A, BALL_GHOST_DODGE);
+        EmitBallThrowAnim(BALL_GHOST_DODGE);
         MarkBattlerForControllerExec(gActiveBattler);
         gBattlescriptCurrInstr = BattleScript_GhostBallDodge;
     }
     else if (gBattleTypeFlags & BATTLE_TYPE_TRAINER)
     {
-        BtlController_EmitBallThrowAnim(BUFFER_A, BALL_TRAINER_BLOCK);
+        EmitBallThrowAnim(BALL_TRAINER_BLOCK);
         MarkBattlerForControllerExec(gActiveBattler);
         gBattlescriptCurrInstr = BattleScript_TrainerBallBlock;
     }
     else if (gBattleTypeFlags & (BATTLE_TYPE_POKEDUDE | BATTLE_TYPE_OLD_MAN_TUTORIAL))
     {
-        BtlController_EmitBallThrowAnim(BUFFER_A, BALL_3_SHAKES_SUCCESS);
+        EmitBallThrowAnim(BALL_3_SHAKES_SUCCESS);
         MarkBattlerForControllerExec(gActiveBattler);
         gBattlescriptCurrInstr = BattleScript_OldMan_Pokedude_CaughtMessage;
     }
@@ -9758,14 +9835,17 @@ static void Cmd_handleballthrow(void)
 
         if (odds > 254) // mon caught
         {
-            BtlController_EmitBallThrowAnim(0, BALL_3_SHAKES_SUCCESS);
+            EmitBallThrowAnim(BALL_3_SHAKES_SUCCESS);
             MarkBattlerForControllerExec(gActiveBattler);
             if(gSaveBlock1Ptr->keyFlags.nuzlocke == 1)
                 gBattlescriptCurrInstr = BattleScript_SuccessBallThrowForceNick;
             else 
                 gBattlescriptCurrInstr = BattleScript_SuccessBallThrow;
             SetMonData(&gEnemyParty[gBattlerPartyIndexes[gBattlerTarget]], MON_DATA_POKEBALL, &gLastUsedItem);
-            if(gSaveBlock1Ptr->keyFlags.nuzlocke == 1)
+            if (Coop_IsLinkOpen())
+                gBattlescriptCurrInstr = BattleScript_CoopSuccessBallThrow; // given to whoever threw it after the battle
+            // (Nuzlocke rules: the host's own, so only for the host's catches)
+            if(gSaveBlock1Ptr->keyFlags.nuzlocke == 1 && (!Coop_IsLinkOpen() || GetBattlerPosition(gBattlerAttacker) == B_POSITION_PLAYER_LEFT))
             {
                 if(NuzlockeFlagGet(GetCurrentRegionMapSectionId()) == TRUE) //already caught something here, faint mon
                 {
@@ -9816,7 +9896,7 @@ static void Cmd_handleballthrow(void)
             if (gLastUsedItem == ITEM_MASTER_BALL)
                 shakes = BALL_3_SHAKES_SUCCESS; // why calculate the shakes before that check?
 
-            BtlController_EmitBallThrowAnim(BUFFER_A, shakes);
+            EmitBallThrowAnim(shakes);
             MarkBattlerForControllerExec(gActiveBattler);
 
             if (shakes == BALL_3_SHAKES_SUCCESS) // mon caught, copy of the code above
@@ -9826,7 +9906,9 @@ static void Cmd_handleballthrow(void)
                 else 
                     gBattlescriptCurrInstr = BattleScript_SuccessBallThrow;
                 SetMonData(&gEnemyParty[gBattlerPartyIndexes[gBattlerTarget]], MON_DATA_POKEBALL, &gLastUsedItem);
-                if(gSaveBlock1Ptr->keyFlags.nuzlocke == 1)
+                if (Coop_IsLinkOpen())
+                    gBattlescriptCurrInstr = BattleScript_CoopSuccessBallThrow;
+                if(gSaveBlock1Ptr->keyFlags.nuzlocke == 1 && (!Coop_IsLinkOpen() || GetBattlerPosition(gBattlerAttacker) == B_POSITION_PLAYER_LEFT))
                 {
                     if(NuzlockeFlagGet(GetCurrentRegionMapSectionId()) == TRUE) //already caught something here, faint mon
                     {
@@ -9876,6 +9958,14 @@ static void Cmd_handleballthrow(void)
 
 static void Cmd_givecaughtmon(void)
 {
+    if (Coop_IsLinkOpen())
+    {
+        // Co-op: the catcher's own game gets it once the battle is over.
+        Coop_OnMonCaught(gBattlerAttacker, &gEnemyParty[gBattlerPartyIndexes[gBattlerTarget]]);
+        gBattleResults.caughtMonSpecies = gBattleMons[gBattlerTarget].species;
+        gBattlescriptCurrInstr++;
+        return;
+    }
     if (GiveMonToPlayer(&gEnemyParty[gBattlerPartyIndexes[gBattlerAttacker ^ BIT_SIDE]]) != MON_GIVEN_TO_PARTY)
     {
         if (!ShouldShowBoxWasFullMessage())

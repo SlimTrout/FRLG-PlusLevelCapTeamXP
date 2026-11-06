@@ -89,6 +89,11 @@
 #define VARIOUS_RETURN_OPPONENT_MON2            10
 #define VARIOUS_CHECK_POKEFLUTE                 11
 #define VARIOUS_WAIT_FANFARE                    12
+#define VARIOUS_COOP_ITEM_HP                    13
+#define VARIOUS_COOP_ITEM_STATUS                14
+#define VARIOUS_COOP_ITEM_PP                    15
+#define VARIOUS_COOP_ITEM_HEALTHBOX             16
+#define VARIOUS_COOP_ITEM_STATUS_ICON           17
 
 // Cmd_manipulatedmg
 #define DMG_CHANGE_SIGN            0

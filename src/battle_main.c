@@ -3405,7 +3405,7 @@ static void HandleTurnActionSelectionState(void)
                     }
                     break;
                 case B_ACTION_USE_ITEM:
-                    if ((gBattleTypeFlags & (BATTLE_TYPE_LINK | BATTLE_TYPE_BATTLE_TOWER | BATTLE_TYPE_EREADER_TRAINER)) || FlagGet(FLAG_MASTER_TRAINER_BATTLE))
+                    if (BATTLE_IS_REAL_LINK || (gBattleTypeFlags & (BATTLE_TYPE_BATTLE_TOWER | BATTLE_TYPE_EREADER_TRAINER)) || FlagGet(FLAG_MASTER_TRAINER_BATTLE))
                     {
                         gSelectionBattleScripts[gActiveBattler] = BattleScript_ActionSelectionItemsCantBeUsed;
                         gBattleCommunication[gActiveBattler] = STATE_SELECTION_SCRIPT;
@@ -3526,6 +3526,8 @@ static void HandleTurnActionSelectionState(void)
                     else
                     {
                         gLastUsedItem = (gBattleBufferB[gActiveBattler][1] | (gBattleBufferB[gActiveBattler][2] << 8));
+                        if (Coop_IsLinkOpen())
+                            Coop_OnItemChosen(gActiveBattler, gLastUsedItem, gBattleBufferB[gActiveBattler][3], gBattleBufferB[gActiveBattler][4]);
                         gBattleCommunication[gActiveBattler]++;
                     }
                     break;
@@ -3972,7 +3974,7 @@ static void HandleEndTurn_BattleWon(void)
         PlayBGM(MUS_VICTORY_TRAINER);
         gBattlescriptCurrInstr = BattleScript_BattleTowerTrainerBattleWon;
     }
-    else if (gBattleTypeFlags & BATTLE_TYPE_TRAINER && !(gBattleTypeFlags & BATTLE_TYPE_LINK))
+    else if (gBattleTypeFlags & BATTLE_TYPE_TRAINER && !BATTLE_IS_REAL_LINK)
     {
         BattleStopLowHpSound();
         if(FlagGet(FLAG_MASTER_TRAINER_BATTLE))
@@ -4434,7 +4436,10 @@ static void HandleAction_UseItem(void)
     }
     else if (GetBattlerSide(gBattlerAttacker) == B_SIDE_PLAYER)
     {
-        gBattlescriptCurrInstr = gBattlescriptsForUsingItem[0];
+        if (Coop_IsLinkOpen())
+            gBattlescriptCurrInstr = BattleScript_CoopUseItem; // both games' copies of the Pokemon get updated
+        else
+            gBattlescriptCurrInstr = gBattlescriptsForUsingItem[0];
     }
     else
     {

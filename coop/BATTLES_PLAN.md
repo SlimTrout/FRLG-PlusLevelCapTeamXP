@@ -79,4 +79,26 @@ link.c: SendBlock / IsLinkTaskFinished / GetMultiplayerId get a co-op branch.
   and joins. Tested with the early Route 22 rival (tr10). Fixes found on the way: the
   trainer claim was cleared during the battle transition (now waits for
   BattleSetup_IsStarting), and the joining player's buttons are blocked while joining.
-- Next: bag/catching, guest money, evolutions after battle.
+- Display glitch fixed: gCoopTextPages was a COMMON symbol, which this linker script
+  puts at 0x03008000 (past the end of IWRAM, which mirrors onto the GPU register
+  buffer at 0x03000000). Every text page changed DISPCNT's low byte. Now EWRAM_DATA.
+  Keep new globals static or EWRAM_DATA/initialized; never plain `u8 gX;`.
+- Story pull prompt (Task_CoopStoryPullPrompt in battle_setup.c): the starter's trainer
+  script is paused while it asks; yes starts the pull, no waits for A.
+- Bag: items allowed in co-op (BATTLE_IS_REAL_LINK). The player's game uses the item
+  as normal (ExecuteTableBasedItemEffect notes the party slot and move); the choice
+  goes to the host as item + slot + move (BtlController_EmitCoopItemReturnValue); the
+  host uses the guest's item on its copy (Coop_OnItemChosen). At the item's turn,
+  BattleScript_CoopUseItem sends HP, status and PP to both games' copies
+  (SetMonData with the slot bit) and redraws the healthbox and status icon.
+- Catching: ball target = across, else its flank partner; the ball anim carries the
+  target and ball (BtlController_EmitCoopBallThrowAnim; LinkPartner now plays it).
+  BattleScript_CoopSuccessBallThrow (no dex screen/nickname); givecaughtmon records
+  the mon and catcher; CB2_EndCoopBattle sends who caught it (and the mon, if the
+  guest did); Coop_RestoreParty gives it to the catcher and sets their dex flags.
+- Money: co-op battles pay the single (not double) reward to each player; the host
+  sends the amount in the end-of-battle ready block. Trainer wins now use the normal
+  won script (the link check there was missing BATTLE_IS_REAL_LINK).
+- Evolutions: own Pokemon that went up a level evolve after a won battle
+  (CB2_CoopEvolutions, before the usual end of battle).
+- Not done: nickname prompt for co-op catches; Nuzlocke rules for the guest's catches.
