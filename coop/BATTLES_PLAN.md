@@ -70,3 +70,13 @@ link.c: SendBlock / IsLinkTaskFinished / GetMultiplayerId get a co-op branch.
 - Guest's Pokemon with 4 moves don't prompt the host; after the battle the guest's game
   opens the move reminder for each such Pokemon (Coop_EventScript_LearnMoves).
 - Next: story battles auto-link (needs linked trainer battles first), bag/catching.
+- Linked trainer battles work (leader runs into a trainer -> COOP_CMD_TRAINER_BATTLE;
+  host makes the trainer's party and sends it; a one-Pokemon party gets a copy; the
+  starter's game continues the trainer's script afterwards; trainer flag syncs).
+  Tested with Bug Catcher Rick (coophost scratch tr5).
+- Story pull works: a split player starting a story trainer (IsStoryTrainer) sends
+  COOP_CMD_STORY_PULL(_NO_WHITEOUT); the partner shows a notice, warps to them, follows
+  and joins. Tested with the early Route 22 rival (tr10). Fixes found on the way: the
+  trainer claim was cleared during the battle transition (now waits for
+  BattleSetup_IsStarting), and the joining player's buttons are blocked while joining.
+- Next: bag/catching, guest money, evolutions after battle.

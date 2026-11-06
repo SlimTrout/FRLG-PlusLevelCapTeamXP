@@ -5,6 +5,7 @@
 
 void StartWildBattle(void);
 void BattleSetup_StartCoopWildBattle(void);
+void BattleSetup_StartCoopTrainerBattle(bool8 starter, bool8 noWhiteOut);
 void StartRoamerBattle(void);
 void StartOldManTutorialBattle(void);
 void StartScriptedWildBattle(void);

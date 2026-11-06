@@ -304,6 +304,12 @@ static void Task_BattleStart(u8 taskId)
     }
 }
 
+// The battle transition is playing (still in the overworld callback).
+bool8 BattleSetup_IsStarting(void)
+{
+    return FuncIsActiveTask(Task_BattleStart);
+}
+
 static void CreateBattleStartTask(u8 transition, u16 song) // song == 0 means default music for current map
 {
     u8 taskId = CreateTask(Task_BattleStart, 1);
@@ -339,6 +345,13 @@ void StartWildBattle(void)
 }
 
 static void CB2_EndCoopBattle(void);
+static void DoTrainerBattle(void);
+void BattleSetup_StartCoopTrainerBattle(bool8 starter, bool8 noWhiteOut);
+static void CB2_EndTrainerBattle(void);
+
+static u32 gBattleTypeFlags_Before;
+static MainCallback sCoopAfterBattle; // the starter's own end of battle (trainer battles)
+static bool8 sCoopNoWhiteOut;          // losing doesn't white out (the first rival battle)
 
 // Co-op: both games go into the same double battle (see coop.c and battle_main.c).
 void BattleSetup_StartCoopWildBattle(void)
@@ -347,6 +360,8 @@ void BattleSetup_StartCoopWildBattle(void)
     FreezeObjectEvents();
     StopPlayerAvatar();
     gMain.savedCallback = CB2_EndCoopBattle;
+    sCoopAfterBattle = NULL;
+    sCoopNoWhiteOut = FALSE;
     gBattleTypeFlags = BATTLE_TYPE_LINK | BATTLE_TYPE_DOUBLE | (Coop_IsHost() ? BATTLE_TYPE_IS_MASTER : 0);
     Coop_OpenLink();
     CreateBattleStartTask(GetWildBattleTransition(), 0);
@@ -410,17 +425,74 @@ static void CB2_EndCoopBattle(void)
         break;
     default:
         sState = 0;
+        gBattleTypeFlags_Before = gBattleTypeFlags;
         Coop_CloseLink();
         Coop_RestoreParty();
         gBattleTypeFlags = 0;
         CpuFill16(0, (void *)BG_PLTT, BG_PLTT_SIZE);
         ResetOamRange(0, 128);
-        if (IsPlayerDefeated(gBattleOutcome) == TRUE)
+        if (sCoopAfterBattle != NULL)
+            SetMainCallback2(sCoopAfterBattle); // the trainer battle's own ending (flags, script)
+        else if (IsPlayerDefeated(gBattleOutcome) == TRUE && !sCoopNoWhiteOut)
             SetMainCallback2(CB2_WhiteOut);
+        else if (gBattleTypeFlags_Before & BATTLE_TYPE_TRAINER)
+            SetMainCallback2(CB2_ReturnToFieldContinueScriptPlayMapMusic);
         else
             SetMainCallback2(CB2_ReturnToField);
         break;
     }
+}
+
+// Story battles: rivals, Gym Leaders, the Elite Four and Champion, the Rocket boss.
+static bool8 IsStoryTrainer(u16 trainerId)
+{
+    if (sTrainerBattleMode == TRAINER_BATTLE_EARLY_RIVAL)
+        return TRUE;
+    switch (gTrainers[trainerId].trainerClass)
+    {
+    case TRAINER_CLASS_RIVAL_EARLY:
+    case TRAINER_CLASS_RIVAL_LATE:
+    case TRAINER_CLASS_CHAMPION:
+    case TRAINER_CLASS_LEADER:
+    case TRAINER_CLASS_ELITE_FOUR:
+    case TRAINER_CLASS_BOSS:
+        return TRUE;
+    }
+    return FALSE;
+}
+
+// Co-op trainer battle: when linked, or for a story battle (which pulls the partner in).
+static bool8 TryStartCoopTrainerBattle(void)
+{
+    bool8 story;
+
+    if (!gCoopMailbox.active || !gCoopMailbox.partner.inOverworld || Coop_IsFollowing()
+     || FlagGet(FLAG_MASTER_TRAINER_BATTLE) || gTrainerBattleOpponent_A == TRAINER_SECRET_BASE)
+        return FALSE;
+    story = IsStoryTrainer(gTrainerBattleOpponent_A);
+    if (!Coop_IsLinked() && !story)
+        return FALSE;
+    sCoopNoWhiteOut = (sTrainerBattleMode == TRAINER_BATTLE_EARLY_RIVAL);
+    Coop_StartLinkedTrainerBattle(sCoopNoWhiteOut, !Coop_IsLinked());
+    BattleSetup_StartCoopTrainerBattle(TRUE, sCoopNoWhiteOut);
+    return TRUE;
+}
+
+// starter: this game ran into the trainer (and continues the trainer's script after)
+void BattleSetup_StartCoopTrainerBattle(bool8 starter, bool8 noWhiteOut)
+{
+    if (!starter)
+    {
+        LockPlayerFieldControls();
+        FreezeObjectEvents();
+        StopPlayerAvatar();
+    }
+    gBattleTypeFlags = BATTLE_TYPE_LINK | BATTLE_TYPE_DOUBLE | BATTLE_TYPE_TRAINER | (Coop_IsHost() ? BATTLE_TYPE_IS_MASTER : 0);
+    gMain.savedCallback = CB2_EndCoopBattle;
+    sCoopAfterBattle = starter ? CB2_EndTrainerBattle : NULL;
+    sCoopNoWhiteOut = noWhiteOut;
+    Coop_OpenLink();
+    DoTrainerBattle();
 }
 
 static void DoStandardWildBattle(void)
@@ -1173,6 +1245,11 @@ void ClearTrainerFlag(u16 trainerId)
 
 void StartTrainerBattle(void)
 {
+    if (TryStartCoopTrainerBattle())
+    {
+        ScriptContext_Stop();
+        return;
+    }
     gBattleTypeFlags = BATTLE_TYPE_TRAINER;
     if (GetTrainerBattleMode() == TRAINER_BATTLE_EARLY_RIVAL && GetRivalBattleFlags() & RIVAL_BATTLE_TUTORIAL)
         gBattleTypeFlags |= BATTLE_TYPE_FIRST_BATTLE;

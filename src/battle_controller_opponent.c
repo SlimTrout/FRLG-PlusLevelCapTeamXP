@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "link.h"
 #include "gflib.h"
 #include "data.h"
@@ -1364,7 +1365,18 @@ static void OpponentHandlePrintSelectionString(void)
     OpponentBufferExecCompleted();
 }
 
+static void OpponentHandleChooseAction_Internal(void);
+
 static void OpponentHandleChooseAction(void)
+{
+    // Co-op: the host's game decides for the computer; the guest's game only shows it.
+    if (Coop_IsLinkOpen() && !(gBattleTypeFlags & BATTLE_TYPE_IS_MASTER))
+        OpponentBufferExecCompleted();
+    else
+        OpponentHandleChooseAction_Internal();
+}
+
+static void OpponentHandleChooseAction_Internal(void)
 {
     AI_TrySwitchOrUseItem();
     OpponentBufferExecCompleted();
@@ -1375,7 +1387,18 @@ static void OpponentHandleUnknownYesNoBox(void)
     OpponentBufferExecCompleted();
 }
 
+static void OpponentHandleChooseMove_Internal(void);
+
 static void OpponentHandleChooseMove(void)
+{
+    // Co-op: the host's game decides for the computer; the guest's game only shows it.
+    if (Coop_IsLinkOpen() && !(gBattleTypeFlags & BATTLE_TYPE_IS_MASTER))
+        OpponentBufferExecCompleted();
+    else
+        OpponentHandleChooseMove_Internal();
+}
+
+static void OpponentHandleChooseMove_Internal(void)
 {
     u8 chosenMoveId;
     struct ChooseMoveStruct *moveInfo = (struct ChooseMoveStruct *)(&gBattleBufferA[gActiveBattler][4]);
@@ -1429,13 +1452,35 @@ static void OpponentHandleChooseMove(void)
     }
 }
 
+static void OpponentHandleChooseItem_Internal(void);
+
 static void OpponentHandleChooseItem(void)
+{
+    // Co-op: the host's game decides for the computer; the guest's game only shows it.
+    if (Coop_IsLinkOpen() && !(gBattleTypeFlags & BATTLE_TYPE_IS_MASTER))
+        OpponentBufferExecCompleted();
+    else
+        OpponentHandleChooseItem_Internal();
+}
+
+static void OpponentHandleChooseItem_Internal(void)
 {
     BtlController_EmitOneReturnValue(1, *(gBattleStruct->chosenItem + (gActiveBattler / 2) * 2));
     OpponentBufferExecCompleted();
 }
 
+static void OpponentHandleChoosePokemon_Internal(void);
+
 static void OpponentHandleChoosePokemon(void)
+{
+    // Co-op: the host's game decides for the computer; the guest's game only shows it.
+    if (Coop_IsLinkOpen() && !(gBattleTypeFlags & BATTLE_TYPE_IS_MASTER))
+        OpponentBufferExecCompleted();
+    else
+        OpponentHandleChoosePokemon_Internal();
+}
+
+static void OpponentHandleChoosePokemon_Internal(void)
 {
     s32 chosenMonId;
 

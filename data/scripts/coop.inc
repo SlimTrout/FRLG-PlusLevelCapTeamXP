@@ -166,3 +166,7 @@ Coop_Text_SplitForStarters::
 Coop_Text_TryingToLearnMoves::
 	.string "{STR_VAR_1} is trying to learn\n"
 	.string "new moves!$"
+
+Coop_Text_PulledIntoStoryBattle::
+	.string "{STR_VAR_1} is starting a big battle!\n"
+	.string "You're joining in.$"

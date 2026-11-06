@@ -30,6 +30,10 @@ enum
     COOP_CMD_SPLIT,
     COOP_CMD_SAVED,           // the host saved; the guest saves too
     COOP_CMD_WILD_BATTLE,     // the leader ran into a wild Pokemon: both go into a co-op battle
+    COOP_CMD_TRAINER_BATTLE,  // the leader's trainer battle (trainer in battleTrainer): join it
+    COOP_CMD_TRAINER_BATTLE_NO_WHITEOUT, // same, but losing doesn't white out (first rival battle)
+    COOP_CMD_STORY_PULL,      // a story battle: come over (warp), link up and join it
+    COOP_CMD_STORY_PULL_NO_WHITEOUT,
 };
 
 #define COOP_TEXT_SIZE 400
@@ -140,6 +144,7 @@ bool8 Coop_IsLinkTaskFinished(void);
 #define BATTLE_IS_REAL_LINK ((gBattleTypeFlags & BATTLE_TYPE_LINK) && !Coop_IsLinkOpen())
 bool8 Coop_IsHost(void);
 void Coop_StartLinkedWildBattle(void);
+void Coop_StartLinkedTrainerBattle(bool8 noWhiteOut, bool8 pullPartner);
 void Coop_CreateLinkBattleTasks(void);
 void Coop_BackUpParty(void);
 void *Coop_GetBattleSendMons(u8 part);

@@ -12,6 +12,7 @@
 #include "malloc.h"
 #include "pokemon.h"
 #include "battle_setup.h"
+#include "battle.h"
 #include "wild_encounter.h"
 #include "constants/global.h"
 #include "field_player_avatar.h"
@@ -59,6 +60,7 @@ extern const u8 Coop_Text_PartnerKeptControl[];
 extern const u8 Coop_Text_PartnerSplitOff[];
 extern const u8 Coop_Text_PartnerDisconnected[];
 extern const u8 Coop_Text_SplitForStarters[];
+extern const u8 Coop_Text_PulledIntoStoryBattle[];
 
 EWRAM_DATA struct CoopMailbox gCoopMailbox = {0};
 u8 gCoopTextPages;
@@ -78,7 +80,9 @@ static bool8 sWasActive;
 static EWRAM_DATA bool8 sCoopScriptRunning = FALSE; // its messages aren't mirrored
 static bool8 sFollowerMenuRequested;
 static bool8 sSaveWithHost;
-static bool8 sCoopBattlePending; // the leader started a wild battle
+static u8 sCoopBattlePending;    // COOP_CMD_* of a battle the partner started, waiting to join
+static bool8 sStoryPullWarp;     // pulled into a story battle: warp to the partner first
+static bool8 sWarpArrived;       // that warp is done
 static u8 sMovesPending; // own party slots with level-up moves they couldn't learn in a co-op battle
 
 // step recording (always recorded)
@@ -436,7 +440,21 @@ static void HandlePartnerCommand(void)
         break;
     case COOP_CMD_WILD_BATTLE:
         if (Coop_IsFollowing())
-            sCoopBattlePending = TRUE;
+            sCoopBattlePending = COOP_CMD_WILD_BATTLE;
+        break;
+    case COOP_CMD_TRAINER_BATTLE:
+    case COOP_CMD_TRAINER_BATTLE_NO_WHITEOUT:
+        if (Coop_IsFollowing())
+            sCoopBattlePending = p->cmd;
+        break;
+    case COOP_CMD_STORY_PULL:
+    case COOP_CMD_STORY_PULL_NO_WHITEOUT:
+        // The partner started a story battle: go to them, link up (they lead) and join.
+        sPendingNotice = Coop_Text_PulledIntoStoryBattle;
+        StopMirroring();
+        StartFollowing();
+        sStoryPullWarp = TRUE;
+        sCoopBattlePending = (p->cmd == COOP_CMD_STORY_PULL) ? COOP_CMD_TRAINER_BATTLE : COOP_CMD_TRAINER_BATTLE_NO_WHITEOUT;
         break;
     case COOP_CMD_SAVED:
         if (Coop_IsGuest())
@@ -548,6 +566,7 @@ static void UpdateFollowing(void)
         {
             sWarping = FALSE;
             sResync = TRUE;
+            sWarpArrived = TRUE;
         }
         sFollowFrame = frame;
         return;
@@ -615,6 +634,13 @@ void Coop_FilterInput(u16 *newKeys, u16 *heldKeys)
     if (!Coop_IsFollowing())
         return;
 
+    // While joining the partner's battle, only closing messages is left to do.
+    if (sCoopBattlePending)
+    {
+        *newKeys &= (ScriptContext_IsEnabled() && !sMirroring) ? (A_BUTTON | B_BUTTON) : 0;
+        *heldKeys = 0;
+        return;
+    }
     if ((*newKeys & (A_BUTTON | R_BUTTON)) && !sMirroring && !ArePlayerFieldControlsLocked() && !ScriptContext_IsEnabled())
         sFollowerMenuRequested = TRUE;
     *newKeys &= sMirroring ? 0 : START_BUTTON;
@@ -707,6 +733,7 @@ static void UpdateMirroredText(void)
 }
 
 static void TryStartPartnersWildBattle(void);
+bool8 BattleSetup_IsStarting(void);
 
 // ---------------------------------------------------------------- main update
 
@@ -720,7 +747,8 @@ void Coop_Update(void)
     if (sCoopScriptRunning && !ScriptContext_IsEnabled() && !ArePlayerFieldControlsLocked())
         sCoopScriptRunning = FALSE;
     // A trainer battle is over once the player is back and free to move.
-    if (gCoopMailbox.local.battleTrainer && Coop_IsInOverworld() && !ScriptContext_IsEnabled() && !ArePlayerFieldControlsLocked())
+    if (gCoopMailbox.local.battleTrainer && Coop_IsInOverworld() && !ScriptContext_IsEnabled() && !ArePlayerFieldControlsLocked()
+     && !BattleSetup_IsStarting())
         gCoopMailbox.local.battleTrainer = 0;
     TrackSteps();
     WriteLocalState();
@@ -1047,13 +1075,50 @@ void Coop_StartLinkedWildBattle(void)
     BattleSetup_StartCoopWildBattle();
 }
 
+void Coop_StartLinkedTrainerBattle(bool8 noWhiteOut, bool8 pullPartner)
+{
+    if (pullPartner)
+    {
+        // A story battle while split: the partner comes over and the two link up.
+        gCoopMailbox.local.mode = COOP_MODE_LEAD;
+        SendCommand(noWhiteOut ? COOP_CMD_STORY_PULL_NO_WHITEOUT : COOP_CMD_STORY_PULL);
+    }
+    else
+    {
+        SendCommand(noWhiteOut ? COOP_CMD_TRAINER_BATTLE_NO_WHITEOUT : COOP_CMD_TRAINER_BATTLE);
+    }
+}
+
+// Join the battle the partner started, once this game is free (and has arrived, when
+// it was pulled over for a story battle).
 static void TryStartPartnersWildBattle(void)
 {
-    if (!sCoopBattlePending || !Coop_IsInOverworld() || ScriptContext_IsEnabled())
+    u8 kind = sCoopBattlePending;
+
+    if (kind == 0 || !Coop_IsInOverworld() || sPendingNotice != NULL || sPendingScript != NULL)
         return;
-    sCoopBattlePending = FALSE;
-    if (Coop_GenerateWildMonHere())
-        BattleSetup_StartCoopWildBattle();
+    if (sStoryPullWarp)
+    {
+        if (ScriptContext_IsEnabled() || ArePlayerFieldControlsLocked())
+            return;
+        sStoryPullWarp = FALSE;
+        WarpToLeader();
+        return;
+    }
+    if (ScriptContext_IsEnabled() || sWarping || (ArePlayerFieldControlsLocked() && !sWarpArrived))
+        return;
+    sCoopBattlePending = 0;
+    sWarpArrived = FALSE;
+    if (kind == COOP_CMD_WILD_BATTLE)
+    {
+        if (Coop_GenerateWildMonHere())
+            BattleSetup_StartCoopWildBattle();
+    }
+    else if (gCoopMailbox.partner.battleTrainer != 0)
+    {
+        gTrainerBattleOpponent_A = gCoopMailbox.partner.battleTrainer - 1;
+        BattleSetup_StartCoopTrainerBattle(FALSE, kind == COOP_CMD_TRAINER_BATTLE_NO_WHITEOUT);
+    }
 }
 
 // Exp in a co-op battle follows each Pokemon's owner's own settings (exp multiplier,

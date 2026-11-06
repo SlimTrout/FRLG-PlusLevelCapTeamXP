@@ -30,7 +30,17 @@ If the partner disconnects, the app closes. Only the host saves, so progress sin
 - **Exp** goes to each player's Pokemon by that player's own exp, team exp and level
   cap settings.
 - When one of your Pokemon faints you pick your next one from your own team.
-- Not yet: the bag and catching in linked battles, linked trainer battles.
+- **Linked trainer battles.** When the leader is spotted by (or talks to) a trainer,
+  both players fight that trainer together as a double battle. A trainer with only one
+  Pokemon gets a second copy so each player has someone to face. Winning marks the
+  trainer as beaten for both players.
+- **Story battles pull the partner in.** If one player starts a story battle (the
+  rival, a gym leader, the Elite Four, the Champion, a boss) while the two are split
+  up, the partner sees "... is starting a big battle! You're joining in.", is taken
+  to the other player, follows them and joins the battle. Losing the first rival
+  battle doesn't white out, as in the normal game.
+- Not yet: the bag and catching in linked battles, money for the guest, evolutions
+  after a linked battle.
 
 ## Building
 
@@ -71,4 +81,5 @@ If the partner disconnects, the app closes. Only the host saves, so progress sin
 
 Working: window, sound, controls, the connection, seeing each other on the map,
 linking up, following, handing over the lead and splitting off.
-Not yet: co-op double battles, trades, story-battle rules.
+Also working: linked wild and trainer battles, story battles pulling the partner in.
+Not yet: trades, the bag and catching in linked battles.

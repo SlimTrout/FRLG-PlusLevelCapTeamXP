@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "gflib.h"
 #include "battle.h"
 #include "battle_anim.h"
@@ -1441,7 +1442,7 @@ void BufferStringBattle(u16 stringId)
     case STRINGID_INTROMSG: // first battle msg
         if (gBattleTypeFlags & BATTLE_TYPE_TRAINER)
         {
-            if (gBattleTypeFlags & BATTLE_TYPE_LINK)
+            if (BATTLE_IS_REAL_LINK)
             {
                 if (gBattleTypeFlags & BATTLE_TYPE_MULTI)
                 {
@@ -1525,7 +1526,7 @@ void BufferStringBattle(u16 stringId)
                     else
                         stringPtr = sText_TwoLinkTrainersSentOutPkmn;
                 }
-                else if (gBattleTypeFlags & BATTLE_TYPE_LINK)
+                else if (BATTLE_IS_REAL_LINK)
                 {
                     if(gLinkPlayers[GetBattlerMultiplayerId(BATTLE_OPPOSITE(gLinkPlayers[multiplayerId].id))].neverRead != 0)
                         stringPtr = sText_LinkTrainerSentOutTwoPkmnTitle;
@@ -1537,7 +1538,7 @@ void BufferStringBattle(u16 stringId)
             }
             else
             {
-                if (!(gBattleTypeFlags & BATTLE_TYPE_LINK))
+                if (!BATTLE_IS_REAL_LINK)
                     stringPtr = sText_Trainer1SentOutPkmn;
                 else if (gTrainerBattleOpponent_A == TRAINER_UNION_ROOM)
                     stringPtr = sText_Trainer1SentOutPkmn;
@@ -1602,7 +1603,7 @@ void BufferStringBattle(u16 stringId)
         }
         else
         {
-            if (gBattleTypeFlags & BATTLE_TYPE_LINK)
+            if (BATTLE_IS_REAL_LINK)
             {
                 if (gBattleTypeFlags & BATTLE_TYPE_MULTI)
                 {

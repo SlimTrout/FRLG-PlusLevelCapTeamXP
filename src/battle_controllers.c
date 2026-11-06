@@ -159,8 +159,10 @@ static void InitLinkBtlControllers(void)
             gBattleMainFunc = BeginBattleIntro;
         gBattlerControllerFuncs[0] = host ? SetControllerToPlayer : SetControllerToLinkPartner;
         gBattlerControllerFuncs[2] = host ? SetControllerToLinkPartner : SetControllerToPlayer;
-        gBattlerControllerFuncs[1] = host ? SetControllerToOpponent : SetControllerToLinkOpponent;
-        gBattlerControllerFuncs[3] = host ? SetControllerToOpponent : SetControllerToLinkOpponent;
+        // The computer's side: the opponent controller in both games (it draws trainers
+        // and Pokemon as in a normal battle); only the host's game makes its choices.
+        gBattlerControllerFuncs[1] = SetControllerToOpponent;
+        gBattlerControllerFuncs[3] = SetControllerToOpponent;
         gBattlerPositions[0] = B_POSITION_PLAYER_LEFT;
         gBattlerPositions[1] = B_POSITION_OPPONENT_LEFT;
         gBattlerPositions[2] = B_POSITION_PLAYER_RIGHT;

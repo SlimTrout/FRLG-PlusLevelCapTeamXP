@@ -1097,7 +1097,7 @@ static void CB2_HandleStartBattle(void)
 static void CB2_HandleStartCoopBattle(void)
 {
     u8 self = GetMultiplayerId();
-    struct Pokemon *block;
+    bool8 host = (self == 0);
 
     RunTasks();
     AnimateSprites();
@@ -1147,16 +1147,48 @@ static void CB2_HandleStartCoopBattle(void)
             ResetBlockReceivedFlags();
             Coop_BuildBattleParties();
             SetAllPlayersBerryData();
+            if ((gBattleTypeFlags & BATTLE_TYPE_TRAINER) && host)
+            {
+                // The trainer's team, as the host's game makes it. A trainer with a
+                // single Pokemon gets a second one, so both players have someone to face.
+                ZeroEnemyPartyMons();
+                CreateNPCTrainerParty(&gEnemyParty[0], gTrainerBattleOpponent_A);
+                if (GetMonData(&gEnemyParty[1], MON_DATA_SPECIES) == SPECIES_NONE)
+                    gEnemyParty[1] = gEnemyParty[0];
+                CalculateEnemyPartyCount();
+            }
+            gBattleCommunication[1] = 0;
             gBattleCommunication[MULTIUSE_STATE]++;
         }
         break;
-    case 5:
+    case 5: // the host's game sends the other side's Pokemon, two at a time
+        if (host ? (IsLinkTaskFinished() && SendBlock(BitmaskAllOtherLinkPlayers(), &gEnemyParty[gBattleCommunication[1] * 2], sizeof(struct Pokemon) * 2)) : TRUE)
+            gBattleCommunication[MULTIUSE_STATE]++;
+        break;
+    case 6:
+        if (host ? IsLinkTaskFinished() : (GetBlockReceivedStatus() & 1) != 0)
+        {
+            if (!host)
+                memcpy(&gEnemyParty[gBattleCommunication[1] * 2], gBlockRecvBuffer[0], sizeof(struct Pokemon) * 2);
+            ResetBlockReceivedFlags();
+            if (++gBattleCommunication[1] < PARTY_SIZE / 2)
+            {
+                gBattleCommunication[MULTIUSE_STATE] = 5;
+            }
+            else
+            {
+                CalculateEnemyPartyCount();
+                gBattleCommunication[MULTIUSE_STATE]++;
+            }
+        }
+        break;
+    case 7:
         InitBattleControllers();
         gBattleCommunication[MULTIUSE_STATE]++;
         gBattleCommunication[SPRITES_INIT_STATE1] = 0;
         gBattleCommunication[SPRITES_INIT_STATE2] = 0;
         break;
-    case 6:
+    case 8:
         if (BattleInitAllSprites(&gBattleCommunication[SPRITES_INIT_STATE1], &gBattleCommunication[SPRITES_INIT_STATE2]))
         {
             gPreBattleCallback1 = gMain.callback1;
@@ -1166,7 +1198,6 @@ static void CB2_HandleStartCoopBattle(void)
         }
         break;
     }
-    (void)block;
 }
 
 static void PrepareOwnMultiPartnerBuffer(void)
