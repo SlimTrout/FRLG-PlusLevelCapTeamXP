@@ -61,7 +61,8 @@ struct CoopPlayerState
              u8 biking:1;      // on a bike: partner rides faster
              u8 msgActive:1;   // a field message is on screen (the follower mirrors it)
              u8 hasPokemon:1;  // the player has at least one Pokemon
-             u8 padding:3;
+             u8 fieldFree:1;   // walking around freely: no script, menu, battle or link (save states are made then)
+             u8 padding:2;
     /*0x0C*/ u8 mode;          // COOP_MODE_*
     /*0x0D*/ u8 stepCount;     // steps taken by input so far (wraps)
     /*0x0E*/ u8 steps[COOP_STEP_RING / 4]; // last 16 step directions, 2 bits each (DIR_* - 1)

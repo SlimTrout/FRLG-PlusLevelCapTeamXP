@@ -24,6 +24,7 @@
 #include "main.h"
 #include "overworld.h"
 #include "script.h"
+#include "palette.h"
 #include "string_util.h"
 #include "characters.h"
 #include "constants/event_objects.h"
@@ -286,6 +287,8 @@ static void TrackSteps(void)
     sLastFrame = frame;
 }
 
+bool8 BattleSetup_IsStarting(void);
+
 static void WriteLocalState(void)
 {
     struct CoopPlayerState *s = &gCoopMailbox.local;
@@ -305,6 +308,8 @@ static void WriteLocalState(void)
     s->msgPage = gCoopTextPages - sMsgPageBase;
     s->keySettings = *(u16 *)&gSaveBlock1Ptr->keyFlags;
     s->hasPokemon = CalculatePlayerPartyCount() != 0;
+    s->fieldFree = !ScriptContext_IsEnabled() && !ArePlayerFieldControlsLocked() && !BattleSetup_IsStarting()
+                && !gCoopMailbox.linkActive && !gPaletteFade.active && !sCoopScriptRunning;
     StringCopyN(s->name, gSaveBlock2Ptr->playerName, PLAYER_NAME_LENGTH + 1);
     s->seq++;
 }

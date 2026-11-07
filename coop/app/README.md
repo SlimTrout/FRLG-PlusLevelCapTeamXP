@@ -19,6 +19,21 @@ The ROM must be built from the `coop` branch.
    firewall: allow it, on **both private and public networks** (Windows often counts
    the ZeroTier network as public). If the partner can't connect, that is usually why.
 
+**Controls…** in the launcher changes the keyboard keys (also remembered).
+
+### Save states
+
+As a fail safe on top of the game's own save, both games make a save state at the same
+moment every 5 minutes (in `savestates/auto` next to the ROM; the newest 10 are kept).
+Either player can make one for both by pressing **F5** (in `savestates/manual`, kept
+until you delete them). A save state is only made while both players are walking
+around (not in a battle, menu or conversation); if one isn't, it's made as soon as
+they are. The window title says when one was made.
+
+To go back to one, both players pick the same save state under **Start from** in the
+launcher. The game starts once both have picked the same one (the app says so if they
+don't match). Loading a save state also puts the game's own save back to that moment.
+
 The launcher remembers your choices in `bbcoop.ini` next to the exe. Each player
 uses their own ROM copy and save file (next to the ROM, with the same name and `.sav`).
 
@@ -35,7 +50,7 @@ The partner runs (with the host's IP address):
 The host needs TCP port 27450 open (or pick another with `--port`; both players use the
 same one). `--save` picks a different save file.
 
-Controls: arrows, Z = A, X = B, Enter = Start, Backspace = Select, A = L, S = R,
+Controls: arrows, Z = A, X = B, Enter = Start, Backspace = Select, A = L, S = R, F5 = save state,
 Escape = quit. A game controller also works.
 
 The game runs at 3x speed by default (the window title shows the speed). The host picks

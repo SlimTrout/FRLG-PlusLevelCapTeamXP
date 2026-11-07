@@ -34,6 +34,7 @@
 #include <mgba-util/vfs.h>
 #include "world_sync.h"
 #include "link_relay.h"
+#include <time.h>
 
 #define SDL_MAIN_HANDLED // we provide main() ourselves
 #include <SDL.h>
@@ -60,6 +61,7 @@ static void sock_nonblock(sock_t s) { u_long on = 1; ioctlsocket(s, FIONBIO, &on
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <sys/stat.h>
 #include <sys/socket.h>
 #include <unistd.h>
 typedef int sock_t;
@@ -92,10 +94,11 @@ static void sock_nonblock(sock_t s) { fcntl(s, F_SETFL, fcntl(s, F_GETFL, 0) | O
 
 // ------------------------------------------------------------------ network messages
 // Every message: 'B' 'B' type len, then len bytes.
-#define MSG_HELLO 1 // payload: protocol version, then (host only) the game speed
+#define MSG_HELLO 1 // payload: protocol version, game speed (host only), then the save state picked to start from
 #define MSG_STATE 2 // payload: STATE_SIZE bytes of the sender's local block
 #define MSG_TEXT 3  // payload: chunk index, then up to TEXT_CHUNK bytes of the sender's message text
-#define PROTOCOL_VERSION 6
+#define MSG_SAVESTATE 8 // payload: kind (0 auto, 1 manual), then the state's name: make one now
+#define PROTOCOL_VERSION 7
 #define DEFAULT_PORT 27450
 
 struct Net {
@@ -126,6 +129,13 @@ struct Net {
     int hostSpeed;
     int versionMismatch;
     int speed; // host: the speed it tells the guest
+    // save states: the one this player starts from ("" = the normal save), the
+    // partner's choice (from their hello), and a save state the partner just made
+    char startState[64];
+    int partnerHello;
+    char partnerStartState[64];
+    int partnerSaveKind;          // -1 = none waiting
+    char partnerSaveName[64];
 };
 
 struct App {
@@ -135,6 +145,16 @@ struct App {
     const char *romPath;
     int headless;
     struct Net net;
+    // save states
+    char stateDir[1024];  // next to the ROM: savestates/auto and savestates/manual
+    int waitStateMatch;   // started from a save state: don't run until the partner picked the same one
+    uint16_t lastLocalSeq, lastPartnerSeq;
+    int localIdle, partnerIdle; // frames since that player's state last changed
+    int manualPending;    // a manual save state was asked for; made once both players are free
+    int autoPending;
+    char notice[96];      // shown in the window title for a few seconds
+    uint32_t noticeUntil;
+    int noticeChanged;
 };
 
 static void quietLog(struct mLogger *l, int c, enum mLogLevel lv, const char *f, va_list a) { (void)l; (void)c; (void)lv; (void)f; (void)a; }
@@ -186,7 +206,8 @@ static void netSend(struct Net *n, int type, const void *payload, int len);
 
 static void netConnected(struct Net *n, int isHost) {
     int one = 1;
-    unsigned char hello[2];
+    unsigned char hello[2 + 64];
+    int nameLen = (int)strlen(n->startState);
 
     setsockopt(n->peer, IPPROTO_TCP, TCP_NODELAY, (const char *)&one, sizeof one);
     n->connected = 1;
@@ -199,7 +220,8 @@ static void netConnected(struct Net *n, int isHost) {
     printf(isHost ? "Your partner joined.\n" : "Connected to your partner.\n");
     hello[0] = PROTOCOL_VERSION;
     hello[1] = (unsigned char)(isHost ? n->speed : 0);
-    netSend(n, MSG_HELLO, hello, 2);
+    memcpy(hello + 2, n->startState, nameLen);
+    netSend(n, MSG_HELLO, hello, 2 + nameLen);
 }
 
 // One step of the guest's connection attempt; never blocks.
@@ -310,6 +332,13 @@ static void netPoll(struct Net *n) {
         if (m[2] == MSG_HELLO && len >= 1) {
             if (m[4] != PROTOCOL_VERSION) { n->versionMismatch = 1; n->connected = 0; return; }
             if (!n->isHost && len >= 2 && m[5] >= 1 && m[5] <= 10) n->hostSpeed = m[5];
+            {
+                size_t nl = len > 2 ? len - 2 : 0;
+                if (nl > sizeof n->partnerStartState - 1) nl = sizeof n->partnerStartState - 1;
+                memcpy(n->partnerStartState, m + 6, nl);
+                n->partnerStartState[nl] = 0;
+                n->partnerHello = 1;
+            }
         } else if (m[2] == MSG_STATE && len == STATE_SIZE) {
             memcpy(n->partnerState, m + 4, STATE_SIZE);
             n->havePartnerState = 1;
@@ -317,6 +346,10 @@ static void netPoll(struct Net *n) {
             lrReceive(&n->lr, m + 4, (int)len);
         } else if (m[2] >= MSG_WORLD_CHANGES && m[2] <= MSG_WORLD_REQUEST) {
             wsReceive(&n->ws, m[2], m + 4, (int)len);
+        } else if (m[2] == MSG_SAVESTATE && len >= 2 && len < 2 + sizeof n->partnerSaveName) {
+            n->partnerSaveKind = m[4];
+            memcpy(n->partnerSaveName, m + 5, len - 1);
+            n->partnerSaveName[len - 1] = 0;
         } else if (m[2] == MSG_TEXT && len >= 1) {
             size_t at = (size_t)m[4] * TEXT_CHUNK;
             if (at + len - 1 <= TEXT_SIZE)
@@ -441,19 +474,24 @@ static int parseKeys(const char *s) {
     return k;
 }
 
+// Keyboard controls (SDL scancodes), in the order of the launcher's Controls window:
+// Up, Down, Left, Right, A, B, Start, Select, L, R, save state.
+enum { KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_A, KEY_B, KEY_START, KEY_SELECT, KEY_L, KEY_R, KEY_SAVESTATE, KEY_COUNT };
+static int sKeys[KEY_COUNT] = {
+    SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT,
+    SDL_SCANCODE_Z, SDL_SCANCODE_X, SDL_SCANCODE_RETURN, SDL_SCANCODE_BACKSPACE,
+    SDL_SCANCODE_A, SDL_SCANCODE_S, SDL_SCANCODE_F5,
+};
+
 static int readInput(SDL_GameController *pad) {
+    static const int gbaKey[KEY_SAVESTATE] = {
+        GBA_KEY_UP, GBA_KEY_DOWN, GBA_KEY_LEFT, GBA_KEY_RIGHT, GBA_KEY_A, GBA_KEY_B,
+        GBA_KEY_START, GBA_KEY_SELECT, GBA_KEY_L, GBA_KEY_R,
+    };
     const Uint8 *ks = SDL_GetKeyboardState(NULL);
     int k = 0;
-    if (ks[SDL_SCANCODE_Z]) k |= 1 << GBA_KEY_A;
-    if (ks[SDL_SCANCODE_X]) k |= 1 << GBA_KEY_B;
-    if (ks[SDL_SCANCODE_RETURN]) k |= 1 << GBA_KEY_START;
-    if (ks[SDL_SCANCODE_BACKSPACE]) k |= 1 << GBA_KEY_SELECT;
-    if (ks[SDL_SCANCODE_UP]) k |= 1 << GBA_KEY_UP;
-    if (ks[SDL_SCANCODE_DOWN]) k |= 1 << GBA_KEY_DOWN;
-    if (ks[SDL_SCANCODE_LEFT]) k |= 1 << GBA_KEY_LEFT;
-    if (ks[SDL_SCANCODE_RIGHT]) k |= 1 << GBA_KEY_RIGHT;
-    if (ks[SDL_SCANCODE_A]) k |= 1 << GBA_KEY_L;
-    if (ks[SDL_SCANCODE_S]) k |= 1 << GBA_KEY_R;
+    for (int i = 0; i < KEY_SAVESTATE; i++)
+        if (sKeys[i] > 0 && sKeys[i] < SDL_NUM_SCANCODES && ks[sKeys[i]]) k |= 1 << gbaKey[i];
     if (pad) {
         if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_A)) k |= 1 << GBA_KEY_A;
         if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_B)) k |= 1 << GBA_KEY_B;
@@ -492,7 +530,9 @@ static void usage(void) {
         "Brainy Blue Co-op\n"
         "  bbcoop host [--port N] [--rom file.gba] [--speed N]\n"
         "  bbcoop join <address> [--port N] [--rom file.gba] [--speed N]\n"
-        "  (the host's --speed is used by both games; 3x unless it says otherwise, 1 = normal)\n");
+        "  (the host's --speed is used by both games; 3x unless it says otherwise, 1 = normal)\n"
+        "  --state savestates/auto/<name>.ss starts from a save state (both players pick the same one)\n"
+        "  F5 in the game makes a save state for both players; one is made every 5 minutes too\n");
 }
 
 static void stepFrame(struct App *app) {
@@ -500,11 +540,188 @@ static void stepFrame(struct App *app) {
     netPoll(&app->net);
     findMailbox(app);
     exchangeMailbox(app);
+    // How long since each player's game last wrote its state (it stops in battles
+    // and menus that leave the overworld).
+    if (app->mailbox) {
+        uint16_t seq = (uint16_t)app->core->busRead16(app->core, app->mailbox + MB_LOCAL);
+        app->localIdle = seq != app->lastLocalSeq ? 0 : app->localIdle + 1;
+        app->lastLocalSeq = seq;
+    } else {
+        app->localIdle = 1000;
+    }
+    if (app->net.havePartnerState) {
+        uint16_t seq = (uint16_t)(app->net.partnerState[0] | app->net.partnerState[1] << 8);
+        app->partnerIdle = seq != app->lastPartnerSeq ? 0 : app->partnerIdle + 1;
+        app->lastPartnerSeq = seq;
+    } else {
+        app->partnerIdle = 1000;
+    }
+}
+
+// ------------------------------------------------------------------ save states
+//
+// Save states are a fail safe on top of the game's own save. Every 5 minutes the
+// host's app has both games make one at the same moment (savestates/auto, the newest
+// 10 are kept), and either player can make one by hand (savestates/manual) with the
+// save state key. Both players then pick the same one in the launcher to go back to it.
+
+#define STATE_FIELD_FREE 0x20 // byte 0x0B of the state: walking around freely
+static int sAutoStateSeconds = 5 * 60; // --autostate-seconds (for testing)
+#define AUTO_STATE_SECONDS sAutoStateSeconds
+#define AUTO_STATES_KEPT 10
+
+static void setNotice(struct App *app, const char *text) {
+    snprintf(app->notice, sizeof app->notice, "%s", text);
+    app->noticeUntil = SDL_GetTicks() + 4000;
+    app->noticeChanged = 1;
+    printf("%s\n", text);
+}
+
+static void makeDir(const char *path) {
+#ifdef _WIN32
+    WCHAR w[1024];
+    if (MultiByteToWideChar(CP_UTF8, 0, path, -1, w, 1024)) CreateDirectoryW(w, NULL);
+#else
+    mkdir(path, 0777);
+#endif
+}
+
+// savestates/ next to the ROM
+static void initStateDir(struct App *app) {
+    char *slash;
+    snprintf(app->stateDir, sizeof app->stateDir, "%s", app->romPath);
+    slash = strrchr(app->stateDir, '/');
+    {
+        char *bs = strrchr(app->stateDir, '\\');
+        if (!slash || (bs && bs > slash)) slash = bs;
+    }
+    if (slash) slash[1] = 0;
+    else app->stateDir[0] = 0;
+    strncat(app->stateDir, "savestates", sizeof app->stateDir - strlen(app->stateDir) - 1);
+}
+
+static int compareNames(const void *a, const void *b) { return strcmp((const char *)a, (const char *)b); }
+
+// Keeps the newest AUTO_STATES_KEPT automatic save states.
+static void pruneAutoStates(struct App *app) {
+    char dirPath[1100];
+    static char names[256][64];
+    int count = 0;
+    struct VDir *dir;
+    struct VDirEntry *e;
+
+    snprintf(dirPath, sizeof dirPath, "%s/auto", app->stateDir);
+    dir = VDirOpen(dirPath);
+    if (!dir) return;
+    while ((e = dir->listNext(dir)) && count < 256) {
+        const char *name = e->name(e);
+        size_t len = strlen(name);
+        if (len > 3 && len < 64 && !strcmp(name + len - 3, ".ss") && e->type(e) != VFS_DIRECTORY)
+            snprintf(names[count++], 64, "%s", name);
+    }
+    qsort(names, count, 64, compareNames); // names are timestamps: oldest first
+    for (int i = 0; i < count - AUTO_STATES_KEPT; i++) dir->deleteFile(dir, names[i]);
+    dir->close(dir);
+}
+
+// Makes the save state <kind>/<name>.ss for this player's game.
+static int saveState(struct App *app, int kind, const char *name) {
+    char path[1200];
+    struct VFile *vf;
+    int ok;
+
+    makeDir(app->stateDir);
+    snprintf(path, sizeof path, "%s/%s", app->stateDir, kind ? "manual" : "auto");
+    makeDir(path);
+    snprintf(path, sizeof path, "%s/%s/%s.ss", app->stateDir, kind ? "manual" : "auto", name);
+    vf = VFileOpen(path, O_CREAT | O_TRUNC | O_RDWR);
+    if (!vf) return 0;
+    ok = mCoreSaveStateNamed(app->core, vf, SAVESTATE_SAVEDATA);
+    vf->close(vf);
+    if (!kind) pruneAutoStates(app);
+    return ok;
+}
+
+static int bothPlayersFree(struct App *app) {
+    if (!app->net.connected || !app->mailbox || !app->net.havePartnerState) return 0;
+    if (app->localIdle > 2 || app->partnerIdle > 30) return 0;
+    if (!(app->core->busRead8(app->core, app->mailbox + MB_LOCAL + 0x0B) & STATE_FIELD_FREE)) return 0;
+    if (!(app->net.partnerState[0x0B] & STATE_FIELD_FREE)) return 0;
+    return 1;
+}
+
+// Both games make a save state now: this one, and the partner's on its message.
+static void makeSharedState(struct App *app, int kind) {
+    unsigned char msg[1 + 64];
+    char name[64];
+    time_t t = time(NULL);
+    struct tm *tm = localtime(&t);
+
+    strftime(name, sizeof name, "%Y-%m-%d_%H-%M-%S", tm);
+    msg[0] = (unsigned char)kind;
+    memcpy(msg + 1, name, strlen(name));
+    netSend(&app->net, MSG_SAVESTATE, msg, 1 + (int)strlen(name));
+    if (saveState(app, kind, name)) {
+        char text[96];
+        snprintf(text, sizeof text, "%s save state made for both players", kind ? "Manual" : "Automatic");
+        setNotice(app, text);
+    } else {
+        setNotice(app, "Couldn't write the save state (is the folder read-only?)");
+    }
+}
+
+// Once a frame: the timer, a manual request, and the partner's save states.
+static void updateSaveStates(struct App *app, uint32_t *autoDue) {
+    if (app->net.partnerSaveKind >= 0 && app->net.partnerSaveName[0]) {
+        int kind = app->net.partnerSaveKind;
+        if (saveState(app, kind, app->net.partnerSaveName))
+            setNotice(app, kind ? "Your partner made a manual save state for both players" : "Automatic save state made for both players");
+        app->net.partnerSaveKind = -1;
+        app->net.partnerSaveName[0] = 0;
+        if (!kind) app->autoPending = 0;
+    }
+    if (!app->net.connected || app->waitStateMatch) return;
+    // only the host keeps time for the automatic ones
+    if (app->net.isHost && (int32_t)(SDL_GetTicks() - *autoDue) >= 0) {
+        app->autoPending = 1;
+        *autoDue = SDL_GetTicks() + AUTO_STATE_SECONDS * 1000;
+    }
+    if ((app->manualPending || app->autoPending) && bothPlayersFree(app)) {
+        if (app->manualPending) makeSharedState(app, 1);
+        else makeSharedState(app, 0);
+        app->manualPending = 0;
+        app->autoPending = 0;
+    }
+}
+
+// Started from a save state: run only once the partner has picked the same one.
+// Returns 0 if they picked something else (the app then closes).
+static int checkStateMatch(struct App *app) {
+    if (!app->net.partnerHello) return 1;
+    if (strcmp(app->net.partnerStartState, app->net.startState)) {
+        const char *mine = app->net.startState[0] ? app->net.startState : "the normal save";
+        const char *theirs = app->net.partnerStartState[0] ? app->net.partnerStartState : "the normal save";
+        showMessage(1, "You and your partner picked different starting points:\n\n"
+                       "You: %s\nYour partner: %s\n\nBoth players need to pick the same one in the launcher.", mine, theirs);
+        return 0;
+    }
+    app->waitStateMatch = 0;
+    return 1;
+}
+
+// Loads savestates/<name>.ss into the game (name is "auto/..." or "manual/...").
+static int loadStartState(struct App *app, const char *path) {
+    struct VFile *vf = VFileOpen(path, O_RDONLY);
+    int ok;
+    if (!vf) return 0;
+    ok = mCoreLoadStateNamed(app->core, vf, SAVESTATE_SAVEDATA);
+    vf->close(vf);
+    return ok;
 }
 
 int main(int argc, char **argv) {
     struct App app;
-    const char *mode = NULL, *address = NULL, *script = NULL, *shots = NULL, *saveArg = NULL;
+    const char *mode = NULL, *address = NULL, *script = NULL, *shots = NULL, *saveArg = NULL, *statePath = NULL;
     int port = DEFAULT_PORT;
     int speed = 3; // game speed: 3x by default (--speed N, set by the launcher)
 
@@ -512,6 +729,7 @@ int main(int argc, char **argv) {
     app.romPath = "pokefirered.gba";
     app.net.listener = SOCK_INVALID;
     app.net.peer = SOCK_INVALID;
+    app.net.partnerSaveKind = -1;
 
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "host") || !strcmp(argv[i], "join")) mode = argv[i];
@@ -519,6 +737,8 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--speed") && i + 1 < argc) speed = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--rom") && i + 1 < argc) app.romPath = argv[++i];
         else if (!strcmp(argv[i], "--save") && i + 1 < argc) saveArg = argv[++i];
+        else if (!strcmp(argv[i], "--state") && i + 1 < argc) statePath = argv[++i];
+        else if (!strcmp(argv[i], "--autostate-seconds") && i + 1 < argc) sAutoStateSeconds = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--headless")) app.headless = 1;
         else if (!strcmp(argv[i], "--script") && i + 1 < argc) script = argv[++i];
         else if (!strcmp(argv[i], "--shots") && i + 1 < argc) shots = argv[++i];
@@ -537,6 +757,9 @@ int main(int argc, char **argv) {
         port = launch.port;
         speed = launch.speed;
         app.romPath = launch.rom;
+        if (launch.state[0]) statePath = launch.state;
+        for (int i = 0; i < KEY_COUNT; i++)
+            if (launch.keys[i] > 0) sKeys[i] = launch.keys[i];
     }
 #endif
     if (!mode || (!strcmp(mode, "join") && !address)) { usage(); return 1; }
@@ -563,6 +786,19 @@ int main(int argc, char **argv) {
     }
     app.core->setAudioBufferSize(app.core, 1024);
     app.core->reset(app.core);
+    initStateDir(&app);
+    if (statePath) {
+        // The partner's launcher lists the same kind/name ("auto/2026-11-06_21-30-00").
+        char dir[1100];
+        const char *base = statePath + strlen(statePath);
+        while (base > statePath && base[-1] != '/' && base[-1] != '\\') base--;
+        snprintf(dir, sizeof dir, "%.*s", (int)(base - statePath), statePath);
+        snprintf(app.net.startState, sizeof app.net.startState, "%s/%.*s",
+                 strstr(dir, "manual") ? "manual" : "auto",
+                 (int)(strlen(base) > 3 && !strcmp(base + strlen(base) - 3, ".ss") ? strlen(base) - 3 : strlen(base)), base);
+        if (!loadStartState(&app, statePath)) { showMessage(1, "Could not load the save state:\n%s", statePath); return 1; }
+        app.waitStateMatch = 1;
+    }
 
     // --- network
     if (!strcmp(mode, "host")) {
@@ -584,14 +820,21 @@ int main(int argc, char **argv) {
         while (fgets(line, sizeof line, f)) {
             int count; char keys[64] = "-", extra[64] = "";
             if (line[0] == '#' || line[0] == '\n') continue;
+            if (!strncmp(line, "savestate", 9)) { app.manualPending = 1; continue; }
             if (!strncmp(line, "waitpartner", 11)) {
                 while (!app.net.connected) { netPoll(&app.net); SDL_Delay(5); }
+                while (!app.net.partnerHello) { netPoll(&app.net); SDL_Delay(5); }
+                if (!checkStateMatch(&app)) return 1;
+                printf("starting from %s\n", app.net.startState[0] ? app.net.startState : "the normal save");
                 continue;
             }
             if (sscanf(line, "%d %63s %63s", &count, keys, extra) < 1) continue;
             app.core->setKeys(app.core, parseKeys(keys));
             for (int i = 0; i < count; i++) {
+                static uint32_t autoDue = 0;
+                if (!autoDue) autoDue = SDL_GetTicks() + AUTO_STATE_SECONDS * 1000;
                 stepFrame(&app);
+                updateSaveStates(&app, &autoDue);
                 SDL_Delay(1); // let the partner's packets arrive, like real play
                 if (app.net.everConnected && !app.net.connected) { partnerLeft(&app.net); return 0; }
             }
@@ -645,6 +888,7 @@ int main(int argc, char **argv) {
     Uint64 freq = SDL_GetPerformanceFrequency(), next = SDL_GetPerformanceCounter();
     const double frameTime = 280896.0 / 16777216.0; // one GBA frame in seconds
     int running = 1, lastConnected = -1;
+    uint32_t autoDue = SDL_GetTicks() + AUTO_STATE_SECONDS * 1000;
 
     while (running) {
         SDL_Event ev;
@@ -652,6 +896,35 @@ int main(int argc, char **argv) {
             if (ev.type == SDL_QUIT) running = 0;
             if (ev.type == SDL_KEYDOWN && ev.key.keysym.scancode == SDL_SCANCODE_ESCAPE) running = 0;
             if (ev.type == SDL_CONTROLLERDEVICEADDED && !pad) pad = SDL_GameControllerOpen(ev.cdevice.which);
+            if (ev.type == SDL_KEYDOWN && !ev.key.repeat && (int)ev.key.keysym.scancode == sKeys[KEY_SAVESTATE]) {
+                if (!app.net.connected || app.waitStateMatch) setNotice(&app, "Save states need both players connected");
+                else if (!app.manualPending) {
+                    app.manualPending = 1;
+                    if (!bothPlayersFree(&app)) setNotice(&app, "Save state: made once both players are walking around");
+                }
+            }
+        }
+
+        // Started from a save state: wait for the partner to pick the same one.
+        if (app.waitStateMatch) {
+            netPoll(&app.net);
+            if (app.net.everConnected && !app.net.connected) { partnerLeft(&app.net); break; }
+            if (!checkStateMatch(&app)) break;
+            if (app.waitStateMatch) {
+                if (lastConnected != 100) {
+                    char title[200];
+                    lastConnected = 100;
+                    snprintf(title, sizeof title, "Brainy Blue Co-op - %s (waiting for your partner to load save state %s)",
+                             app.net.isHost ? "Host" : "Guest", app.net.startState);
+                    SDL_SetWindowTitle(win, title);
+                }
+                SDL_RenderClear(ren);
+                SDL_RenderPresent(ren);
+                SDL_Delay(16);
+                next = SDL_GetPerformanceCounter();
+                continue;
+            }
+            autoDue = SDL_GetTicks() + AUTO_STATE_SECONDS * 1000;
         }
 
         if (!app.net.isHost && app.net.hostSpeed && app.net.hostSpeed != curSpeed) {
@@ -668,6 +941,10 @@ int main(int argc, char **argv) {
             if (app.net.everConnected && !app.net.connected) break;
         }
         if (app.net.everConnected && !app.net.connected) { partnerLeft(&app.net); break; }
+        // In normal mode the partner's hello can still say they picked a save state.
+        if (!checkStateMatch(&app)) break;
+        updateSaveStates(&app, &autoDue);
+        if (!app.net.connected) autoDue = SDL_GetTicks() + AUTO_STATE_SECONDS * 1000;
         {
             // Window title says what's going on, so a missing partner is easy to explain.
             int status;
@@ -680,7 +957,8 @@ int main(int argc, char **argv) {
                            && c->busRead8(c, app.mailbox + MB_LOCAL + 3) == app.net.partnerState[3];
                 status = sameMap ? 4 : 3;
             }
-            if (status != lastConnected) {
+            if (app.notice[0] && (int32_t)(SDL_GetTicks() - app.noticeUntil) >= 0) { app.notice[0] = 0; app.noticeChanged = 1; }
+            if (status != lastConnected || app.noticeChanged) {
                 static const char *const titles[] = {
                     "waiting for partner to connect",
                     "connected; start or load your game",
@@ -690,9 +968,11 @@ int main(int argc, char **argv) {
                     "connecting to the host...",
                     "can't reach the host yet - check the IP, ZeroTier and the host's firewall",
                 };
-                char title[160];
+                char title[300];
                 lastConnected = status;
-                snprintf(title, sizeof title, "Brainy Blue Co-op - %s (%s) - %dx speed", app.net.isHost ? "Host" : "Guest", titles[status], curSpeed);
+                app.noticeChanged = 0;
+                snprintf(title, sizeof title, "Brainy Blue Co-op - %s (%s) - %dx speed", app.net.isHost ? "Host" : "Guest",
+                         app.notice[0] ? app.notice : titles[status], curSpeed);
                 SDL_SetWindowTitle(win, title);
             }
         }
