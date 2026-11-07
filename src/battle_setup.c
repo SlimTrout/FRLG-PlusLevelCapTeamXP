@@ -498,6 +498,10 @@ static void CB2_EndCoopBattle(void)
         // lose: they white out once back on the map (after a trainer's script, if any).
         if (!IsPlayerDefeated(gBattleOutcome) && !sCoopNoWhiteOut && !HasAnyAliveMon())
             Coop_SetWhiteOutPending();
+        // The first rival battle: Oak heals the player's team afterwards, win or lose. The
+        // player who started it gets that from the lab's script; the partner gets it here.
+        if (sCoopNoWhiteOut && sCoopAfterBattle == NULL)
+            HealPlayerPartyOak();
         if (sCoopAfterBattle != NULL)
             sCoopNext = sCoopAfterBattle; // the trainer battle's own ending (flags, script)
         else if (IsPlayerDefeated(gBattleOutcome) == TRUE && !sCoopNoWhiteOut)
@@ -631,7 +635,9 @@ static bool8 TryStartCoopTrainerBattle(void)
     story = IsStoryTrainer(gTrainerBattleOpponent_A);
     if (!Coop_IsLinked() && !story)
         return FALSE;
-    sCoopNoWhiteOut = (sTrainerBattleMode == TRAINER_BATTLE_EARLY_RIVAL);
+    // Only the first rival battle (in Oak's lab) heals instead of whiting out; losing
+    // to the rival on Route 22 whites out as usual.
+    sCoopNoWhiteOut = (sTrainerBattleMode == TRAINER_BATTLE_EARLY_RIVAL && (sRivalBattleFlags & RIVAL_BATTLE_HEAL_AFTER));
     if (!Coop_IsLinked())
     {
         // A story battle while split up: the partner gets ready, then comes over.
