@@ -11,6 +11,7 @@
 #include "link.h"
 #include "malloc.h"
 #include "pokemon.h"
+#include "item.h"
 #include "script_pokemon_util.h"
 #include "pokedex.h"
 #include "money.h"
@@ -104,7 +105,9 @@ static bool8 sWhiteOutPending;     // all own Pokemon fainted in a co-op battle 
 static bool8 sNoShare;             // the next item/Pokemon isn't shared (item balls, gifts received)
 static u16 sLastPartnerGiftSeq;    // partner's gift counter last seen
 static bool8 sGiftSeqKnown;
-static u16 sConnectedFrames;      // overworld frames since connecting (the guest gets the host's world first)
+static u16 sConnectedFrames;
+static u32 sLastUpdateFrame;       // gMain.vblankCounter2 at the last overworld update
+static u8 sBackFromElsewhere;      // frames since coming back from a menu, battle or other screen      // overworld frames since connecting (the guest gets the host's world first)
 static u16 sNickSpecies;           // co-op catch to offer a nickname for
 static u8 sNickWhere;              // MON_GIVEN_TO_PARTY / MON_GIVEN_TO_PC
 static u8 sLeveledUp;             // own Pokemon that leveled up in the last co-op battle
@@ -790,6 +793,12 @@ void Coop_Update(void)
 {
     gCoopMailbox.magic[0] = COOP_MAGIC_0;
     gCoopMailbox.magic[1] = COOP_MAGIC_1;
+    // (a gap in overworld frames: back from a menu, a battle or another screen)
+    if (gMain.vblankCounter2 - sLastUpdateFrame > 2)
+        sBackFromElsewhere = 30;
+    else if (sBackFromElsewhere != 0)
+        sBackFromElsewhere--;
+    sLastUpdateFrame = gMain.vblankCounter2;
     // A co-op script is over once it has released the player (it may wait on a
     // yes/no box in between, when the script context isn't running).
     if (sCoopScriptRunning && !ScriptContext_IsEnabled() && !ArePlayerFieldControlsLocked())
@@ -1012,9 +1021,27 @@ static void CheckPartnerGift(void)
         sLastPartnerGiftSeq = seq;
         return;
     }
-    if (seq == sLastPartnerGiftSeq || sPendingScript != NULL || !CanRunCoopScript())
+    if (seq == sLastPartnerGiftSeq)
         return;
     sLastPartnerGiftSeq = seq;
+    // Busy (a message, a menu, another screen just closed): it goes straight into the
+    // bag (or the PC) without a word.
+    if (sPendingScript != NULL || !CanRunCoopScript() || sBackFromElsewhere != 0)
+    {
+        u16 id = VarGet(base + 2);
+        u16 amount = VarGet(base + 3);
+
+        if (VarGet(base + 1) == GIFT_ITEM)
+        {
+            if (!AddBagItem(id, amount))
+                AddPCItem(id, amount);
+        }
+        else if (VarGet(base + 1) == GIFT_MON)
+        {
+            ScriptGiveMon(id, amount, ITEM_NONE, 0, 0, 0);
+        }
+        return;
+    }
     if (VarGet(base + 1) == GIFT_ITEM)
         sPendingScript = Coop_EventScript_PartnerGiftItem;
     else if (VarGet(base + 1) == GIFT_MON)
