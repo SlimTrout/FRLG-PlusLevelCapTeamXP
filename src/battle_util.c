@@ -1156,6 +1156,12 @@ bool8 HandleFaintedMonActions(void)
             gBattleStruct->faintedActionsState++;
             for (i = 0; i < gBattlersCount; i++)
             {
+                // (co-op: not the player who caught a wild Pokemon and now watches;
+                // they'd be back in the battle with their next Pokemon)
+                if (Coop_IsLinkOpen() && Coop_GetSpectator() < 2
+                 && GetBattlerSide(i) == B_SIDE_PLAYER
+                 && (gBattlerPositions[i] == B_POSITION_PLAYER_LEFT ? 0 : 1) == Coop_GetSpectator())
+                    continue;
                 if (gAbsentBattlerFlags & gBitTable[i] && !HasNoMonsToSwitch(i, PARTY_SIZE, PARTY_SIZE))
                     gAbsentBattlerFlags &= ~(gBitTable[i]);
             }
