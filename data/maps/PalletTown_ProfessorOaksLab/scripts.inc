@@ -293,6 +293,19 @@ PalletTown_ProfessorOaksLab_EventScript_CoopWaitForPartner::
 	releaseall
 	end
 
+PalletTown_ProfessorOaksLab_EventScript_CoopPickStarterFirst::
+	textcolor NPC_TEXT_COLOR_MALE
+	applymovement LOCALID_PROF_OAK, Common_Movement_FaceDown
+	waitmovement 0
+	msgbox PalletTown_ProfessorOaksLab_Text_CoopPickStarterFirst
+	closemessage
+	releaseall
+	end
+
+PalletTown_ProfessorOaksLab_Text_CoopPickStarterFirst::
+	.string "OAK: There you are, {PLAYER}!\n"
+	.string "Choose a POKéMON from the table.$"
+
 PalletTown_ProfessorOaksLab_Text_CoopWaitForPartner::
 	.string "OAK: Hold on! {STR_VAR_1} hasn't\n"
 	.string "chosen a POKéMON yet.$"
@@ -320,6 +333,10 @@ PalletTown_ProfessorOaksLab_EventScript_RivalBattleTriggerRight::
 	end
 
 PalletTown_ProfessorOaksLab_EventScript_RivalBattle::
+	@ Co-op: the lab's progress is shared, so a player walking in without a Pokemon
+	@ (the partner already picked) passes the rival's spot; they pick theirs first.
+	specialvar VAR_RESULT, CalculatePlayerPartyCount
+	goto_if_eq VAR_RESULT, 0, PalletTown_ProfessorOaksLab_EventScript_CoopPickStarterFirst
 	specialvar VAR_RESULT, Coop_PartnerNeedsStarter
 	goto_if_eq VAR_RESULT, TRUE, PalletTown_ProfessorOaksLab_EventScript_CoopWaitForPartner
 	textcolor NPC_TEXT_COLOR_MALE

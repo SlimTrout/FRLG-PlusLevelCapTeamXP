@@ -220,6 +220,32 @@ PalletTown_Movement_PlayerWalkToLabFromHouse::
 	walk_right
 	step_end
 
+@ Co-op: Oak's scene in the grass is shared, so after the partner has seen it a player
+@ without a Pokemon could walk out into the grass. Oak calls them back to his lab.
+PalletTown_EventScript_CoopNoPokemonTrigger::
+	goto_if_eq VAR_MAP_SCENE_PALLET_TOWN_OAK, 0, EventScript_ReleaseEnd
+	specialvar VAR_RESULT, CalculatePlayerPartyCount
+	goto_if_ne VAR_RESULT, 0, EventScript_ReleaseEnd
+	lockall
+	textcolor NPC_TEXT_COLOR_MALE
+	msgbox PalletTown_Text_CoopGetPokemonFirst
+	closemessage
+	applymovement OBJ_EVENT_ID_PLAYER, PalletTown_Movement_CoopStepBack
+	waitmovement 0
+	releaseall
+	end
+
+PalletTown_Movement_CoopStepBack::
+	walk_down
+	step_end
+
+PalletTown_Text_CoopGetPokemonFirst::
+	.string "OAK: Hey! Wait! Don't go out!\p"
+	.string "It's unsafe! Wild POKéMON live in\n"
+	.string "tall grass!\p"
+	.string "Come to my LAB and pick a POKéMON\n"
+	.string "of your own first!$"
+
 PalletTown_EventScript_OakTriggerLeft::
 	lockall
 	setvar VAR_TEMP_1, 0

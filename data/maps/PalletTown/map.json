@@ -130,6 +130,24 @@
     },
     {
       "type": "trigger",
+      "x": 12,
+      "y": 1,
+      "elevation": 3,
+      "var": "VAR_TEMP_3",
+      "var_value": "0",
+      "script": "PalletTown_EventScript_CoopNoPokemonTrigger"
+    },
+    {
+      "type": "trigger",
+      "x": 13,
+      "y": 1,
+      "elevation": 3,
+      "var": "VAR_TEMP_3",
+      "var_value": "0",
+      "script": "PalletTown_EventScript_CoopNoPokemonTrigger"
+    },
+    {
+      "type": "trigger",
       "x": 13,
       "y": 2,
       "elevation": 3,
