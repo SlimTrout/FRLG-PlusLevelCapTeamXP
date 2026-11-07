@@ -410,34 +410,41 @@ void BattleSetup_StartCoopWildBattle(void)
 static void CB2_EndCoopBattle(void)
 {
     static u8 sState;
-    u32 info[2]; // the host's: prize money won, who caught the wild Pokemon
+    u32 info[3]; // a marker, then the host's: prize money won, who caught the wild Pokemon
     bool8 host = Coop_IsHost();
+    u8 partner = GetMultiplayerId() ^ 1;
 
     switch (sState)
     {
     case 0:
         gBattleTypeFlags &= ~BATTLE_TYPE_LINK_IN_BATTLE; // battle blocks are done
         FreeRestoreBattleData();
-        ResetBlockReceivedFlags();
+        // Only this player's own flag: the partner's game may have finished the battle
+        // first, and its "ready" block may already be here.
+        ResetBlockReceivedFlag(GetMultiplayerId());
         sState++;
         break;
     case 1:
         // Both games are ready; the host's block also carries the prize money won and
         // who caught the wild Pokemon, if anyone did.
-        info[0] = host ? sCoopMoney : 0;
-        info[1] = host ? Coop_GetCaughtBy() : 0xFF;
+        info[0] = COOP_END_BATTLE_MARKER;
+        info[1] = host ? sCoopMoney : 0;
+        info[2] = host ? Coop_GetCaughtBy() : 0xFF;
         if (IsLinkTaskFinished() && SendBlock(0, info, sizeof(info)))
             sState++;
         break;
     case 2:
+        // A block left over from the battle itself isn't the partner's "ready": drop it.
+        if ((GetBlockReceivedStatus() & (1 << partner)) && *(u32 *)gBlockRecvBuffer[partner] != COOP_END_BATTLE_MARKER)
+            ResetBlockReceivedFlag(partner);
         if ((GetBlockReceivedStatus() & 3) == 3)
         {
             if (!host)
             {
-                memcpy(info, gBlockRecvBuffer[0], sizeof(info));
-                if (info[0] != 0)
-                    AddMoney(&gSaveBlock1Ptr->money, info[0]);
-                Coop_SetCaughtBy(info[1]);
+                memcpy(info, gBlockRecvBuffer[partner], sizeof(info));
+                if (info[1] != 0)
+                    AddMoney(&gSaveBlock1Ptr->money, info[1]);
+                Coop_SetCaughtBy(info[2]);
             }
             sCoopMoney = 0;
             ResetBlockReceivedFlags();

@@ -577,6 +577,10 @@ void TryReceiveLinkBattleData(void)
         {
             if (GetBlockReceivedStatus() & gBitTable[i])
             {
+                // Co-op: the partner's game finished the battle first and sent its
+                // end-of-battle block; it's for CB2_EndCoopBattle, not the battle.
+                if (*(u32 *)gBlockRecvBuffer[i] == COOP_END_BATTLE_MARKER)
+                    continue;
                 ResetBlockReceivedFlag(i);
                 recvBuffer = (u8 *)gBlockRecvBuffer[i];
                 {

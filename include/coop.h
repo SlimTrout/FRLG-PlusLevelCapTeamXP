@@ -44,6 +44,10 @@ enum
 
 #define COOP_TEXT_SIZE 400
 
+// First word of the block each game sends once a co-op battle is over (battle_setup.c);
+// the battle's own link code leaves such a block alone.
+#define COOP_END_BATTLE_MARKER 0x444E4542 // "BEND"
+
 // 36 bytes. The app copies it byte for byte, so keep the layout in sync with
 // coop/app/bbcoop.c and coop/host/coophost.c (STATE_SIZE, MB_PARTNER, MB_*TEXT).
 struct CoopPlayerState
