@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "battle.h"
 #include "battle_anim.h"
 #include "util.h"
@@ -296,6 +297,13 @@ void BattleAI_HandleItemUseBeforeAISetup(void)
 }
 
 // Story trainers (Gym Leaders, Elite Four, Champion, rivals, the Rocket boss).
+static bool8 IsSmartTrainer(void);
+
+bool8 BattleAI_IsStoryTrainer(void)
+{
+    return IsSmartTrainer();
+}
+
 static bool8 IsSmartTrainer(void)
 {
     if (!(gBattleTypeFlags & BATTLE_TYPE_TRAINER) || FlagGet(FLAG_MASTER_TRAINER_BATTLE)
@@ -1742,6 +1750,8 @@ static void Cmd_if_can_faint(void)
     TypeCalc(gCurrentMove, gBattlerAttacker, gBattlerTarget);
 
     gBattleMoveDamage = gBattleMoveDamage * AI_THINKING_STRUCT->simulatedRNG[AI_THINKING_STRUCT->movesetIndex] / 100;
+    if (gBattleMoveDamage > 1 && Coop_IsLinkOpen() && IsSmartTrainer())
+        gBattleMoveDamage /= 2; // co-op story battles: damage is halved
 
     // Moves always do at least 1 damage.
     if (gBattleMoveDamage == 0)
@@ -1771,6 +1781,8 @@ static void Cmd_if_cant_faint(void)
     TypeCalc(gCurrentMove, gBattlerAttacker, gBattlerTarget);
 
     gBattleMoveDamage = gBattleMoveDamage * AI_THINKING_STRUCT->simulatedRNG[AI_THINKING_STRUCT->movesetIndex] / 100;
+    if (gBattleMoveDamage > 1 && Coop_IsLinkOpen() && IsSmartTrainer())
+        gBattleMoveDamage /= 2; // co-op story battles: damage is halved
 
     // This macro is missing the damage 0 = 1 assumption.
 

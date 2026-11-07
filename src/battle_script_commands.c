@@ -1602,6 +1602,15 @@ static inline void ApplyRandomDmgMultiplier(void)
     }
 }
 
+// Co-op story battles (gym leaders, Elite Four, champion, bosses, rival): all damage
+// is halved on both sides, so fights last long enough that two players ganging up
+// on one trainer's team doesn't run it over.
+static void ApplyCoopStoryDamageCut(void)
+{
+    if (gBattleMoveDamage > 1 && Coop_IsLinkOpen() && BattleAI_IsStoryTrainer())
+        gBattleMoveDamage /= 2;
+}
+
 static void Unused_ApplyRandomDmgMultiplier(void)
 {
     ApplyRandomDmgMultiplier();
@@ -1612,6 +1621,7 @@ static void Cmd_adjustnormaldamage(void)
     u8 holdEffect, param;
 
     ApplyRandomDmgMultiplier();
+    ApplyCoopStoryDamageCut();
 
     if (gBattleMons[gBattlerTarget].item == ITEM_ENIGMA_BERRY)
     {
@@ -1655,6 +1665,7 @@ static void Cmd_adjustnormaldamage2(void)
     u8 holdEffect, param;
 
     ApplyRandomDmgMultiplier();
+    ApplyCoopStoryDamageCut();
 
     if (gBattleMons[gBattlerTarget].item == ITEM_ENIGMA_BERRY)
     {
@@ -5845,6 +5856,19 @@ static void Cmd_cancelallactions(void)
 static void Cmd_adjustsetdamage(void)
 {
     u8 holdEffect, param;
+
+    // (not for moves that hit back with damage taken, already cut: Counter, Mirror Coat, Bide, Endeavor)
+    switch (gBattleMoves[gCurrentMove].effect)
+    {
+    case EFFECT_COUNTER:
+    case EFFECT_MIRROR_COAT:
+    case EFFECT_BIDE:
+    case EFFECT_ENDEAVOR:
+        break;
+    default:
+        ApplyCoopStoryDamageCut();
+        break;
+    }
 
     if (gBattleMons[gBattlerTarget].item == ITEM_ENIGMA_BERRY)
     {
