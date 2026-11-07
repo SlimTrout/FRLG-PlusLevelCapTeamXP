@@ -80,6 +80,44 @@ static u8 GetSpeciesStage(u16 species)
     return STAGE_NONE;
 }
 
+// Static legendaries are shuffled among themselves (Sattolo's shuffle, seeded by the
+// Trainer ID): every legendary becomes a different one, and no two become the same.
+static u16 GetShuffledLegendary(u16 species)
+{
+    u8 order[ARRAY_COUNT(sRandomSpeciesLegendary)];
+    u8 i, j, tmp;
+
+    for (i = 0; i < ARRAY_COUNT(order); i++)
+        order[i] = i;
+    for (i = ARRAY_COUNT(order) - 1; i > 0; i--)
+    {
+        j = RandomizerSeededModulo(0x4C45 + i, i); // 0 .. i-1, never i itself
+        tmp = order[i];
+        order[i] = order[j];
+        order[j] = tmp;
+    }
+    for (i = 0; i < ARRAY_COUNT(order); i++)
+    {
+        if (sRandomSpeciesLegendary[i] == species)
+            return sRandomSpeciesLegendary[order[i]];
+    }
+    return species;
+}
+
+// The cry a script plays for a legendary before its battle: the one it became.
+u16 GetRandomizedLegendaryCry(u16 species)
+{
+    if (GetSpeciesStage(species) == STAGE_LEGENDARY)
+        return GetRandomizedSpecies(species, RANDOMIZE_STATIC);
+    return species;
+}
+
+// special (after a static battle): VAR_0x8004 names the Pokemon that was there.
+void RandomizeStaticSpeciesVar(void)
+{
+    gSpecialVar_0x8004 = GetRandomizedSpecies(gSpecialVar_0x8004, RANDOMIZE_STATIC);
+}
+
 u16 GetRandomizedSpecies(u16 species, u8 kind)
 {
     u32 offset = 0;
@@ -103,7 +141,7 @@ u16 GetRandomizedSpecies(u16 species, u8 kind)
     case STAGE_LEGENDARY:
         // Legendaries only change in static encounters, and only into other legendaries.
         if (kind == RANDOMIZE_STATIC)
-            return sRandomSpeciesLegendary[RandomizerSeededModulo(species, ARRAY_COUNT(sRandomSpeciesLegendary))];
+            return GetShuffledLegendary(species);
         return species;
     }
     return species;

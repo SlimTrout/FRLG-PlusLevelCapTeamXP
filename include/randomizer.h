@@ -15,6 +15,8 @@ enum
 
 u16 RandomizerSeededModulo(u32 value, u16 modulo);
 u16 GetRandomizedSpecies(u16 species, u8 kind);
+u16 GetRandomizedLegendaryCry(u16 species);
+void RandomizeStaticSpeciesVar(void);
 u16 GetRandomizedStarter(u8 starterId);
 u16 GetRandomizedItem(u16 itemId);
 u16 GetShuffledTM(u16 itemId);

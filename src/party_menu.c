@@ -3965,8 +3965,11 @@ static void CursorCB_FieldMove(u8 taskId)
             DisplayPartyMenuMessage(gText_CantUseUntilNewHM, TRUE);
             gTasks[taskId].func = Task_ReturnToChooseMonAfterText;
         }
-        // All field moves before WATERFALL are HMs.
-        else if ((fieldMove <= FIELD_MOVE_WATERFALL && fieldMove != FIELD_MOVE_DIVE) && FlagGet(FLAG_BADGE01_GET + fieldMove) != TRUE)
+        // All field moves before WATERFALL are HMs. Brainy Blue: Fly and Flash work
+        // without their badges.
+        else if ((fieldMove <= FIELD_MOVE_WATERFALL && fieldMove != FIELD_MOVE_DIVE)
+              && fieldMove != FIELD_MOVE_FLY && fieldMove != FIELD_MOVE_FLASH
+              && FlagGet(FLAG_BADGE01_GET + fieldMove) != TRUE)
         {
             DisplayPartyMenuMessage(gText_CantUseUntilNewBadge, TRUE);
             gTasks[taskId].func = Task_ReturnToChooseMonAfterText;

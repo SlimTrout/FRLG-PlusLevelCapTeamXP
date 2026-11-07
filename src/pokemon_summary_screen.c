@@ -3142,6 +3142,12 @@ static void PokeSum_PrintSelectedMoveStats(void)
                                      sLevelNickTextColors[0], TEXT_SKIP_DRAW,
                                      sMonSummaryScreen->summary.moveAccuracyStrBufs[sMoveSelectionCursorPos]);
 
+        // Physical / special / status, beside the power and accuracy.
+        if (sMonSummaryScreen->moveIds[sMoveSelectionCursorPos] != MOVE_NONE)
+            BlitMenuInfoIcon(sMonSummaryScreen->windowIds[POKESUM_WIN_TRAINER_MEMO],
+                             MENU_INFO_ICON_PHYSICAL + gBattleMoves[sMonSummaryScreen->moveIds[sMoveSelectionCursorPos]].category,
+                             84, 8);
+
         AddTextPrinterParameterized4(sMonSummaryScreen->windowIds[POKESUM_WIN_TRAINER_MEMO], FONT_NORMAL,
                                      7, 42,
                                      0, 0,
