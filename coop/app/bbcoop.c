@@ -5,8 +5,11 @@
 // sends this game's co-op mailbox (`local` block, see include/coop.h) to the
 // partner and writes the partner's block into this game's mailbox.
 //
+// On Windows, starting it without options (double-clicking it) opens a launcher
+// window instead (launcher_win.h).
+//
 // Usage:
-//   bbcoop host [--port 27450] [--rom pokefirered.gba]
+//   bbcoop host [--port 27450] [--rom pokefirered.gba] [--speed 3]
 //   bbcoop join <host address> [--port 27450] [--rom pokefirered.gba]
 //   --save <file> picks the save file (default: the ROM's name with .sav)
 //
@@ -47,7 +50,9 @@ typedef SOCKET sock_t;
 #define SOCK_INVALID INVALID_SOCKET
 #define sock_close closesocket
 static int sock_would_block(void) { return WSAGetLastError() == WSAEWOULDBLOCK; }
+static int sock_in_progress(void) { return WSAGetLastError() == WSAEWOULDBLOCK; }
 static void sock_nonblock(sock_t s) { u_long on = 1; ioctlsocket(s, FIONBIO, &on); }
+#include "launcher_win.h"
 #else
 #include <arpa/inet.h>
 #include <errno.h>
@@ -61,6 +66,7 @@ typedef int sock_t;
 #define SOCK_INVALID (-1)
 #define sock_close close
 static int sock_would_block(void) { return errno == EAGAIN || errno == EWOULDBLOCK; }
+static int sock_in_progress(void) { return errno == EINPROGRESS; }
 static void sock_nonblock(sock_t s) { fcntl(s, F_SETFL, fcntl(s, F_GETFL, 0) | O_NONBLOCK); }
 #endif
 
@@ -86,10 +92,10 @@ static void sock_nonblock(sock_t s) { fcntl(s, F_SETFL, fcntl(s, F_GETFL, 0) | O
 
 // ------------------------------------------------------------------ network messages
 // Every message: 'B' 'B' type len, then len bytes.
-#define MSG_HELLO 1 // payload: protocol version
+#define MSG_HELLO 1 // payload: protocol version, then (host only) the game speed
 #define MSG_STATE 2 // payload: STATE_SIZE bytes of the sender's local block
 #define MSG_TEXT 3  // payload: chunk index, then up to TEXT_CHUNK bytes of the sender's message text
-#define PROTOCOL_VERSION 5
+#define PROTOCOL_VERSION 6
 #define DEFAULT_PORT 27450
 
 struct Net {
@@ -106,6 +112,15 @@ struct Net {
     int sentMsgSeq; // -1 until the first message text has been sent
     struct WorldSync ws;
     struct LinkRelay lr;
+    // guest: the host's address, tried again and again until the host answers
+    struct sockaddr_in joinAddr;
+    int joining;
+    int connectPolls; // polls since the current attempt started (or failed)
+    int failedTries;
+    // set by the partner's hello
+    int hostSpeed;
+    int versionMismatch;
+    int speed; // host: the speed it tells the guest
 };
 
 struct App {
@@ -141,31 +156,81 @@ static int netStartHost(struct Net *n, int port) {
     return 1;
 }
 
+// The guest looks the host's address up once, then keeps trying to connect in the
+// background (netPoll), so it doesn't matter which player starts first.
 static int netJoin(struct Net *n, const char *host, int port) {
     struct addrinfo hints, *res = NULL;
     char portStr[16];
-    int one = 1;
 
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
     snprintf(portStr, sizeof portStr, "%d", port);
     if (getaddrinfo(host, portStr, &hints, &res) != 0 || !res) return 0;
-    n->peer = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-    if (n->peer == SOCK_INVALID) { freeaddrinfo(res); return 0; }
-    printf("Connecting to %s:%d...\n", host, port);
-    if (connect(n->peer, res->ai_addr, (int)res->ai_addrlen) != 0) { freeaddrinfo(res); return 0; }
+    memcpy(&n->joinAddr, res->ai_addr, sizeof n->joinAddr);
     freeaddrinfo(res);
+    n->isHost = 0;
+    n->joining = 1;
+    n->peer = SOCK_INVALID;
+    n->connectPolls = 1000; // try at once
+    printf("Connecting to %s:%d...\n", host, port);
+    return 1;
+}
+
+static void netSend(struct Net *n, int type, const void *payload, int len);
+
+static void netConnected(struct Net *n, int isHost) {
+    int one = 1;
+    unsigned char hello[2];
+
     setsockopt(n->peer, IPPROTO_TCP, TCP_NODELAY, (const char *)&one, sizeof one);
-    sock_nonblock(n->peer);
     n->connected = 1;
     n->everConnected = 1;
     n->sentMsgSeq = -1;
-    n->isHost = 0;
-    wsInit(&n->ws, 0);
+    wsInit(&n->ws, isHost);
     lrInit(&n->lr);
-    printf("Connected to your partner.\n");
-    return 1;
+    printf(isHost ? "Your partner joined.\n" : "Connected to your partner.\n");
+    hello[0] = PROTOCOL_VERSION;
+    hello[1] = (unsigned char)(isHost ? n->speed : 0);
+    netSend(n, MSG_HELLO, hello, 2);
+}
+
+// One step of the guest's connection attempt; never blocks.
+static void netTryJoin(struct Net *n) {
+    n->connectPolls++;
+    if (n->peer == SOCK_INVALID) {
+        if (n->connectPolls < 120) return; // wait a little between attempts
+        n->connectPolls = 0;
+        n->peer = socket(AF_INET, SOCK_STREAM, 0);
+        if (n->peer == SOCK_INVALID) return;
+        sock_nonblock(n->peer);
+        if (connect(n->peer, (struct sockaddr *)&n->joinAddr, sizeof n->joinAddr) == 0) { netConnected(n, 0); return; }
+        if (!sock_in_progress()) { sock_close(n->peer); n->peer = SOCK_INVALID; n->failedTries++; }
+        return;
+    }
+    {
+        fd_set w, e;
+        struct timeval tv = { 0, 0 };
+        int err = 0;
+        socklen_t errLen = sizeof err;
+
+        FD_ZERO(&w); FD_ZERO(&e);
+        FD_SET(n->peer, &w); FD_SET(n->peer, &e);
+        if (select((int)n->peer + 1, NULL, &w, &e, &tv) > 0) {
+            if (FD_ISSET(n->peer, &w) && !FD_ISSET(n->peer, &e)
+             && getsockopt(n->peer, SOL_SOCKET, SO_ERROR, (char *)&err, &errLen) == 0 && err == 0) {
+                netConnected(n, 0);
+                return;
+            }
+        } else if (n->connectPolls < 900) {
+            return; // still trying
+        }
+        // refused, unreachable or timed out: try again shortly
+        sock_close(n->peer);
+        n->peer = SOCK_INVALID;
+        n->connectPolls = 0;
+        n->failedTries++;
+    }
 }
 
 static void netSend(struct Net *n, int type, const void *payload, int len) {
@@ -181,20 +246,12 @@ static void netPoll(struct Net *n) {
     if (n->isHost && !n->connected && n->listener != SOCK_INVALID) {
         sock_t s = accept(n->listener, NULL, NULL);
         if (s != SOCK_INVALID) {
-            int one = 1;
             n->peer = s;
-            setsockopt(s, IPPROTO_TCP, TCP_NODELAY, (const char *)&one, sizeof one);
             sock_nonblock(s);
-            n->connected = 1;
-            n->everConnected = 1;
-            n->sentMsgSeq = -1;
-            wsInit(&n->ws, 1);
-            lrInit(&n->lr);
-            printf("Your partner joined.\n");
-            unsigned char v = PROTOCOL_VERSION;
-            netSend(n, MSG_HELLO, &v, 1);
+            netConnected(n, 1);
         }
     }
+    if (!n->isHost && n->joining && !n->everConnected) netTryJoin(n);
     if (!n->connected) return;
 
     for (;;) {
@@ -209,7 +266,10 @@ static void netPoll(struct Net *n) {
         size_t len = m[3];
         if (m[0] != 'B' || m[1] != 'B') { n->connected = 0; return; }
         if (n->inlen - pos < 4 + len) break;
-        if (m[2] == MSG_STATE && len == STATE_SIZE) {
+        if (m[2] == MSG_HELLO && len >= 1) {
+            if (m[4] != PROTOCOL_VERSION) { n->versionMismatch = 1; n->connected = 0; return; }
+            if (!n->isHost && len >= 2 && m[5] >= 1 && m[5] <= 10) n->hostSpeed = m[5];
+        } else if (m[2] == MSG_STATE && len == STATE_SIZE) {
             memcpy(n->partnerState, m + 4, STATE_SIZE);
             n->havePartnerState = 1;
         } else if (m[2] == MSG_BLOCK) {
@@ -294,9 +354,27 @@ static void exchangeMailbox(struct App *app) {
 
 // The game is only played with both players there: when the partner drops, the app
 // closes. Anything since the host's last save is not kept.
-static void partnerLeft(void) {
-    printf("Your partner disconnected, so the game will close.\n"
-           "Progress since the host last saved is not kept.\n");
+// Tells the player something: in a message box (the Windows app has no console),
+// and on the terminal.
+static void showMessage(int error, const char *fmt, ...) {
+    char text[512];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(text, sizeof text, fmt, ap);
+    va_end(ap);
+    fprintf(error ? stderr : stdout, "%s\n", text);
+#ifdef _WIN32
+    SDL_ShowSimpleMessageBox(error ? SDL_MESSAGEBOX_ERROR : SDL_MESSAGEBOX_INFORMATION, "Brainy Blue Co-op", text, NULL);
+#endif
+}
+
+static void partnerLeft(struct Net *n) {
+    if (n->versionMismatch)
+        showMessage(1, "Your partner is using a different version of the co-op app.\n"
+                       "Both players need the same version (and the same ROM build).");
+    else
+        showMessage(0, "Your partner disconnected, so the game will close.\n"
+                       "Progress since the host last saved is not kept.");
 }
 
 // ------------------------------------------------------------------ input
@@ -372,7 +450,7 @@ static void usage(void) {
         "Brainy Blue Co-op\n"
         "  bbcoop host [--port N] [--rom file.gba] [--speed N]\n"
         "  bbcoop join <address> [--port N] [--rom file.gba] [--speed N]\n"
-        "  (runs at 3x speed unless --speed says otherwise; 1 = normal)\n");
+        "  (the host's --speed is used by both games; 3x unless it says otherwise, 1 = normal)\n");
 }
 
 static void stepFrame(struct App *app) {
@@ -405,19 +483,31 @@ int main(int argc, char **argv) {
         else if (mode && !strcmp(mode, "join") && !address) address = argv[i];
         else { usage(); return 1; }
     }
-    if (!mode || (!strcmp(mode, "join") && !address)) { usage(); return 1; }
-
 #ifdef _WIN32
     WSADATA wsa;
     WSAStartup(MAKEWORD(2, 2), &wsa);
+    // Started without options (double-clicked): the launcher window asks how to play.
+    static struct LaunchOptions launch;
+    if (argc == 1) {
+        if (!launcherRun(&launch)) return 0;
+        mode = launch.host ? "host" : "join";
+        address = launch.address;
+        port = launch.port;
+        speed = launch.speed;
+        app.romPath = launch.rom;
+    }
 #endif
+    if (!mode || (!strcmp(mode, "join") && !address)) { usage(); return 1; }
+    if (speed < 1) speed = 1;
+    if (speed > 10) speed = 10;
+    app.net.speed = speed;
 
     // --- emulator core
     mLogSetDefaultLogger(&sQuiet);
     app.core = GBACoreCreate();
-    if (!app.core || !app.core->init(app.core)) { fprintf(stderr, "Could not start the emulator core.\n"); return 1; }
+    if (!app.core || !app.core->init(app.core)) { showMessage(1, "Could not start the emulator core."); return 1; }
     mCoreInitConfig(app.core, "bbcoop");
-    if (!mCoreLoadFile(app.core, app.romPath)) { fprintf(stderr, "Could not load the ROM: %s\n", app.romPath); return 1; }
+    if (!mCoreLoadFile(app.core, app.romPath)) { showMessage(1, "Could not load the ROM:\n%s", app.romPath); return 1; }
     app.video = calloc(256 * 256, sizeof(mColor));
     app.core->setVideoBuffer(app.core, app.video, 256);
     {
@@ -434,9 +524,12 @@ int main(int argc, char **argv) {
 
     // --- network
     if (!strcmp(mode, "host")) {
-        if (!netStartHost(&app.net, port)) { fprintf(stderr, "Could not open port %d.\n", port); return 1; }
+        if (!netStartHost(&app.net, port)) {
+            showMessage(1, "Could not open port %d for your partner.\nIs another copy of the co-op app already running?", port);
+            return 1;
+        }
     } else if (!netJoin(&app.net, address, port)) {
-        fprintf(stderr, "Could not connect to %s:%d.\n", address, port);
+        showMessage(1, "\"%s\" is not an address.\nUse the IP address shown in the host's launcher (for example 10.147.17.5).", address);
         return 1;
     }
 
@@ -458,20 +551,29 @@ int main(int argc, char **argv) {
             for (int i = 0; i < count; i++) {
                 stepFrame(&app);
                 SDL_Delay(1); // let the partner's packets arrive, like real play
-                if (app.net.everConnected && !app.net.connected) { partnerLeft(); return 0; }
+                if (app.net.everConnected && !app.net.connected) { partnerLeft(&app.net); return 0; }
             }
             if (shots && !strcmp(extra, "shot")) { writeShot(&app, shots, n++); printf("shot %d\n", n - 1); }
+            if (!app.net.isHost && app.net.hostSpeed && speed != app.net.hostSpeed) {
+                speed = app.net.hostSpeed;
+                printf("host's speed: %dx\n", speed);
+            }
         }
         return 0;
     }
 
     // --- window, sound, controller
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0) {
-        fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
+        showMessage(1, "Could not open the game window: %s", SDL_GetError());
         return 1;
     }
+    int winW = 240 * 3, winH = 160 * 3;
+#ifdef _WIN32
+    winW = launcherScale(winW);
+    winH = launcherScale(winH);
+#endif
     SDL_Window *win = SDL_CreateWindow(app.net.isHost ? "Brainy Blue Co-op - Host" : "Brainy Blue Co-op - Guest", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                       240 * 3, 160 * 3, SDL_WINDOW_RESIZABLE);
+                                       winW, winH, SDL_WINDOW_RESIZABLE);
     SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (!ren) ren = SDL_CreateRenderer(win, -1, 0);
     SDL_RenderSetLogicalSize(ren, 240, 160);
@@ -494,9 +596,7 @@ int main(int argc, char **argv) {
     // GBA runs at ~59.73 fps; sound is resampled by speed: we play at the core's rate
     // and let SDL convert.
     unsigned coreRate = app.core->audioSampleRate(app.core);
-    if (speed < 1) speed = 1;
-    if (speed > 10) speed = 10;
-    int curSpeed = speed;
+    int curSpeed = speed; // the guest switches to the host's speed when it connects
     // Sped up, the sound plays faster too (as in other emulators' fast-forward).
     SDL_AudioStream *stream = audio ? SDL_NewAudioStream(AUDIO_S16SYS, 2, (int)coreRate * curSpeed, have.format, have.channels, have.freq) : NULL;
     int16_t samples[4096];
@@ -512,16 +612,24 @@ int main(int argc, char **argv) {
             if (ev.type == SDL_CONTROLLERDEVICEADDED && !pad) pad = SDL_GameControllerOpen(ev.cdevice.which);
         }
 
+        if (!app.net.isHost && app.net.hostSpeed && app.net.hostSpeed != curSpeed) {
+            curSpeed = app.net.hostSpeed; // the host picks the speed for both games
+            if (stream) {
+                SDL_FreeAudioStream(stream);
+                stream = SDL_NewAudioStream(AUDIO_S16SYS, 2, (int)coreRate * curSpeed, have.format, have.channels, have.freq);
+            }
+            lastConnected = -1; // update the title
+        }
         for (int f = 0; f < curSpeed && running; f++) {
             app.core->setKeys(app.core, readInput(pad));
             stepFrame(&app);
             if (app.net.everConnected && !app.net.connected) break;
         }
-        if (app.net.everConnected && !app.net.connected) { partnerLeft(); break; }
+        if (app.net.everConnected && !app.net.connected) { partnerLeft(&app.net); break; }
         {
             // Window title says what's going on, so a missing partner is easy to explain.
             int status;
-            if (!app.net.connected) status = 0;                                   // no connection yet
+            if (!app.net.connected) status = app.net.isHost ? 0 : app.net.failedTries < 3 ? 5 : 6; // no connection yet
             else if (!app.mailbox) status = 1;                                    // not in the overworld yet (or not a co-op ROM)
             else if (!app.net.havePartnerState) status = 2;                       // partner not in the overworld yet
             else {
@@ -537,6 +645,8 @@ int main(int argc, char **argv) {
                     "connected; partner is still loading",
                     "connected; partner is on another map",
                     "connected; partner is on this map",
+                    "connecting to the host...",
+                    "can't reach the host yet - check the IP, ZeroTier and the host's firewall",
                 };
                 char title[160];
                 lastConnected = status;

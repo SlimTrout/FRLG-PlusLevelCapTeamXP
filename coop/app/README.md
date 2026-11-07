@@ -3,27 +3,47 @@
 Runs Brainy Blue on a built-in GBA emulator core (mGBA) and connects two players.
 The ROM must be built from the `coop` branch.
 
-## Playing
+## Playing on Windows (ZeroTier)
+
+1. Both players install [ZeroTier](https://www.zerotier.com/download/) and join the
+   same ZeroTier network.
+2. Put `bbcoop.exe`, `SDL2.dll` and the ROM (`pokefirered.gba`) in one folder.
+3. Double-click `bbcoop.exe`. The launcher opens:
+   - **Host:** pick the game speed (3x by default) and send your partner the ZeroTier
+     IP shown in the launcher (the Copy button copies it). Click **Host game**.
+   - **Partner:** type in the host's ZeroTier IP and click **Join game**. The game
+     runs at the speed the host picked.
+   It doesn't matter who starts first: the partner keeps trying until the host is there
+   (the window title says what's going on).
+4. The first time the host starts, Windows asks whether to let the app through the
+   firewall: allow it, on **both private and public networks** (Windows often counts
+   the ZeroTier network as public). If the partner can't connect, that is usually why.
+
+The launcher remembers your choices in `bbcoop.ini` next to the exe. Each player
+uses their own ROM copy and save file (next to the ROM, with the same name and `.sav`).
+
+## Playing from the command line (Linux, or Windows with options)
 
 The host runs:
 
-    bbcoop host --rom pokefirered.gba
+    bbcoop host --rom pokefirered.gba --speed 3
 
 The partner runs (with the host's IP address):
 
-    bbcoop join 203.0.113.5 --rom pokefirered.gba
+    bbcoop join 10.147.17.5 --rom pokefirered.gba
 
-The host needs TCP port 27450 open (or pick another with `--port`). Each player
-uses their own ROM copy and save file (`--save` picks a different one).
+The host needs TCP port 27450 open (or pick another with `--port`; both players use the
+same one). `--save` picks a different save file.
 
 Controls: arrows, Z = A, X = B, Enter = Start, Backspace = Select, A = L, S = R,
 Escape = quit. A game controller also works.
 
-The game runs at 3x speed by default (the window title shows the speed). The speed is
-set when the app starts, with `--speed N` (1 = normal, up to 10); it can't be changed
-in the game.
+The game runs at 3x speed by default (the window title shows the speed). The host picks
+it when the app starts (`--speed N`, 1 = normal, up to 10) and the partner's game uses the
+host's speed; it can't be changed in the game.
 
 If the partner disconnects, the app closes. Only the host saves, so progress since the host last saved is not kept.
+Both players need the same version of the app (it says so if they don't).
 
 ## Battles (first stage)
 
@@ -67,7 +87,8 @@ If the partner disconnects, the app closes. Only the host saves, so progress sin
 ## Building
 
 - Linux, or Windows 11 through WSL: `./build_linux.sh`
-- A Windows .exe (cross-built from WSL): `./build_windows.sh`
+- A Windows .exe (cross-built from WSL): `./build_windows.sh` makes `windows/bbcoop.exe`
+  and `windows/SDL2.dll`. Give both, with the ROM, to each player.
 
 ## Linked play
 

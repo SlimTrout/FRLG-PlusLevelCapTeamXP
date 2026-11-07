@@ -34,8 +34,10 @@ ninja -C mgba/build-win mgba
 # 3. the app
 DEFS=$(grep -m1 -A3 "CMakeFiles/mgba.dir/src/core/core.c.o:" mgba/build-win/build.ninja | grep DEFINES | sed 's/ *DEFINES = //')
 mkdir -p windows
-x86_64-w64-mingw32-gcc -O2 -std=c11 -D_WIN32_WINNT=0x0601 $DEFS -Imgba/include -Imgba/build-win/include -Imgba/src \
-    -I$SDL/include/SDL2 bbcoop.c -o windows/bbcoop.exe mgba/build-win/libmgba.a \
-    -L$SDL/lib -lSDL2 -lws2_32 -lshlwapi -lm -static-libgcc
+x86_64-w64-mingw32-windres bbcoop.rc -O coff -o windows/bbcoop_res.o
+x86_64-w64-mingw32-gcc -O2 -std=gnu11 -D_WIN32_WINNT=0x0601 $DEFS -Imgba/include -Imgba/build-win/include -Imgba/src \
+    -I$SDL/include/SDL2 bbcoop.c windows/bbcoop_res.o -o windows/bbcoop.exe mgba/build-win/libmgba.a \
+    -L$SDL/lib -lSDL2 -lws2_32 -lshlwapi -liphlpapi -lcomdlg32 -lcomctl32 -lgdi32 -luser32 -lm -static-libgcc -mwindows
+rm -f windows/bbcoop_res.o
 cp $SDL/bin/SDL2.dll windows/
-echo "Built windows/bbcoop.exe (keep SDL2.dll next to it)"
+echo "Built windows/bbcoop.exe (keep SDL2.dll next to it). Double-click it to open the launcher."
