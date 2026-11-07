@@ -370,8 +370,9 @@ static void writeShot(struct App *app, const char *dir, int n) {
 static void usage(void) {
     fprintf(stderr,
         "Brainy Blue Co-op\n"
-        "  bbcoop host [--port N] [--rom file.gba]\n"
-        "  bbcoop join <address> [--port N] [--rom file.gba]\n");
+        "  bbcoop host [--port N] [--rom file.gba] [--speed N]\n"
+        "  bbcoop join <address> [--port N] [--rom file.gba] [--speed N]\n"
+        "  (runs at 3x speed by default; Tab switches to normal speed and back)\n");
 }
 
 static void stepFrame(struct App *app) {
@@ -385,6 +386,7 @@ int main(int argc, char **argv) {
     struct App app;
     const char *mode = NULL, *address = NULL, *script = NULL, *shots = NULL, *saveArg = NULL;
     int port = DEFAULT_PORT;
+    int speed = 3; // game speed: 3x by default (--speed N; Tab switches between 1x and it)
 
     memset(&app, 0, sizeof app);
     app.romPath = "pokefirered.gba";
@@ -394,6 +396,7 @@ int main(int argc, char **argv) {
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "host") || !strcmp(argv[i], "join")) mode = argv[i];
         else if (!strcmp(argv[i], "--port") && i + 1 < argc) port = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--speed") && i + 1 < argc) speed = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--rom") && i + 1 < argc) app.romPath = argv[++i];
         else if (!strcmp(argv[i], "--save") && i + 1 < argc) saveArg = argv[++i];
         else if (!strcmp(argv[i], "--headless")) app.headless = 1;
@@ -491,7 +494,11 @@ int main(int argc, char **argv) {
     // GBA runs at ~59.73 fps; sound is resampled by speed: we play at the core's rate
     // and let SDL convert.
     unsigned coreRate = app.core->audioSampleRate(app.core);
-    SDL_AudioStream *stream = audio ? SDL_NewAudioStream(AUDIO_S16SYS, 2, (int)coreRate, have.format, have.channels, have.freq) : NULL;
+    if (speed < 1) speed = 1;
+    if (speed > 10) speed = 10;
+    int fastSpeed = speed > 1 ? speed : 3, curSpeed = speed;
+    // Sped up, the sound plays faster too (as in other emulators' fast-forward).
+    SDL_AudioStream *stream = audio ? SDL_NewAudioStream(AUDIO_S16SYS, 2, (int)coreRate * curSpeed, have.format, have.channels, have.freq) : NULL;
     int16_t samples[4096];
     Uint64 freq = SDL_GetPerformanceFrequency(), next = SDL_GetPerformanceCounter();
     const double frameTime = 280896.0 / 16777216.0; // one GBA frame in seconds
@@ -502,11 +509,23 @@ int main(int argc, char **argv) {
         while (SDL_PollEvent(&ev)) {
             if (ev.type == SDL_QUIT) running = 0;
             if (ev.type == SDL_KEYDOWN && ev.key.keysym.scancode == SDL_SCANCODE_ESCAPE) running = 0;
+            if (ev.type == SDL_KEYDOWN && ev.key.keysym.scancode == SDL_SCANCODE_TAB && !ev.key.repeat) {
+                // Tab: normal speed <-> fast
+                curSpeed = curSpeed == 1 ? fastSpeed : 1;
+                if (stream) {
+                    SDL_FreeAudioStream(stream);
+                    stream = SDL_NewAudioStream(AUDIO_S16SYS, 2, (int)coreRate * curSpeed, have.format, have.channels, have.freq);
+                }
+                lastConnected = -1; // retitle
+            }
             if (ev.type == SDL_CONTROLLERDEVICEADDED && !pad) pad = SDL_GameControllerOpen(ev.cdevice.which);
         }
 
-        app.core->setKeys(app.core, readInput(pad));
-        stepFrame(&app);
+        for (int f = 0; f < curSpeed && running; f++) {
+            app.core->setKeys(app.core, readInput(pad));
+            stepFrame(&app);
+            if (app.net.everConnected && !app.net.connected) break;
+        }
         if (app.net.everConnected && !app.net.connected) { partnerLeft(); break; }
         {
             // Window title says what's going on, so a missing partner is easy to explain.
@@ -530,7 +549,7 @@ int main(int argc, char **argv) {
                 };
                 char title[160];
                 lastConnected = status;
-                snprintf(title, sizeof title, "Brainy Blue Co-op - %s (%s)", app.net.isHost ? "Host" : "Guest", titles[status]);
+                snprintf(title, sizeof title, "Brainy Blue Co-op - %s (%s) - %dx speed (Tab)", app.net.isHost ? "Host" : "Guest", titles[status], curSpeed);
                 SDL_SetWindowTitle(win, title);
             }
         }
