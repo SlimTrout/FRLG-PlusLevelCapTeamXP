@@ -417,16 +417,74 @@ static void AI_RunScripts(void)
 // particular, on top of the AI scripts' scores. Every trainer prefers moves that are
 // super effective on the target and avoids ones it resists; story trainers weigh
 // that more and also go for a target that's nearly down.
+// What the trainer's other Pokemon decided this turn (it chooses first), so the two
+// can work together.
+static EWRAM_DATA u8 sAllyChoiceTurn = 0xFF;
+static EWRAM_DATA u8 sAllyChoiceBattler = 0;
+static EWRAM_DATA u8 sAllyChoiceTarget = 0;
+static EWRAM_DATA u16 sAllyChoiceMove = MOVE_NONE;
+
+// (a new battle: nothing chosen yet)
+void BattleAI_ResetAllyChoice(void)
+{
+    sAllyChoiceTurn = 0xFF;
+}
+
+static bool8 AllyChoseThisTurn(void)
+{
+    return sAllyChoiceTurn == gBattleResults.battleTurnCounter
+        && sAllyChoiceBattler == BATTLE_PARTNER(gBattlerAttacker);
+}
+
+static bool8 IsBattlerStanding(u8 battler)
+{
+    return !(gAbsentBattlerFlags & gBitTable[battler]) && gBattleMons[battler].hp != 0;
+}
+
+// A move that hits everyone around (Earthquake, Magnitude, Explosion): how much it
+// would hurt the trainer's own other Pokemon.
+static s32 AI_AllyHitPenalty(u16 move, bool8 smart)
+{
+    u8 ally = BATTLE_PARTNER(gBattlerAttacker);
+    u8 result;
+    s32 penalty;
+
+    if (!IsBattlerStanding(ally))
+        return 0;
+    result = AI_TypeCalc(move, gBattleMons[ally].species, gBattleMons[ally].ability);
+    if (result & MOVE_RESULT_DOESNT_AFFECT_FOE)
+        return 0; // (a Flying-type or Levitate partner doesn't mind Earthquake)
+    penalty = smart ? 6 : 3;
+    if ((result & MOVE_RESULT_SUPER_EFFECTIVE) && !(result & MOVE_RESULT_NOT_VERY_EFFECTIVE))
+        penalty += 3;
+    else if ((result & MOVE_RESULT_NOT_VERY_EFFECTIVE) && !(result & MOVE_RESULT_SUPER_EFFECTIVE))
+        penalty -= 2;
+    if (gBattleMons[ally].hp * 3 <= gBattleMons[ally].maxHP)
+        penalty += 3; // it could knock out its own partner
+    return -penalty;
+}
+
 static s32 AI_TargetBonus(u8 moveIndex, u8 target, bool8 smart)
 {
     u16 move = gBattleMons[gBattlerAttacker].moves[moveIndex];
     u8 result;
     s32 bonus = 0;
 
-    if (move == MOVE_NONE || gBattleMoves[move].power == 0)
-        return 0; // status moves: the scripts decide
-    if (gBattleMoves[move].target & (MOVE_TARGET_BOTH | MOVE_TARGET_FOES_AND_ALLY))
-        return 0; // hits both anyway
+    if (move == MOVE_NONE)
+        return 0;
+    if (gBattleMoves[move].power == 0)
+    {
+        // Status moves: the scripts decide, but the two don't both use the same one
+        // in a turn (two Reflects, two Sleep Powders on one target...).
+        if (AllyChoseThisTurn() && sAllyChoiceMove == move
+         && (sAllyChoiceTarget == target || gBattleMoves[move].target != MOVE_TARGET_SELECTED))
+            return smart ? -8 : -4;
+        return 0;
+    }
+    if (gBattleMoves[move].target & MOVE_TARGET_FOES_AND_ALLY)
+        return AI_AllyHitPenalty(move, smart); // hits its partner too
+    if (gBattleMoves[move].target & MOVE_TARGET_BOTH)
+        return 0; // hits both foes anyway
     result = AI_TypeCalc(move, gBattleMons[target].species, gBattleMons[target].ability);
     if (result & MOVE_RESULT_DOESNT_AFFECT_FOE)
         return -20;
@@ -436,6 +494,10 @@ static s32 AI_TargetBonus(u8 moveIndex, u8 target, bool8 smart)
         bonus -= smart ? 3 : 1;
     if (smart && gBattleMons[target].hp * 3 <= gBattleMons[target].maxHP)
         bonus += 2; // finish it off
+    // Gang up: hit the foe its partner is already attacking this turn.
+    if (AllyChoseThisTurn() && sAllyChoiceTarget == target && sAllyChoiceMove != MOVE_NONE
+     && gBattleMoves[sAllyChoiceMove].power != 0)
+        bonus += smart ? 2 : 1;
     return bonus;
 }
 
@@ -502,6 +564,11 @@ u8 BattleAI_ChooseMoveAndTargetDoubles(void)
     }
     t = best[Random() % numBest];
     gBattlerTarget = targets[t];
+    // for its partner, which chooses next
+    sAllyChoiceTurn = gBattleResults.battleTurnCounter;
+    sAllyChoiceBattler = gBattlerAttacker;
+    sAllyChoiceTarget = gBattlerTarget;
+    sAllyChoiceMove = gBattleMons[gBattlerAttacker].moves[bestMove[t]];
     return bestMove[t];
 }
 

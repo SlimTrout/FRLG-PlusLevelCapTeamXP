@@ -12,6 +12,7 @@ void BattleAI_HandleItemUseBeforeAISetup(void);
 void BattleAI_SetupAIData(void);
 u8 BattleAI_ChooseMoveOrAction(void);
 u8 BattleAI_ChooseMoveAndTargetDoubles(void);
+void BattleAI_ResetAllyChoice(void);
 void ClearBankMoveHistory(u8 bank);
 void RecordAbilityBattle(u8 bank, u8 abilityId);
 void ClearBankAbilityHistory(u8 bank);
