@@ -20,7 +20,8 @@ Controls: arrows, Z = A, X = B, Enter = Start, Backspace = Select, A = L, S = R,
 Tab = switch between normal and fast speed, Escape = quit. A game controller also works.
 
 The game runs at 3x speed by default (the window title shows the speed). Tab switches
-to normal speed and back; `--speed N` sets the fast speed (1 for normal by default).
+to normal speed and back. `--speed N` sets the fast speed (`--speed 1` starts at
+normal speed).
 
 If the partner disconnects, the app closes. Only the host saves, so progress since the host last saved is not kept.
 
