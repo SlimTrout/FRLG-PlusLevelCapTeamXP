@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "gflib.h"
 #include "bag.h"
 #include "battle_controllers.h"
@@ -1560,7 +1561,18 @@ static void OpenContextMenu(u8 taskId)
     Menu_InitCursor(r6, FONT_NORMAL, 0, 2, GetFontAttribute(FONT_NORMAL, FONTATTR_MAX_LETTER_HEIGHT) + 2, sContextMenuNumItems, 0);
     r4 = ShowBagWindow(6, 0);
     CopyItemName(gSpecialVar_ItemId, gStringVar1);
-    StringExpandPlaceholders(gStringVar4, gText_Var1IsSelected);
+    if (gSpecialVar_ItemId == ITEM_EXP_BOTTLE)
+    {
+        // Co-op: how much exp the bottle holds
+        static const u8 sText_ExpBottleHolds[] = _("{STR_VAR_1} holds\n{STR_VAR_2} EXP.");
+
+        ConvertIntToDecimalStringN(gStringVar2, Coop_GetBottleExp(), STR_CONV_MODE_LEFT_ALIGN, 10);
+        StringExpandPlaceholders(gStringVar4, sText_ExpBottleHolds);
+    }
+    else
+    {
+        StringExpandPlaceholders(gStringVar4, gText_Var1IsSelected);
+    }
     BagPrintTextOnWindow(r4, FONT_NORMAL, gStringVar4, 0, 2, 1, 0, 0, 1);
 }
 
