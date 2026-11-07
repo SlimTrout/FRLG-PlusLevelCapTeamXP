@@ -821,6 +821,11 @@ int main(int argc, char **argv) {
             int count; char keys[64] = "-", extra[64] = "";
             if (line[0] == '#' || line[0] == '\n') continue;
             if (!strncmp(line, "savestate", 9)) { app.manualPending = 1; continue; }
+            if (!strncmp(line, "poke ", 5)) { // test only: poke <hex addr> <value>
+                unsigned addr, val;
+                if (sscanf(line + 5, "%x %u", &addr, &val) == 2) app.core->busWrite8(app.core, addr, (uint8_t)val);
+                continue;
+            }
             if (!strncmp(line, "waitpartner", 11)) {
                 while (!app.net.connected) { netPoll(&app.net); SDL_Delay(5); }
                 while (!app.net.partnerHello) { netPoll(&app.net); SDL_Delay(5); }
