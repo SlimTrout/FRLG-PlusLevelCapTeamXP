@@ -11,6 +11,7 @@
 #include "link.h"
 #include "malloc.h"
 #include "pokemon.h"
+#include "script_pokemon_util.h"
 #include "pokedex.h"
 #include "money.h"
 #include "battle_setup.h"
@@ -28,6 +29,7 @@
 #include "constants/event_object_movement.h"
 #include "constants/flags.h"
 #include "constants/maps.h"
+#include "constants/vars.h"
 #include "constants/moves.h"
 #include "constants/species.h"
 #include "constants/items.h"
@@ -66,6 +68,11 @@ extern const u8 Coop_Text_SplitForStarters[];
 extern const u8 Coop_Text_PulledIntoStoryBattle[];
 extern const u8 Coop_EventScript_StoryGetReady[];
 extern const u8 Coop_EventScript_WhiteOut[];
+extern const u8 Coop_EventScript_PartnerGiftItem[];
+extern const u8 Coop_EventScript_PartnerGiftMon[];
+extern const u8 Coop_EventScript_NicknameCaught[];
+extern const u8 Coop_Text_SoloBattle[];
+extern const u8 Coop_Text_SplitForSafari[];
 
 EWRAM_DATA struct CoopMailbox gCoopMailbox = {0};
 EWRAM_DATA u8 gCoopTextPages = 0; // not plain "u8 gCoopTextPages;": that lands past the end of IWRAM, on top of the GPU register buffer
@@ -94,6 +101,12 @@ static struct Pokemon *sCaughtMon; // (on the heap while a co-op battle is on)
 static bool8 sStoryPartnerReady;   // story battle starter: the partner said they're ready
 static bool8 sStoryReadySent;      // pulled player: said ready, so no "joining in" notice
 static bool8 sWhiteOutPending;     // all own Pokemon fainted in a co-op battle the partner won
+static bool8 sNoShare;             // the next item/Pokemon isn't shared (item balls, gifts received)
+static u16 sLastPartnerGiftSeq;    // partner's gift counter last seen
+static bool8 sGiftSeqKnown;
+static u16 sConnectedFrames;      // overworld frames since connecting (the guest gets the host's world first)
+static u16 sNickSpecies;           // co-op catch to offer a nickname for
+static u8 sNickWhere;              // MON_GIVEN_TO_PARTY / MON_GIVEN_TO_PC
 static u8 sLeveledUp;             // own Pokemon that leveled up in the last co-op battle
 static u8 sCoopBattlePending;    // COOP_CMD_* of a battle the partner started, waiting to join
 static bool8 sStoryPullWarp;     // pulled into a story battle: warp to the partner first
@@ -766,6 +779,8 @@ static void UpdateMirroredText(void)
 
 static void TryStartPartnersWildBattle(void);
 static void FollowHostRules(void);
+static void CheckPartnerGift(void);
+static bool8 IsSafariZoneMap(void);
 bool8 BattleSetup_IsStarting(void);
 
 // ---------------------------------------------------------------- main update
@@ -806,11 +821,14 @@ void Coop_Update(void)
         // Fresh connection: start split and ignore commands sent before it.
         sWasActive = TRUE;
         sLastPartnerCmdSeq = gCoopMailbox.partner.cmdSeq;
+        sGiftSeqKnown = FALSE;
+        sConnectedFrames = 0;
         Split();
     }
 
     HandlePartnerCommand();
     FollowHostRules();
+    CheckPartnerGift();
     // Picking starters in Oak's lab: each player picks their own, so a linked pair
     // splits up there as long as this player has no Pokemon yet.
     if (Coop_IsLinked() && CalculatePlayerPartyCount() == 0
@@ -820,6 +838,13 @@ void Coop_Update(void)
         SendCommand(COOP_CMD_SPLIT);
         Split();
         ShowNotice(Coop_Text_SplitForStarters);
+    }
+    // The Safari Zone: each player goes in (and pays) on their own.
+    if (Coop_IsLinked() && IsSafariZoneMap())
+    {
+        SendCommand(COOP_CMD_SPLIT);
+        Split();
+        ShowNotice(Coop_Text_SplitForSafari);
     }
     TryStartPartnersWildBattle();
     if (Coop_IsFollowing())
@@ -886,6 +911,141 @@ void Coop_SplitOff(void)
 {
     SendCommand(COOP_CMD_SPLIT);
     Split();
+}
+
+// ---------------------------------------------------------------- one-player battles
+
+// Safari Zone, ghosts, the old man's demonstration, legendary and other set-piece
+// Pokemon: one player only. A linked pair splits up for it.
+void Coop_ForceSoloBattle(void)
+{
+    if (Coop_IsLinked())
+    {
+        Coop_SplitOff();
+        ShowNotice(Coop_Text_SoloBattle);
+    }
+}
+
+static bool8 IsSafariZoneMap(void)
+{
+    u16 map = (gSaveBlock1Ptr->location.mapGroup << 8) | gSaveBlock1Ptr->location.mapNum;
+
+    if (map == MAP_FUCHSIA_CITY_SAFARI_ZONE_ENTRANCE)
+        return TRUE;
+    return gSaveBlock1Ptr->location.mapGroup == MAP_GROUP(SAFARI_ZONE_CENTER)
+        && gSaveBlock1Ptr->location.mapNum >= MAP_NUM(SAFARI_ZONE_CENTER)
+        && gSaveBlock1Ptr->location.mapNum <= MAP_NUM(SAFARI_ZONE_NORTH_EAST);
+}
+
+// ---------------------------------------------------------------- shared one-time rewards
+//
+// Items and Pokemon given by scripts (NPC gifts, prizes for story events, key items,
+// TMs) go to both players: when one gets something, the other gets the same. They're
+// passed through the shared variables: each player has four (VAR_0x40D0 + 4 * index):
+// a counter, then the kind, the item or species, and the amount or level.
+
+#define GIFT_VARS(idx) (VAR_0x40D0 + 4 * (idx))
+enum { GIFT_ITEM = 1, GIFT_MON };
+
+static bool8 IsGiftSharedHere(void)
+{
+    u16 map = (gSaveBlock1Ptr->location.mapGroup << 8) | gSaveBlock1Ptr->location.mapNum;
+
+    // things bought there can be had again: each player buys their own
+    return map != MAP_CELADON_CITY_GAME_CORNER_PRIZE_ROOM && map != MAP_CELADON_CITY_DEPARTMENT_STORE_ROOF;
+}
+
+static void SendGift(u8 kind, u16 id, u16 amount)
+{
+    u16 base = GIFT_VARS(gCoopMailbox.playerIndex);
+
+    VarSet(base + 1, kind);
+    VarSet(base + 2, id);
+    VarSet(base + 3, amount);
+    VarSet(base, VarGet(base) + 1);
+}
+
+void Coop_ShareItemGift(u16 item, u16 count)
+{
+    if (sNoShare)
+    {
+        sNoShare = FALSE;
+        return;
+    }
+    if (count != 0 && gCoopMailbox.active && IsGiftSharedHere())
+        SendGift(GIFT_ITEM, item, count);
+}
+
+void Coop_ShareMonGift(u16 species, u8 level, u16 item)
+{
+    u16 map = (gSaveBlock1Ptr->location.mapGroup << 8) | gSaveBlock1Ptr->location.mapNum;
+
+    if (sNoShare)
+    {
+        sNoShare = FALSE;
+        return;
+    }
+    // (starters: each player picks their own)
+    if (gCoopMailbox.active && IsGiftSharedHere() && map != MAP_PALLET_TOWN_PROFESSOR_OAKS_LAB)
+        SendGift(GIFT_MON, species, level);
+}
+
+// special: the next item added isn't shared (an item ball or hidden item)
+void Coop_DontShareNextItem(void)
+{
+    sNoShare = TRUE;
+}
+
+// The partner got a gift: this player gets the same, once free.
+static void CheckPartnerGift(void)
+{
+    u16 base = GIFT_VARS(gCoopMailbox.playerIndex ^ 1);
+    u16 seq = VarGet(base);
+
+    // Right after connecting the shared variables are still being brought in line
+    // (the guest takes the host's): only changes after that are gifts.
+    if (!sGiftSeqKnown || sConnectedFrames < 600)
+    {
+        if (sConnectedFrames < 600)
+            sConnectedFrames++;
+        sGiftSeqKnown = TRUE;
+        sLastPartnerGiftSeq = seq;
+        return;
+    }
+    if (seq == sLastPartnerGiftSeq || sPendingScript != NULL || !CanRunCoopScript())
+        return;
+    sLastPartnerGiftSeq = seq;
+    if (VarGet(base + 1) == GIFT_ITEM)
+        sPendingScript = Coop_EventScript_PartnerGiftItem;
+    else if (VarGet(base + 1) == GIFT_MON)
+        sPendingScript = Coop_EventScript_PartnerGiftMon;
+}
+
+// special: VAR_0x8000/0x8001 = the partner's item and amount (not shared back)
+void Coop_PrepareGiftItem(void)
+{
+    u16 base = GIFT_VARS(gCoopMailbox.playerIndex ^ 1);
+
+    gSpecialVar_0x8000 = VarGet(base + 2);
+    gSpecialVar_0x8001 = VarGet(base + 3);
+    sNoShare = TRUE;
+}
+
+// special: gives the partner's Pokemon gift. VAR_RESULT as givemon, VAR_TEMP_1 = species.
+void Coop_GiveGiftMon(void)
+{
+    u16 base = GIFT_VARS(gCoopMailbox.playerIndex ^ 1);
+    u16 species = VarGet(base + 2);
+
+    VarSet(VAR_TEMP_1, species);
+    gSpecialVar_Result = ScriptGiveMon(species, VarGet(base + 3), ITEM_NONE, 0, 0, 0);
+}
+
+// special: VAR_TEMP_1 = the caught Pokemon's species, VAR_RESULT = 0 in the team, 1 in the PC
+void Coop_PrepareCaughtNickname(void)
+{
+    VarSet(VAR_TEMP_1, sNickSpecies);
+    gSpecialVar_Result = (sNickWhere == MON_GIVEN_TO_PARTY) ? 0 : 1;
 }
 
 // ---------------------------------------------------------------- story battles: getting ready
@@ -1220,9 +1380,17 @@ void Coop_GiveCaughtMon(void)
     {
         u16 dexNum = SpeciesToNationalPokedexNum(GetMonData(sCaughtMon, MON_DATA_SPECIES));
 
-        GiveMonToPlayer(sCaughtMon);
+        u8 where = GiveMonToPlayer(sCaughtMon);
+
         GetSetPokedexFlag(dexNum, FLAG_SET_SEEN);
         GetSetPokedexFlag(dexNum, FLAG_SET_CAUGHT);
+        // Offer a nickname back on the map (Nuzlocke catches were already named).
+        if (where != MON_CANT_GIVE && gSaveBlock1Ptr->keyFlags.nuzlocke != 1)
+        {
+            sNickSpecies = GetMonData(sCaughtMon, MON_DATA_SPECIES);
+            sNickWhere = where;
+            sPendingScript = Coop_EventScript_NicknameCaught;
+        }
     }
     sCaughtBy = 0xFF;
     if (sCaughtMon != NULL)

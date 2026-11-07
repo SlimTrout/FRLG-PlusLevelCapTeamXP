@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "randomizer.h"
 #include "gflib.h"
 #include "script.h"
@@ -470,6 +471,7 @@ bool8 ScrCmd_additem(struct ScriptContext * ctx)
 
     gSpecialVar_Result = AddBagItem(itemId, (u8)quantity);
     TrySetObtainedItemQuestLogEvent(itemId);
+    Coop_ShareItemGift(itemId, gSpecialVar_Result ? quantity : 0); // co-op: the partner gets one too
     return FALSE;
 }
 
@@ -1745,6 +1747,8 @@ bool8 ScrCmd_givemon(struct ScriptContext * ctx)
     u8 unkParam3 = ScriptReadByte(ctx);
 
     gSpecialVar_Result = ScriptGiveMon(species, level, item, unkParam1, unkParam2, unkParam3);
+    if (gSpecialVar_Result != MON_CANT_GIVE)
+        Coop_ShareMonGift(species, level, item); // co-op: the partner gets one too
     return FALSE;
 }
 

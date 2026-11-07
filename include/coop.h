@@ -122,6 +122,9 @@ bool8 Coop_ShouldAdvanceText(void);
 // specials
 void Coop_BufferPartnerName(void);
 u8 Coop_TakeLeveledUpMons(void);
+void Coop_ForceSoloBattle(void);
+void Coop_ShareItemGift(u16 item, u16 count);
+void Coop_ShareMonGift(u16 species, u8 level, u16 item);
 void Coop_AskPartnerToGetReady(void);
 bool8 Coop_TakeStoryPartnerReady(void);
 void Coop_SetWhiteOutPending(void);

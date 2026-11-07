@@ -135,6 +135,7 @@ Std_FindItem::
 
 EventScript_PickUpItem::
 	removeobject VAR_LAST_TALKED
+	special Coop_DontShareNextItem
 	additem VAR_0x8004, VAR_0x8005
 	specialvar VAR_RESULT, BufferTMHMMoveName
 	copyvar VAR_0x8008, VAR_RESULT
@@ -171,6 +172,7 @@ EventScript_HiddenItemScript::
 
 EventScript_TryPickUpHiddenItem::
 	special RandomizeHiddenItem
+	special Coop_DontShareNextItem
 	additem VAR_0x8005, VAR_0x8006
 	copyvar VAR_0x8007, VAR_RESULT
 	bufferitemname STR_VAR_2, VAR_0x8005

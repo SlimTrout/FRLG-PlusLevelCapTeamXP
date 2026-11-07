@@ -114,8 +114,6 @@ static bool8 CheckTrainer(u8 trainerObjId)
     approachDistance = GetTrainerApproachDistance(&gObjectEvents[trainerObjId]);
     if (approachDistance != 0)
     {
-        if (script[1] == TRAINER_BATTLE_DOUBLE && GetMonsStateToDoubles())
-            return FALSE;
         ConfigureAndSetUpOneTrainerBattle(trainerObjId, script);
         TrainerApproachPlayer(&gObjectEvents[trainerObjId], approachDistance - 1);
         return TRUE;

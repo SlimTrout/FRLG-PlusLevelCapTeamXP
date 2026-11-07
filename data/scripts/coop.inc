@@ -273,3 +273,99 @@ Coop_Text_StoryMenuItems::
 
 Coop_Text_StoryMenuReady::
 	.string "READY$"
+
+@ The partner was given an item (an NPC's gift, a key item, a TM): this player gets one too.
+Coop_EventScript_PartnerGiftItem::
+	lockall
+	special Coop_BufferPartnerName
+	msgbox Coop_Text_PartnerGotItem
+	special Coop_PrepareGiftItem
+	copyvar VAR_PREV_TEXT_COLOR, VAR_TEXT_COLOR
+	textcolor NPC_TEXT_COLOR_NEUTRAL
+	additem VAR_0x8000, VAR_0x8001
+	copyvar VAR_0x8007, VAR_RESULT
+	call EventScript_ObtainItemMessage
+	copyvar VAR_TEXT_COLOR, VAR_PREV_TEXT_COLOR
+	releaseall
+	end
+
+@ The partner was given a Pokemon: this player gets one too.
+Coop_EventScript_PartnerGiftMon::
+	lockall
+	special Coop_BufferPartnerName
+	msgbox Coop_Text_PartnerGotMon
+	special Coop_GiveGiftMon
+	copyvar VAR_0x8008, VAR_RESULT
+	goto_if_eq VAR_0x8008, MON_CANT_GIVE, Coop_EventScript_GiftMonNoRoom
+	bufferspeciesname STR_VAR_1, VAR_TEMP_1
+	playfanfare MUS_LEVEL_UP
+	message Coop_Text_ObtainedGiftMon
+	waitmessage
+	waitfanfare
+	bufferspeciesname STR_VAR_1, VAR_TEMP_1
+	callnative CheckNuzlockeMode
+	goto_if_eq VAR_RESULT, TRUE, Coop_EventScript_GiftMonNickname
+	msgbox Text_GiveNicknameToThisMon, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, Coop_EventScript_GiftMonDone
+Coop_EventScript_GiftMonNickname::
+	goto_if_eq VAR_0x8008, MON_GIVEN_TO_PC, Coop_EventScript_GiftMonNicknameBox
+	call EventScript_GetGiftMonPartySlot
+	call EventScript_ChangePokemonNickname
+	goto Coop_EventScript_GiftMonDone
+Coop_EventScript_GiftMonNicknameBox::
+	call EventScript_NameReceivedBoxMon
+Coop_EventScript_GiftMonDone::
+	goto_if_eq VAR_0x8008, MON_GIVEN_TO_PC, Coop_EventScript_GiftMonToPC
+	releaseall
+	end
+
+Coop_EventScript_GiftMonToPC::
+	call EventScript_TransferredToPC
+	releaseall
+	end
+
+Coop_EventScript_GiftMonNoRoom::
+	msgbox Coop_Text_GiftMonNoRoom
+	releaseall
+	end
+
+@ A Pokemon caught in a co-op battle (without Nuzlocke): offer a nickname.
+Coop_EventScript_NicknameCaught::
+	lockall
+	special Coop_PrepareCaughtNickname
+	copyvar VAR_0x8008, VAR_RESULT
+	bufferspeciesname STR_VAR_1, VAR_TEMP_1
+	msgbox Text_GiveNicknameToThisMon, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, Coop_EventScript_NicknameCaughtDone
+	goto_if_eq VAR_0x8008, 1, Coop_EventScript_NicknameCaughtBox
+	call EventScript_GetGiftMonPartySlot
+	call EventScript_ChangePokemonNickname
+	goto Coop_EventScript_NicknameCaughtDone
+Coop_EventScript_NicknameCaughtBox::
+	call EventScript_NameReceivedBoxMon
+Coop_EventScript_NicknameCaughtDone::
+	releaseall
+	end
+
+Coop_Text_PartnerGotItem::
+	.string "{STR_VAR_1} was given something,\n"
+	.string "so you get one too!$"
+
+Coop_Text_PartnerGotMon::
+	.string "{STR_VAR_1} was given a POKéMON,\n"
+	.string "so you get one too!$"
+
+Coop_Text_ObtainedGiftMon::
+	.string "{PLAYER} obtained a {STR_VAR_1}!$"
+
+Coop_Text_GiftMonNoRoom::
+	.string "There's no room for another\n"
+	.string "POKéMON, even in the PC…$"
+
+Coop_Text_SoloBattle::
+	.string "That battle was just for you, so\n"
+	.string "you and {STR_VAR_1} split up.$"
+
+Coop_Text_SplitForSafari::
+	.string "You and {STR_VAR_1} split up to\n"
+	.string "visit the SAFARI ZONE on your own.$"

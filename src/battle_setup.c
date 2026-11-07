@@ -717,6 +717,7 @@ static void DoStandardWildBattle(void)
 
 void StartRoamerBattle(void)
 {
+    Coop_ForceSoloBattle(); // co-op: battles like this are for one player
     LockPlayerFieldControls();
     FreezeObjectEvents();
     StopPlayerAvatar();
@@ -729,6 +730,7 @@ void StartRoamerBattle(void)
 
 static void DoSafariBattle(void)
 {
+    Coop_ForceSoloBattle(); // co-op: battles like this are for one player
     LockPlayerFieldControls();
     FreezeObjectEvents();
     StopPlayerAvatar();
@@ -739,6 +741,7 @@ static void DoSafariBattle(void)
 
 static void DoGhostBattle(void)
 {
+    Coop_ForceSoloBattle(); // co-op: battles like this are for one player
     LockPlayerFieldControls();
     FreezeObjectEvents();
     StopPlayerAvatar();
@@ -759,6 +762,7 @@ static void DoTrainerBattle(void)
 
 void StartOldManTutorialBattle(void)
 {
+    Coop_ForceSoloBattle(); // co-op: battles like this are for one player
     CreateMaleMon(&gEnemyParty[0], SPECIES_WEEDLE, 5);
     LockPlayerFieldControls();
     gMain.savedCallback = CB2_ReturnToFieldContinueScriptPlayMapMusic;
@@ -768,6 +772,7 @@ void StartOldManTutorialBattle(void)
 
 void StartScriptedWildBattle(void)
 {
+    Coop_ForceSoloBattle(); // co-op: battles like this are for one player
     LockPlayerFieldControls();
     gMain.savedCallback = CB2_EndScriptedWildBattle;
     gBattleTypeFlags = BATTLE_TYPE_WILD_SCRIPTED;
@@ -778,6 +783,7 @@ void StartScriptedWildBattle(void)
 
 void StartMarowakBattle(void)
 {
+    Coop_ForceSoloBattle(); // co-op: battles like this are for one player
     LockPlayerFieldControls();
     gMain.savedCallback = CB2_EndMarowakBattle;
     if (CheckBagHasItem(ITEM_SILPH_SCOPE, 1))
@@ -797,6 +803,7 @@ void StartMarowakBattle(void)
 
 void StartSouthernIslandBattle(void)
 {
+    Coop_ForceSoloBattle(); // co-op: battles like this are for one player
     LockPlayerFieldControls();
     gMain.savedCallback = CB2_EndScriptedWildBattle;
     gBattleTypeFlags = BATTLE_TYPE_LEGENDARY;
@@ -808,6 +815,7 @@ void StartSouthernIslandBattle(void)
 void StartLegendaryBattle(void)
 {
     u16 species;
+    Coop_ForceSoloBattle(); // co-op: battles like this are for one player
     
     LockPlayerFieldControls();
     gMain.savedCallback = CB2_EndScriptedWildBattle;
@@ -841,6 +849,7 @@ void StartLegendaryBattle(void)
 
 void StartGroudonKyogreBattle(void)
 {
+    Coop_ForceSoloBattle(); // co-op: battles like this are for one player
     LockPlayerFieldControls();
     gMain.savedCallback = CB2_EndScriptedWildBattle;
     gBattleTypeFlags = BATTLE_TYPE_LEGENDARY | BATTLE_TYPE_KYOGRE_GROUDON;
@@ -854,6 +863,7 @@ void StartGroudonKyogreBattle(void)
 
 void StartRegiBattle(void)
 {
+    Coop_ForceSoloBattle(); // co-op: battles like this are for one player
     LockPlayerFieldControls();
     gMain.savedCallback = CB2_EndScriptedWildBattle;
     gBattleTypeFlags = BATTLE_TYPE_LEGENDARY | BATTLE_TYPE_REGI;
@@ -1325,7 +1335,7 @@ const u8 *BattleSetup_ConfigureTrainerBattle(const u8 *data)
     case TRAINER_BATTLE_DOUBLE:
         TrainerBattleLoadArgs(sDoubleBattleParams, data);
         SetMapVarsToTrainer();
-        return EventScript_TryDoDoubleTrainerBattle;
+        return EventScript_TryDoNormalTrainerBattle; // no natural double battles
     case TRAINER_BATTLE_CONTINUE_SCRIPT:
     case TRAINER_BATTLE_CONTINUE_SCRIPT_NO_MUSIC:
         TrainerBattleLoadArgs(sContinueScriptBattleParams, data);
@@ -1335,13 +1345,13 @@ const u8 *BattleSetup_ConfigureTrainerBattle(const u8 *data)
     case TRAINER_BATTLE_CONTINUE_SCRIPT_DOUBLE_NO_MUSIC:
         TrainerBattleLoadArgs(sContinueScriptDoubleBattleParams, data);
         SetMapVarsToTrainer();
-        return EventScript_TryDoDoubleTrainerBattle;
+        return EventScript_TryDoNormalTrainerBattle; // no natural double battles
     case TRAINER_BATTLE_REMATCH_DOUBLE:
         QL_FinishRecordingScene();
         TrainerBattleLoadArgs(sDoubleBattleParams, data);
         SetMapVarsToTrainer();
         gTrainerBattleOpponent_A = GetRematchTrainerId(gTrainerBattleOpponent_A);
-        return EventScript_TryDoDoubleRematchBattle;
+        return EventScript_TryDoRematchBattle; // no natural double battles
     case TRAINER_BATTLE_REMATCH:
         QL_FinishRecordingScene();
         TrainerBattleLoadArgs(sOrdinaryBattleParams, data);

@@ -89,7 +89,7 @@ static void sock_nonblock(sock_t s) { fcntl(s, F_SETFL, fcntl(s, F_GETFL, 0) | O
 #define MSG_HELLO 1 // payload: protocol version
 #define MSG_STATE 2 // payload: STATE_SIZE bytes of the sender's local block
 #define MSG_TEXT 3  // payload: chunk index, then up to TEXT_CHUNK bytes of the sender's message text
-#define PROTOCOL_VERSION 4
+#define PROTOCOL_VERSION 5
 #define DEFAULT_PORT 27450
 
 struct Net {

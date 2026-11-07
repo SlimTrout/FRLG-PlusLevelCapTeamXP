@@ -8,7 +8,8 @@
 //
 // Per-player things stay apart: temporary flags and vars, each player's Nuzlocke
 // encounters, item balls and hidden items (each player picks up their own), step
-// counters, the starter choice, the trainer card and so on.
+// counters, the starter choice, the trainer card, the legendary Pokemon each player
+// has caught or fought, and so on.
 //
 // Used by the app (coop/app/bbcoop.c) and the test host (coop/host/coophost.c).
 // The game publishes where its flags and vars are in the mailbox (include/coop.h).
@@ -87,11 +88,20 @@ static int wsFlagShared(int flag) {
     if (flag >= 0x300 && flag <= 0x355) return 0;    // each player's Nuzlocke encounters
     if (flag >= 0x3E8 && flag <= 0x4FF) return 0;    // hidden items: each player finds their own
     if (wsIsItemBallFlag(flag)) return 0;            // item balls: each player picks up their own
+    // Legendary Pokemon: one player catching (or defeating) one doesn't take it from the other
+    if (flag >= 0x22A && flag <= 0x22F) return 0;    // Latias/Latios
+    if (flag >= 0x25F && flag <= 0x262) return 0;    // Mewtwo, Articuno, Zapdos, Moltres flew away
+    if (flag >= 0x2BC && flag <= 0x2BF) return 0;    // fought Mewtwo, Moltres, Articuno, Zapdos
+    if (flag >= 0x2F5 && flag <= 0x2F7) return 0;    // Lugia, Ho-Oh, Deoxys flew away
     switch (flag) {
     case 0x800 + 0x2A: // FLAG_SYS_CTRL_OBJ_DELETE
     case 0x800 + 0x2B: // FLAG_SYS_IS_LINKING
     case 0x800 + 0x30: // FLAG_SYS_ON_CYCLING_ROAD
     case 0x800 + 0x33: // FLAG_SYS_ON_RESUME
+    case 0x052: case 0x05D: case 0x081: case 0x082:  // legendaries hidden: Moltres, Zapdos, Mewtwo, Articuno
+    case 0x099: case 0x09B: case 0x09C:              // Deoxys, Lugia, Ho-Oh
+    case 0x2A4: case 0x2E4: case 0x2E6: case 0x2E7:  // fought Mew, fought Deoxys, Mew flew away, Mew hidden
+    case 0x2F2: case 0x2F3:                          // fought Lugia, Ho-Oh
         return 0;
     }
     return 1;

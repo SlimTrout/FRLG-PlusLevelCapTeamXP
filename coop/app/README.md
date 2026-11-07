@@ -50,7 +50,8 @@ If the partner disconnects, the app closes. Only the host saves, so progress sin
   other medicine work as usual, and the partner's screen shows the healing.
 - **Catching.** Each player's ball goes at the wild Pokemon across from them (or the
   other one if that one's gone). The Pokemon goes to whoever threw the ball, into
-  their team or their PC, and into their Pokedex. With Nuzlocke on, the catcher's own
+  their team or their PC, and into their Pokedex, and they're offered a nickname
+  back on the map. With Nuzlocke on, the catcher's own
   rules apply: the catch has to be their first in the area (or it faints), it's added
   to their tracker, and they name it right after the battle. A linked wild battle also
   counts as each player's encounter for the area (their own wild Pokemon).
@@ -76,6 +77,20 @@ If the partner disconnects, the app closes. Only the host saves, so progress sin
 
 
 ## Shared world and saving
+
+- **Gifts for both.** When one player is given something by the game (an NPC's gift,
+  a key item, a TM, a gift Pokemon like Eevee or Lapras), the other gets the same,
+  with a short message. Item balls and hidden items stay each player's own, and the
+  Game Corner prizes and rooftop vending machines are bought by each player. Starters
+  are still picked by each player.
+- **Legendary Pokemon** (the birds, Mewtwo, Mew, Deoxys, Lugia, Ho-Oh, Latias and
+  Latios) stay in place for the other player after one player catches or defeats them.
+- **One-player battles.** Legendary and other set-piece Pokemon (Snorlax and so on),
+  ghosts in Pokemon Tower, the old man's catching demonstration and roaming Pokemon are
+  fought alone: a linked pair splits up for them. The Safari Zone too: a linked pair
+  splits up at its entrance, and each player pays and goes in on their own.
+- **No natural double battles.** Trainers who'd fight as a pair (Twins and so on)
+  fight as ordinary single battles (or as a co-op battle when the players are linked).
 
 - **Rules.** The guest always plays by the host's Key System settings (difficulty,
   Nuzlocke, exp, level caps, team exp and the rest) while connected.

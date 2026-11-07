@@ -470,4 +470,8 @@ gSpecials::
 	def_special Coop_StorySendReady
 	def_special Coop_CanHealForStory
 	def_special Coop_DoWhiteOut
+	def_special Coop_DontShareNextItem
+	def_special Coop_PrepareGiftItem
+	def_special Coop_GiveGiftMon
+	def_special Coop_PrepareCaughtNickname
 gSpecialsEnd::

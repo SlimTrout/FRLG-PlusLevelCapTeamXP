@@ -1848,7 +1848,7 @@ static u8 CreateNPCTrainerParty(struct Pokemon *party, u16 trainerNum)
                 }
             }
         }
-        gBattleTypeFlags |= sTrainers[trainerNum].doubleBattle;
+        // (Brainy Blue co-op: no natural double battles; pairs of trainers fight one at a time)
     }
 
     return sTrainers[trainerNum].partySize;

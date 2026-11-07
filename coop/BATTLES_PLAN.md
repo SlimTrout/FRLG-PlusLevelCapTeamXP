@@ -118,3 +118,16 @@ link.c: SendBlock / IsLinkTaskFinished / GetMultiplayerId get a co-op branch.
 - A player whose own Pokemon all fainted in a battle that wasn't lost whites out after
   it (Coop_SetWhiteOutPending -> Coop_EventScript_WhiteOut -> Coop_DoWhiteOut, which
   splits first).
+- Shared gifts: ScrCmd_additem/ScrCmd_givemon call Coop_ShareItemGift/MonGift; the gift
+  goes through shared vars VAR_0x40D0 + 4 * playerIndex (counter, kind, id, amount)
+  and the partner runs Coop_EventScript_PartnerGiftItem/Mon. Item balls and hidden items
+  call special Coop_DontShareNextItem first; not shared in the Game Corner prize room,
+  on the Celadon roof (vending) or (Pokemon) in Oak's lab. Gift detection is ignored
+  for the first 600 frames after connecting (the guest is taking the host's vars).
+- Coop_ForceSoloBattle (split + notice) at the start of Safari, ghost, old man,
+  scripted wild, legendary, Marowak, roamer and similar battles; the Safari entrance and
+  zone maps split a linked pair (like Oak's lab).
+- Natural doubles removed: no BATTLE_TYPE_DOUBLE from trainer data; double trainer
+  scripts run as single ones; trainers who'd need two Pokemon see the player as usual.
+- Legendary flags are per player in the app (world_sync.h); protocol version 5.
+- Co-op catches without Nuzlocke: Coop_EventScript_NicknameCaught on the map after.
