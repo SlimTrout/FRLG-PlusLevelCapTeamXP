@@ -6,6 +6,8 @@
 #include "item.h"
 #include "random.h"
 #include "battle_ai_script_commands.h"
+#include "battle_script_commands.h"
+#include "constants/trainers.h"
 #include "constants/abilities.h"
 #include "constants/battle_ai.h"
 #include "constants/battle_move_effects.h"
@@ -293,6 +295,25 @@ void BattleAI_HandleItemUseBeforeAISetup(void)
     BattleAI_SetupAIData();
 }
 
+// Story trainers (Gym Leaders, Elite Four, Champion, rivals, the Rocket boss).
+static bool8 IsSmartTrainer(void)
+{
+    if (!(gBattleTypeFlags & BATTLE_TYPE_TRAINER) || FlagGet(FLAG_MASTER_TRAINER_BATTLE)
+     || gTrainerBattleOpponent_A >= NUM_TRAINERS)
+        return FALSE;
+    switch (gTrainers[gTrainerBattleOpponent_A].trainerClass)
+    {
+    case TRAINER_CLASS_LEADER:
+    case TRAINER_CLASS_ELITE_FOUR:
+    case TRAINER_CLASS_CHAMPION:
+    case TRAINER_CLASS_BOSS:
+    case TRAINER_CLASS_RIVAL_EARLY:
+    case TRAINER_CLASS_RIVAL_LATE:
+        return TRUE;
+    }
+    return FALSE;
+}
+
 void BattleAI_SetupAIData(void)
 {
     s32 i;
@@ -371,6 +392,117 @@ void BattleAI_SetupAIData(void)
         return;
     }
     AI_THINKING_STRUCT->aiFlags = sTrainers[gTrainerBattleOpponent_A].aiFlags;
+    // Brainy Blue: Gym Leaders, the Elite Four, the Champion, rivals and the Rocket
+    // boss always think their moves through.
+    if (IsSmartTrainer())
+        AI_THINKING_STRUCT->aiFlags |= AI_SCRIPT_CHECK_BAD_MOVE | AI_SCRIPT_TRY_TO_FAINT | AI_SCRIPT_CHECK_VIABILITY;
+}
+
+static void AI_RunScripts(void)
+{
+    while (AI_THINKING_STRUCT->aiFlags != 0)
+    {
+        if (AI_THINKING_STRUCT->aiFlags & 1)
+        {
+            AI_THINKING_STRUCT->aiState = AIState_SettingUp;
+            BattleAI_DoAIProcessing();
+        }
+        AI_THINKING_STRUCT->aiFlags >>= 1;
+        AI_THINKING_STRUCT->aiLogicId++;
+        AI_THINKING_STRUCT->movesetIndex = 0;
+    }
+}
+
+// Brainy Blue, double battles: how good each move is against this target in
+// particular, on top of the AI scripts' scores. Every trainer prefers moves that are
+// super effective on the target and avoids ones it resists; story trainers weigh
+// that more and also go for a target that's nearly down.
+static s32 AI_TargetBonus(u8 moveIndex, u8 target, bool8 smart)
+{
+    u16 move = gBattleMons[gBattlerAttacker].moves[moveIndex];
+    u8 result;
+    s32 bonus = 0;
+
+    if (move == MOVE_NONE || gBattleMoves[move].power == 0)
+        return 0; // status moves: the scripts decide
+    if (gBattleMoves[move].target & (MOVE_TARGET_BOTH | MOVE_TARGET_FOES_AND_ALLY))
+        return 0; // hits both anyway
+    result = AI_TypeCalc(move, gBattleMons[target].species, gBattleMons[target].ability);
+    if (result & MOVE_RESULT_DOESNT_AFFECT_FOE)
+        return -20;
+    if ((result & MOVE_RESULT_SUPER_EFFECTIVE) && !(result & MOVE_RESULT_NOT_VERY_EFFECTIVE))
+        bonus += smart ? 4 : 2;
+    else if ((result & MOVE_RESULT_NOT_VERY_EFFECTIVE) && !(result & MOVE_RESULT_SUPER_EFFECTIVE))
+        bonus -= smart ? 3 : 1;
+    if (smart && gBattleMons[target].hp * 3 <= gBattleMons[target].maxHP)
+        bonus += 2; // finish it off
+    return bonus;
+}
+
+// Double battles: weigh every move against each target that's still standing (instead
+// of picking a target at random first), then go with the best move and target.
+// Ties are broken at random, so a trainer isn't completely predictable.
+u8 BattleAI_ChooseMoveAndTargetDoubles(void)
+{
+    u8 bestMove[2], targets[2], numTargets = 0, numBest = 0, best[2];
+    s32 bestScore[2], top = -1000;
+    bool8 smart;
+    u8 i, t;
+
+    smart = IsSmartTrainer();
+    for (t = 0; t < 2; t++)
+    {
+        u8 target = GetBattlerAtPosition(t == 0 ? B_POSITION_PLAYER_LEFT : B_POSITION_PLAYER_RIGHT);
+        u8 tied[MAX_MON_MOVES], numTied = 0;
+        s32 score[MAX_MON_MOVES], max = -1000;
+
+        if ((gAbsentBattlerFlags & gBitTable[target]) || gBattleMons[target].hp == 0)
+            continue;
+        BattleAI_SetupAIData();
+        gBattlerTarget = target;
+        RecordLastUsedMoveByTarget();
+        AI_RunScripts();
+        for (i = 0; i < MAX_MON_MOVES; i++)
+        {
+            score[i] = AI_THINKING_STRUCT->score[i];
+            if (score[i] > 0)
+                score[i] += AI_TargetBonus(i, target, smart);
+            else
+                score[i] = -1000; // can't be used
+            if (score[i] > max)
+            {
+                max = score[i];
+                numTied = 0;
+            }
+            if (score[i] == max)
+                tied[numTied++] = i;
+        }
+        if (numTied == 0)
+            continue;
+        targets[numTargets] = target;
+        bestMove[numTargets] = tied[Random() % numTied];
+        bestScore[numTargets] = max;
+        numTargets++;
+    }
+    if (numTargets == 0)
+    {
+        // (nothing standing: shouldn't happen) fall back to the usual way
+        BattleAI_SetupAIData();
+        return BattleAI_ChooseMoveOrAction();
+    }
+    for (t = 0; t < numTargets; t++)
+    {
+        if (bestScore[t] > top)
+        {
+            top = bestScore[t];
+            numBest = 0;
+        }
+        if (bestScore[t] == top)
+            best[numBest++] = t;
+    }
+    t = best[Random() % numBest];
+    gBattlerTarget = targets[t];
+    return bestMove[t];
 }
 
 u8 BattleAI_ChooseMoveOrAction(void)

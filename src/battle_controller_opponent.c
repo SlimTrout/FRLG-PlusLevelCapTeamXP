@@ -1406,8 +1406,18 @@ static void OpponentHandleChooseMove_Internal(void)
     if (gBattleTypeFlags & (BATTLE_TYPE_TRAINER | BATTLE_TYPE_FIRST_BATTLE | BATTLE_TYPE_SAFARI | BATTLE_TYPE_ROAMER))
     {
 
-        BattleAI_SetupAIData();
-        chosenMoveId = BattleAI_ChooseMoveOrAction();
+        // Brainy Blue: in double battles trainers weigh each target (see
+        // BattleAI_ChooseMoveAndTargetDoubles) instead of picking one at random.
+        if ((gBattleTypeFlags & (BATTLE_TYPE_DOUBLE | BATTLE_TYPE_TRAINER)) == (BATTLE_TYPE_DOUBLE | BATTLE_TYPE_TRAINER)
+         && !(gBattleTypeFlags & (BATTLE_TYPE_SAFARI | BATTLE_TYPE_ROAMER)))
+        {
+            chosenMoveId = BattleAI_ChooseMoveAndTargetDoubles();
+        }
+        else
+        {
+            BattleAI_SetupAIData();
+            chosenMoveId = BattleAI_ChooseMoveOrAction();
+        }
 
         switch (chosenMoveId)
         {
