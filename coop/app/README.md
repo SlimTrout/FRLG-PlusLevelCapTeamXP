@@ -51,7 +51,7 @@ The host needs TCP port 27450 open (or pick another with `--port`; both players 
 same one). `--save` picks a different save file.
 
 Controls: arrows, Z = A, X = B, Enter = Start, Backspace = Select, A = L, S = R, F5 = save state,
-Escape = quit. A game controller also works.
+close the window to quit. A game controller also works.
 
 The game runs at 3x speed by default (the window title shows the speed). The host picks
 it when the app starts (`--speed N`, 1 = normal, up to 10) and the partner's game uses the

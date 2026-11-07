@@ -18,7 +18,7 @@
 //   script lines: "<frames> <keys> [shot]"  keys: A B S E U D l r L R or '-'
 //
 // Keyboard: arrows, Z = A, X = B, Enter = Start, Backspace = Select, A = L, S = R,
-//           Escape = quit. A game controller works too.
+//           Close the window to quit. A game controller works too.
 //
 // If the partner disconnects, the app closes. Only the host saves (and the guest's
 // game saves along with it), so progress since the host's last save is not kept.
@@ -899,7 +899,6 @@ int main(int argc, char **argv) {
         SDL_Event ev;
         while (SDL_PollEvent(&ev)) {
             if (ev.type == SDL_QUIT) running = 0;
-            if (ev.type == SDL_KEYDOWN && ev.key.keysym.scancode == SDL_SCANCODE_ESCAPE) running = 0;
             if (ev.type == SDL_CONTROLLERDEVICEADDED && !pad) pad = SDL_GameControllerOpen(ev.cdevice.which);
             if (ev.type == SDL_KEYDOWN && !ev.key.repeat && (int)ev.key.keysym.scancode == sKeys[KEY_SAVESTATE]) {
                 if (!app.net.connected || app.waitStateMatch) setNotice(&app, "Save states need both players connected");
