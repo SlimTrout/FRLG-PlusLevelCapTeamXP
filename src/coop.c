@@ -25,6 +25,7 @@
 #include "overworld.h"
 #include "script.h"
 #include "palette.h"
+#include "constants/battle_string_ids.h"
 #include "pokemon_storage_system.h"
 #include "string_util.h"
 #include "characters.h"
@@ -1740,6 +1741,28 @@ void Coop_NoteMyCatch(void)
 bool8 Coop_CaughtOneThisBattle(void)
 {
     return sCaughtOneThisBattle;
+}
+
+// Battle messages each player only sees about their own Pokemon (exp, levels, moves).
+bool8 Coop_IsPrivateBattleString(u16 stringId)
+{
+    switch (stringId)
+    {
+    case STRINGID_PKMNGAINEDEXP:
+    case STRINGID_COOPPARTYGAINEDEXP:
+    case STRINGID_PKMNGREWTOLV:
+    case STRINGID_PKMNLEARNEDMOVE:
+    case STRINGID_PKMNLEARNEDMOVE2:
+    case STRINGID_TRYTOLEARNMOVE1:
+    case STRINGID_TRYTOLEARNMOVE2:
+    case STRINGID_TRYTOLEARNMOVE3:
+    case STRINGID_PKMNFORGOTMOVE:
+    case STRINGID_STOPLEARNINGMOVE:
+    case STRINGID_DIDNOTLEARNMOVE:
+    case STRINGID_123POOF:
+        return TRUE;
+    }
+    return FALSE;
 }
 
 // Host: the player whose battler caught a wild Pokemon sits out the rest of the battle.

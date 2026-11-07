@@ -1288,6 +1288,13 @@ static void LinkPartnerHandlePrintString(void)
     gBattle_BG0_X = 0;
     gBattle_BG0_Y = 0;
     stringId = (u16 *)(&gBattleBufferA[gActiveBattler][2]);
+    // Co-op: exp and new moves of the partner's Pokemon are for the partner's eyes;
+    // this player just waits meanwhile.
+    if (Coop_IsLinkOpen() && Coop_IsPrivateBattleString(*stringId))
+    {
+        LinkPartnerBufferExecCompleted();
+        return;
+    }
     BufferStringBattle(*stringId);
     if (BattleStringShouldBeColored(*stringId))
         BattlePutTextOnWindow(gDisplayedStringBattle, (B_WIN_MSG | B_TEXT_FLAG_NPC_CONTEXT_FONT));

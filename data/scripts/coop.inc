@@ -40,12 +40,28 @@ Coop_EventScript_Split::
 Coop_EventScript_FollowerMenu::
 	lockall
 	special Coop_BufferPartnerName
-	msgbox Coop_Text_AskForControl, MSGBOX_YESNO
-	goto_if_eq VAR_RESULT, YES, Coop_EventScript_AskControl
-	msgbox Coop_Text_SplitOff, MSGBOX_YESNO
-	goto_if_eq VAR_RESULT, YES, Coop_EventScript_Split
+	message Coop_Text_FollowerWhatToDo
+	waitmessage
+	multichoice 18, 6, MULTICHOICE_COOP_FOLLOWER, FALSE
+	switch VAR_RESULT
+	case 0, Coop_EventScript_Split
+	case 1, Coop_EventScript_AskControl
+	closemessage
 	releaseall
 	end
+
+Coop_Text_FollowerWhatToDo::
+	.string "You're following {STR_VAR_1}.\n"
+	.string "What would you like to do?$"
+
+Coop_Text_MenuSplitUp::
+	.string "SPLIT UP$"
+
+Coop_Text_MenuAskToLead::
+	.string "ASK TO LEAD$"
+
+Coop_Text_MenuCancel::
+	.string "CANCEL$"
 
 Coop_EventScript_AskControl::
 	special Coop_AskForControl

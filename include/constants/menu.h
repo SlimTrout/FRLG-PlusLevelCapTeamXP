@@ -89,6 +89,7 @@
 #define MULTICHOICE_SOUTHERN_BIRTH_NAVEL_FARAWAY               82
 #define MULTICHOICE_MASTER_YOUNGSTER                           83
 #define MULTICHOICE_COOP_STORY_READY                           84
+#define MULTICHOICE_COOP_FOLLOWER                              85
 
 
 #define MULTICHOICE_NONE                                      255

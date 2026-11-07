@@ -3224,7 +3224,9 @@ static void Cmd_getexp(void)
     Coop_RestoreExpSettings(saved);
 }
 
-static bool8 sCoopExpMessageShown; // co-op: "Your party gained EXP. Points!" is shown once per fainted foe
+// Co-op: each player's Pokemon out in battle says how much exp it gained; the rest of
+// that player's party gets one "Your party gained EXP. Points!" after it.
+static bool8 sCoopPartyExpPending[2];
 
 static void Cmd_getexp_Internal(void)
 {
@@ -3300,7 +3302,7 @@ static void Cmd_getexp_Internal(void)
             gBattleScripting.getexpState++;
             gBattleStruct->expGetterMonId = 0;
             gBattleStruct->sentInPokes = sentIn;
-            sCoopExpMessageShown = FALSE;
+            sCoopPartyExpPending[0] = sCoopPartyExpPending[1] = FALSE;
         }
         // fall through
     case 2: // set exp value to the poke in expgetter_id and print message
@@ -3406,14 +3408,14 @@ static void Cmd_getexp_Internal(void)
                     PREPARE_STRING_BUFFER(gBattleTextBuff2, i);
                     PREPARE_WORD_NUMBER_BUFFER(gBattleTextBuff3, 5, gBattleMoveDamage);
 
-                    // Co-op: one message for everyone instead of one per Pokemon
-                    if (!Coop_IsLinkOpen())
+                    // Co-op: only the Pokemon out in battle gets its own message (the
+                    // rest: one message after, see case 5); each player sees their own.
+                    if (!Coop_IsLinkOpen()
+                     || (gBattlerPartyIndexes[gBattleStruct->expGetterBattlerId] == gBattleStruct->expGetterMonId
+                      && !(gAbsentBattlerFlags & gBitTable[gBattleStruct->expGetterBattlerId])))
                         PrepareStringBattle(STRINGID_PKMNGAINEDEXP, gBattleStruct->expGetterBattlerId);
-                    else if (!sCoopExpMessageShown)
-                    {
-                        sCoopExpMessageShown = TRUE;
-                        PrepareStringBattle(STRINGID_COOPPARTYGAINEDEXP, gBattleStruct->expGetterBattlerId);
-                    }
+                    else
+                        sCoopPartyExpPending[gBattleStruct->expGetterMonId / MULTI_PARTY_SIZE] = TRUE;
                     MonGainEVs(&gPlayerParty[gBattleStruct->expGetterMonId], gBattleMons[gBattlerFainted].species);
                 }
                 gBattleStruct->sentInPokes >>= 1;
@@ -3506,6 +3508,16 @@ static void Cmd_getexp_Internal(void)
         }
         else
         {
+            // Co-op: done with this player's Pokemon: the rest of their party's message
+            if (Coop_IsLinkOpen() && gBattleStruct->expGetterMonId % MULTI_PARTY_SIZE == MULTI_PARTY_SIZE - 1
+             && sCoopPartyExpPending[gBattleStruct->expGetterMonId / MULTI_PARTY_SIZE])
+            {
+                u8 owner = gBattleStruct->expGetterMonId / MULTI_PARTY_SIZE;
+
+                sCoopPartyExpPending[owner] = FALSE;
+                PrepareStringBattle(STRINGID_COOPPARTYGAINEDEXP, owner == 0 ? 0 : 2);
+                break; // (back here once it's printed)
+            }
             gBattleStruct->expGetterMonId++;
             if (gBattleStruct->expGetterMonId < PARTY_SIZE)
                 gBattleScripting.getexpState = 2; // loop again
@@ -5852,6 +5864,13 @@ static void Cmd_atknameinbuff1(void)
 
 static void Cmd_drawlvlupbox(void)
 {
+    // Co-op: the host's game runs the battle; the guest's Pokemon's level-up box
+    // would only show there, so the guest's Pokemon just say they grew.
+    if (Coop_IsLinkOpen() && gBattleStruct->expGetterMonId >= MULTI_PARTY_SIZE)
+    {
+        gBattlescriptCurrInstr++;
+        return;
+    }
     if (gBattleScripting.drawlvlupboxState == 0)
     {
         // If the Pokémon getting exp is not in-battle then

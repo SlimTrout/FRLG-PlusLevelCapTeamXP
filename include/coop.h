@@ -158,6 +158,7 @@ struct Pokemon *Coop_GetMyCaughtMon(u8 slot);
 bool8 Coop_GuestCaughtAny(void);
 void Coop_NoteMyCatch(void);
 bool8 Coop_CaughtOneThisBattle(void);
+bool8 Coop_IsPrivateBattleString(u16 stringId);
 void Coop_SetSpectator(u8 battler);
 u8 Coop_GetSpectator(void);
 bool8 Coop_CaughtByMe(void);

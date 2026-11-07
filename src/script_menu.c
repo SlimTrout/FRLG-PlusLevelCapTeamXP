@@ -46,6 +46,15 @@ extern const u8 Coop_Text_StoryMenuHeal[];
 extern const u8 Coop_Text_StoryMenuPokemon[];
 extern const u8 Coop_Text_StoryMenuItems[];
 extern const u8 Coop_Text_StoryMenuReady[];
+extern const u8 Coop_Text_MenuSplitUp[];
+extern const u8 Coop_Text_MenuAskToLead[];
+extern const u8 Coop_Text_MenuCancel[];
+
+static const struct MenuAction sMultichoiceList_CoopFollower[] = {
+    { Coop_Text_MenuSplitUp },
+    { Coop_Text_MenuAskToLead },
+    { Coop_Text_MenuCancel }
+};
 
 static const struct MenuAction sMultichoiceList_CoopStoryReady[] = {
     { Coop_Text_StoryMenuHeal },
@@ -745,6 +754,7 @@ static const struct MultichoiceListStruct sMultichoiceLists[] = {
 	[MULTICHOICE_SOUTHERN_BIRTH_NAVEL_FARAWAY]               = MULTICHOICE(sMultichoiceList_SouthernBirthNavelFaraway),
 	[MULTICHOICE_MASTER_YOUNGSTER]                           = MULTICHOICE(sMultichoiceList_MasterYoungster),
 	[MULTICHOICE_COOP_STORY_READY]                           = MULTICHOICE(sMultichoiceList_CoopStoryReady),
+	[MULTICHOICE_COOP_FOLLOWER]                              = MULTICHOICE(sMultichoiceList_CoopFollower),
 };
 
 // From Cool to Berries goes unused
