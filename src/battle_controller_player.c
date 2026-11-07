@@ -2336,6 +2336,8 @@ static void PlayerHandleBallThrowAnim(void)
     {
         target = gBattleBufferA[gActiveBattler][2];
         gLastUsedItem = gBattleBufferA[gActiveBattler][3];
+        if (ballThrowCaseId == BALL_3_SHAKES_SUCCESS)
+            Coop_NoteMyCatch(); // one catch per player per battle
     }
     gBattleSpritesDataPtr->animationData->ballThrowCaseId = ballThrowCaseId;
     gDoingBattleAnim = TRUE;

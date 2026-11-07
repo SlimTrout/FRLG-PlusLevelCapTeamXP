@@ -103,6 +103,7 @@ static u8 sItemMonByBattler[4];    // host: the item each battler used this turn
 // Pokemon are on the heap while a co-op battle is on.
 static u8 sCaughtBy[2];
 static struct Pokemon *sCaughtMon;
+static bool8 sCaughtOneThisBattle; // this player's ball caught a wild Pokemon (one each per battle)
 static bool8 sStoryPartnerReady;   // story battle starter: the partner said they're ready
 static bool8 sStoryReadySent;      // pulled player: said ready, so no "joining in" notice
 static bool8 sWhiteOutPending;     // all own Pokemon fainted in a co-op battle the partner won
@@ -1449,6 +1450,7 @@ void Coop_BackUpParty(void)
     sBattleMons = AllocZeroed(sizeof(struct Pokemon) * 8);
     sCaughtMon = AllocZeroed(sizeof(struct Pokemon) * 2);
     sCaughtBy[0] = sCaughtBy[1] = 0xFF;
+    sCaughtOneThisBattle = FALSE;
     memcpy(sOwnParty, gPlayerParty, sizeof(struct Pokemon) * PARTY_SIZE);
     // This player's own wild Pokemon, rolled from their own encounter table.
     memcpy(&sBattleMons[gCoopMailbox.playerIndex * 4 + 3], &gEnemyParty[0], sizeof(struct Pokemon));
@@ -1695,6 +1697,17 @@ void Coop_SetCaughtBy(u16 caughtBy)
 struct Pokemon *Coop_GetCaughtMons(void)
 {
     return sCaughtMon;
+}
+
+// This player's ball worked (seen by this game's own controller, so on both games).
+void Coop_NoteMyCatch(void)
+{
+    sCaughtOneThisBattle = TRUE;
+}
+
+bool8 Coop_CaughtOneThisBattle(void)
+{
+    return sCaughtOneThisBattle;
 }
 
 bool8 Coop_GuestCaughtAny(void)

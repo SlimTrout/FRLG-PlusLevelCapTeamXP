@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "gflib.h"
 #include "battle.h"
 #include "berry_pouch.h"
@@ -756,9 +757,13 @@ void Task_ItemUse_CloseMessageBoxAndReturnToField_VsSeeker(u8 taskId)
     Task_ItemUse_CloseMessageBoxAndReturnToField(taskId);
 }
 
+static const u8 sText_CoopAlreadyCaught[] = _("You already caught a POKéMON in\nthis battle!{PAUSE_UNTIL_PRESS}");
+
 void BattleUseFunc_PokeBallEtc(u8 taskId)
 {
-    if (!IsPlayerPartyAndPokemonStorageFull())
+    if (Coop_IsLinkOpen() && Coop_CaughtOneThisBattle())
+        DisplayItemMessageInBag(taskId, FONT_NORMAL, sText_CoopAlreadyCaught, Task_ReturnToBagFromContextMenu);
+    else if (!IsPlayerPartyAndPokemonStorageFull())
     {
         RemoveBagItem(gSpecialVar_ItemId, 1);
         Bag_BeginCloseWin0Animation();
