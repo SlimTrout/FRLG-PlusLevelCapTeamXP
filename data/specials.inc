@@ -472,4 +472,12 @@ gSpecials::
 	def_special Coop_DoWhiteOut
 	def_special Coop_DontShareNextItem
 	def_special Coop_PrepareCaughtNickname
+	def_special Coop_ShareHeal
+	def_special Coop_IsTradeRoom
+	def_special Coop_SendTradeRequest
+	def_special Coop_AnswerTradeRequest
+	def_special Coop_WaitTradeAnswer
+	def_special Coop_TradeExchangeMons
+	def_special Coop_TradeConfirm
+	def_special Coop_BeginTrade
 gSpecialsEnd::

@@ -6,6 +6,9 @@ Coop_EventScript_TalkToPartner::
 	special Coop_BufferPartnerName
 	specialvar VAR_RESULT, Coop_GetLinkMode
 	goto_if_eq VAR_RESULT, 1, Coop_EventScript_LeaderMenu
+	specialvar VAR_RESULT, Coop_IsTradeRoom
+	goto_if_eq VAR_RESULT, TRUE, Coop_EventScript_OfferTrade
+Coop_EventScript_AskLinkUp::
 	msgbox Coop_Text_AskLinkUp, MSGBOX_YESNO
 	goto_if_eq VAR_RESULT, NO, Coop_EventScript_ReleaseAll
 	special Coop_SendLinkRequest
@@ -299,3 +302,91 @@ Coop_Text_SoloBattle::
 Coop_Text_SplitForSafari::
 	.string "You and {STR_VAR_1} split up to\n"
 	.string "visit the SAFARI ZONE on your own.$"
+
+@ Upstairs in a Pokemon Center: trade with the partner.
+Coop_EventScript_OfferTrade::
+	msgbox Coop_Text_AskTrade, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, Coop_EventScript_AskLinkUp
+	special Coop_SendTradeRequest
+	message Coop_Text_AskedToTrade
+	waitmessage
+	special Coop_WaitTradeAnswer
+	waitstate
+	goto_if_eq VAR_RESULT, FALSE, Coop_EventScript_TradeDeclined
+	goto Coop_EventScript_DoTrade
+	end
+
+Coop_EventScript_TradeDeclined::
+	msgbox Coop_Text_TradeDeclined
+	releaseall
+	end
+
+Coop_EventScript_TradeRequest::
+	lockall
+	special Coop_BufferPartnerName
+	msgbox Coop_Text_PartnerWantsTrade, MSGBOX_YESNO
+	copyvar VAR_0x8004, VAR_RESULT
+	special Coop_AnswerTradeRequest
+	goto_if_eq VAR_0x8004, NO, Coop_EventScript_ReleaseAll
+	goto Coop_EventScript_DoTrade
+	end
+
+Coop_EventScript_DoTrade::
+	msgbox Coop_Text_ChooseTradeMon
+	special ChoosePartyMon
+	waitstate
+	copyvar VAR_0x8005, VAR_0x8004
+	special Coop_BufferPartnerName
+	message Coop_Text_WaitingForPartner
+	waitmessage
+	special Coop_TradeExchangeMons
+	waitstate
+	goto_if_eq VAR_RESULT, FALSE, Coop_EventScript_TradeCanceled
+	msgbox Coop_Text_ConfirmTrade, MSGBOX_YESNO
+	copyvar VAR_0x8006, VAR_RESULT
+	special Coop_BufferPartnerName
+	message Coop_Text_WaitingForPartner
+	waitmessage
+	special Coop_TradeConfirm
+	waitstate
+	goto_if_eq VAR_RESULT, FALSE, Coop_EventScript_TradeCanceled
+	closemessage
+	special Coop_BeginTrade
+	special DoInGameTradeScene
+	waitstate
+	releaseall
+	end
+
+Coop_EventScript_TradeCanceled::
+	msgbox Coop_Text_TradeCanceled
+	releaseall
+	end
+
+Coop_Text_AskTrade::
+	.string "Do you want to trade POKéMON\n"
+	.string "with {STR_VAR_1}?$"
+
+Coop_Text_AskedToTrade::
+	.string "You asked {STR_VAR_1} to trade.\n"
+	.string "(B: stop waiting)$"
+
+Coop_Text_TradeDeclined::
+	.string "{STR_VAR_1} didn't want to trade.$"
+
+Coop_Text_PartnerWantsTrade::
+	.string "{STR_VAR_1} wants to trade\n"
+	.string "POKéMON. OK?$"
+
+Coop_Text_ChooseTradeMon::
+	.string "Which POKéMON will you trade?$"
+
+Coop_Text_WaitingForPartner::
+	.string "Waiting for {STR_VAR_1}…\n"
+	.string "(B: stop waiting)$"
+
+Coop_Text_ConfirmTrade::
+	.string "Trade your {STR_VAR_2} for\n"
+	.string "{STR_VAR_1}'s {STR_VAR_3}?$"
+
+Coop_Text_TradeCanceled::
+	.string "The trade was canceled.$"

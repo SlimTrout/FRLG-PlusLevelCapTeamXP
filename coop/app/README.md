@@ -78,6 +78,13 @@ If the partner disconnects, the app closes. Only the host saves, so progress sin
 
 ## Shared world and saving
 
+- **Pokemon Center healing.** When the leader of a linked pair heals at a Pokemon
+  Center, the follower's Pokemon are healed too.
+- **Trading.** Upstairs in any Pokemon Center, talk to your partner (split up, not
+  linked) to ask for a trade. If they say yes, each of you picks a Pokemon, sees what
+  you'd get, and confirms; then the trade plays out as in the original game (trade
+  evolutions too). B stops waiting at any point.
+
 - **Gifts for both.** When one player is given something by the game (an NPC's gift,
   a key item, a TM, a gift Pokemon like Eevee or Lapras), the same goes straight
   into the other's bag or team (or PC, if full), without a message. Item balls and hidden items stay each player's own, and the

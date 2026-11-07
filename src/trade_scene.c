@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "gflib.h"
 #include "task.h"
 #include "util.h"
@@ -1250,6 +1251,15 @@ static void TradeBufferOTnameAndNicknames(void)
         GetMonData(&gPlayerParty[gSelectedTradeMonPositions[TRADE_PLAYER]], MON_DATA_NICKNAME, nickname);
         StringCopy_Nickname(gStringVar2, nickname);
     }
+    else if (Coop_IsTrading())
+    {
+        // co-op trade: the partner's Pokemon is in gEnemyParty[0]
+        Coop_BufferPartnerName();
+        GetMonData(&gEnemyParty[0], MON_DATA_NICKNAME, nickname);
+        StringCopy_Nickname(gStringVar3, nickname);
+        GetMonData(&gPlayerParty[gSpecialVar_0x8005], MON_DATA_NICKNAME, nickname);
+        StringCopy_Nickname(gStringVar2, nickname);
+    }
     else
     {
         inGameTrade = &sInGameTrades[gSpecialVar_0x8004];
@@ -2467,6 +2477,11 @@ static void BufferInGameTradeMonName(void)
     const struct InGameTrade * inGameTrade = &sInGameTrades[gSpecialVar_0x8004];
     GetMonData(&gPlayerParty[gSpecialVar_0x8005], MON_DATA_NICKNAME, nickname);
     StringCopy_Nickname(gStringVar1, nickname);
+    if (Coop_IsTrading())
+    {
+        Coop_EndTrade();
+        return;
+    }
     StringCopy(gStringVar2, gSpeciesNames[inGameTrade->species]);
 }
 

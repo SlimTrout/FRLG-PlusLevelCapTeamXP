@@ -36,6 +36,10 @@ enum
     COOP_CMD_STORY_PULL_NO_WHITEOUT,
     COOP_CMD_STORY_ASK,       // "I'm about to start a story battle: get ready"
     COOP_CMD_STORY_READY,     // "ready, bring me over"
+    COOP_CMD_HEAL,            // the leader healed at a Pokemon Center: heal too
+    COOP_CMD_TRADE_ASK,       // "let's trade" (Pokemon Center upstairs)
+    COOP_CMD_TRADE_ACCEPT,
+    COOP_CMD_TRADE_DECLINE,   // (also: the asker gave up waiting)
 };
 
 #define COOP_TEXT_SIZE 400
@@ -122,6 +126,8 @@ bool8 Coop_ShouldAdvanceText(void);
 // specials
 void Coop_BufferPartnerName(void);
 u8 Coop_TakeLeveledUpMons(void);
+bool8 Coop_IsTrading(void);
+void Coop_EndTrade(void);
 void Coop_ForceSoloBattle(void);
 void Coop_ShareItemGift(u16 item, u16 count);
 void Coop_ShareMonGift(u16 species, u8 level, u16 item);

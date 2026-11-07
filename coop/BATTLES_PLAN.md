@@ -134,3 +134,10 @@ link.c: SendBlock / IsLinkTaskFinished / GetMultiplayerId get a co-op branch.
 - Gifts now always go straight into the partner's bag/team (or PC) silently; three gift
   slots per player (VAR_0x40D0 + 10 * index: counter, then 3 x kind/id/amount) so a few
   given at once all arrive.
+- Healing: the nurse script calls special Coop_ShareHeal (COOP_CMD_HEAL -> the follower
+  heals).
+- Trading (Pokemon Center 2F, layout LAYOUT_POKEMON_CENTER_2F): TRADE_ASK/ACCEPT/DECLINE
+  commands; both run Coop_EventScript_DoTrade: ChoosePartyMon, then Task_TradeExchange
+  over the co-op link (block: cancel/answer + the Pokemon) for the choice and for the
+  confirm; then the in-game trade scene with the partner's Pokemon in gEnemyParty[0]
+  (trade_scene.c uses the partner's name while Coop_IsTrading()).

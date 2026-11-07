@@ -30,6 +30,7 @@
 #include "constants/event_object_movement.h"
 #include "constants/flags.h"
 #include "constants/maps.h"
+#include "constants/layouts.h"
 #include "constants/vars.h"
 #include "constants/moves.h"
 #include "constants/species.h"
@@ -70,6 +71,7 @@ extern const u8 Coop_Text_PulledIntoStoryBattle[];
 extern const u8 Coop_EventScript_StoryGetReady[];
 extern const u8 Coop_EventScript_WhiteOut[];
 extern const u8 Coop_EventScript_NicknameCaught[];
+extern const u8 Coop_EventScript_TradeRequest[];
 extern const u8 Coop_Text_SoloBattle[];
 extern const u8 Coop_Text_SplitForSafari[];
 
@@ -106,6 +108,8 @@ static bool8 sGiftSeqKnown;
 static u16 sConnectedFrames;       // overworld frames since connecting (the guest gets the host's world first)
 static u16 sNickSpecies;           // co-op catch to offer a nickname for
 static u8 sNickWhere;              // MON_GIVEN_TO_PARTY / MON_GIVEN_TO_PC
+static u8 sTradeAnswer;            // trade asker: 0 waiting, 1 yes, 2 no
+static bool8 sTrading;             // a co-op trade's scene is on
 static u8 sLeveledUp;             // own Pokemon that leveled up in the last co-op battle
 static u8 sCoopBattlePending;    // COOP_CMD_* of a battle the partner started, waiting to join
 static bool8 sStoryPullWarp;     // pulled into a story battle: warp to the partner first
@@ -481,6 +485,24 @@ static void HandlePartnerCommand(void)
         break;
     case COOP_CMD_STORY_READY:
         sStoryPartnerReady = TRUE;
+        break;
+    case COOP_CMD_HEAL:
+        if (Coop_IsFollowing())
+            HealPlayerParty();
+        break;
+    case COOP_CMD_TRADE_ASK:
+        if (gCoopMailbox.local.mode == COOP_MODE_SPLIT)
+            sPendingScript = Coop_EventScript_TradeRequest;
+        else
+            SendCommand(COOP_CMD_TRADE_DECLINE);
+        break;
+    case COOP_CMD_TRADE_ACCEPT:
+        sTradeAnswer = 1;
+        break;
+    case COOP_CMD_TRADE_DECLINE:
+        sTradeAnswer = 2;
+        if (sPendingScript == Coop_EventScript_TradeRequest)
+            sPendingScript = NULL; // the asker gave up
         break;
     case COOP_CMD_STORY_PULL:
     case COOP_CMD_STORY_PULL_NO_WHITEOUT:
@@ -910,6 +932,173 @@ void Coop_SplitOff(void)
 {
     SendCommand(COOP_CMD_SPLIT);
     Split();
+}
+
+// ---------------------------------------------------------------- Pokemon Center: healing
+
+// special (nurse): a linked leader's partner gets healed too
+void Coop_ShareHeal(void)
+{
+    if (Coop_IsLinked() && !Coop_IsFollowing())
+        SendCommand(COOP_CMD_HEAL);
+}
+
+// ---------------------------------------------------------------- trading
+//
+// Upstairs in a Pokemon Center, a player talking to the (split) partner can ask to
+// trade. Both pick a Pokemon, see what they'd get, confirm, and the game's own trade
+// scene plays (as for in-game trades) with the partner's Pokemon.
+
+// specialvar: in a Pokemon Center's upstairs (where trades are offered)
+bool8 Coop_IsTradeRoom(void)
+{
+    return gMapHeader.mapLayoutId == LAYOUT_POKEMON_CENTER_2F;
+}
+
+void Coop_SendTradeRequest(void)
+{
+    sTradeAnswer = 0;
+    SendCommand(COOP_CMD_TRADE_ASK);
+}
+
+// special: VAR_0x8004 = yes/no
+void Coop_AnswerTradeRequest(void)
+{
+    SendCommand(gSpecialVar_0x8004 == 1 ? COOP_CMD_TRADE_ACCEPT : COOP_CMD_TRADE_DECLINE);
+}
+
+// The asker waits for the answer (B gives up). VAR_RESULT = TRUE if accepted.
+static void Task_WaitTradeAnswer(u8 taskId)
+{
+    if (sTradeAnswer == 0 && gCoopMailbox.active && !JOY_NEW(B_BUTTON))
+        return;
+    if (sTradeAnswer == 0)
+        SendCommand(COOP_CMD_TRADE_DECLINE);
+    gSpecialVar_Result = (sTradeAnswer == 1);
+    DestroyTask(taskId);
+    ScriptContext_Enable();
+}
+
+void Coop_WaitTradeAnswer(void)
+{
+    CreateTask(Task_WaitTradeAnswer, 80);
+}
+
+struct CoopTradeBlock
+{
+    u8 cancel;
+    u8 answer;
+    u8 padding[2];
+    struct Pokemon mon;
+};
+
+// Both games send their choice and wait for the other's (B gives up).
+// tStep 0: the chosen Pokemon (VAR_0x8005, or none); then the yes/no (VAR_0x8006).
+#define tStep  data[0]
+#define tState data[1]
+static void Task_TradeExchange(u8 taskId)
+{
+    s16 *data = gTasks[taskId].data;
+    u8 partner = gCoopMailbox.playerIndex ^ 1;
+    struct CoopTradeBlock *block = (struct CoopTradeBlock *)gBlockSendBuffer;
+    struct CoopTradeBlock out;
+
+    if (!gCoopMailbox.active || (tState == 1 && JOY_NEW(B_BUTTON)))
+    {
+        // the partner left (or this player gave up waiting)
+        Coop_CloseLink();
+        gSpecialVar_Result = FALSE;
+        DestroyTask(taskId);
+        ScriptContext_Enable();
+        return;
+    }
+    switch (tState)
+    {
+    case 0:
+        if (!IsLinkTaskFinished())
+            break;
+        memset(&out, 0, sizeof(out));
+        if (tStep == 0)
+        {
+            out.cancel = (gSpecialVar_0x8005 >= PARTY_SIZE);
+            if (!out.cancel)
+                out.mon = gPlayerParty[gSpecialVar_0x8005];
+        }
+        else
+        {
+            out.answer = (gSpecialVar_0x8006 == 1);
+        }
+        if (SendBlock(0, &out, sizeof(out)))
+            tState++;
+        break;
+    case 1:
+        if (!(GetBlockReceivedStatus() & (1 << partner)))
+            break;
+        block = (struct CoopTradeBlock *)gBlockRecvBuffer[partner];
+        if (tStep == 0)
+        {
+            gSpecialVar_Result = !block->cancel && gSpecialVar_0x8005 < PARTY_SIZE;
+            if (gSpecialVar_Result)
+            {
+                u8 noMail = MAIL_NONE;
+
+                gEnemyParty[0] = block->mon;
+                SetMonData(&gEnemyParty[0], MON_DATA_MAIL, &noMail); // (their mail stays in their game)
+                Coop_BufferPartnerName();
+                GetMonData(&gPlayerParty[gSpecialVar_0x8005], MON_DATA_NICKNAME, gStringVar2);
+                StringGet_Nickname(gStringVar2);
+                GetMonData(&gEnemyParty[0], MON_DATA_NICKNAME, gStringVar3);
+                StringGet_Nickname(gStringVar3);
+            }
+        }
+        else
+        {
+            gSpecialVar_Result = block->answer && gSpecialVar_0x8006 == 1;
+        }
+        ResetBlockReceivedFlags();
+        if (tStep != 0 || !gSpecialVar_Result)
+            Coop_CloseLink();
+        DestroyTask(taskId);
+        ScriptContext_Enable();
+        break;
+    }
+}
+#undef tStep
+#undef tState
+
+// special: send this player's choice (VAR_0x8005) and get the partner's.
+// VAR_RESULT = TRUE if both picked one: STR_VAR_1 partner, STR_VAR_2 / STR_VAR_3 the Pokemon.
+void Coop_TradeExchangeMons(void)
+{
+    u8 taskId = CreateTask(Task_TradeExchange, 80);
+
+    gTasks[taskId].data[0] = 0;
+    Coop_OpenLink();
+}
+
+// special: send this player's yes/no (VAR_0x8006) and get the partner's.
+// VAR_RESULT = TRUE if both said yes.
+void Coop_TradeConfirm(void)
+{
+    u8 taskId = CreateTask(Task_TradeExchange, 80);
+
+    gTasks[taskId].data[0] = 1;
+}
+
+// special: the trade scene is starting
+void Coop_BeginTrade(void)
+{
+    sTrading = TRUE;
+}
+
+bool8 Coop_IsTrading(void)
+{
+    return sTrading;
+}
+
+void Coop_EndTrade(void)
+{
+    sTrading = FALSE;
 }
 
 // ---------------------------------------------------------------- one-player battles
