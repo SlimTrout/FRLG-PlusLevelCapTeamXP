@@ -101,4 +101,10 @@ link.c: SendBlock / IsLinkTaskFinished / GetMultiplayerId get a co-op branch.
   won script (the link check there was missing BATTLE_IS_REAL_LINK).
 - Evolutions: own Pokemon that went up a level evolve after a won battle
   (CB2_CoopEvolutions, before the usual end of battle).
-- Not done: nickname prompt for co-op catches; Nuzlocke rules for the guest's catches.
+- Nuzlocke in co-op: the host's game skips its own Nuzlocke handling for catches; each
+  game applies its player's rules after the battle (CoopNuzlockeAfterBattle: the
+  catcher's first-in-area check, dupe flags and tracker; for wild battles the player's
+  own wild mon counts as their encounter). Nuzlocke catchers get the naming screen
+  (DoNamingScreen -> CB2_CoopAfterNickname) before the mon is given.
+- The "Gotcha!" message names the actual caught mon in co-op (buffer 1).
+- Not done: the optional nickname prompt for co-op catches without Nuzlocke.

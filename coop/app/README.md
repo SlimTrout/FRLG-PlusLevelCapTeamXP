@@ -46,8 +46,10 @@ If the partner disconnects, the app closes. Only the host saves, so progress sin
   other medicine work as usual, and the partner's screen shows the healing.
 - **Catching.** Each player's ball goes at the wild Pokemon across from them (or the
   other one if that one's gone). The Pokemon goes to whoever threw the ball, into
-  their team or their PC, and into their Pokedex. There's no nickname prompt in a
-  linked battle.
+  their team or their PC, and into their Pokedex. With Nuzlocke on, the catcher's own
+  rules apply: the catch has to be their first in the area (or it faints), it's added
+  to their tracker, and they name it right after the battle. A linked wild battle also
+  counts as each player's encounter for the area (their own wild Pokemon).
 - **Prize money.** Both players get the prize money for beating a trainer.
 - **Evolutions.** After a linked battle that was won, each game shows its own
   player's evolutions.

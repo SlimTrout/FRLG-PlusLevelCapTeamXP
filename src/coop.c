@@ -1090,8 +1090,31 @@ void Coop_RestoreParty(void)
     memcpy(&sOwnParty[0], &gPlayerParty[gCoopMailbox.playerIndex * 3], sizeof(struct Pokemon) * 3);
     memcpy(gPlayerParty, sOwnParty, sizeof(struct Pokemon) * PARTY_SIZE);
     CalculatePlayerPartyCount();
-    // This player caught the wild Pokemon: it joins their team (or goes to their PC).
-    if (sCaughtBy == gCoopMailbox.playerIndex && GetMonData(sCaughtMon, MON_DATA_SPECIES) != SPECIES_NONE)
+    Free(sOwnParty);
+    Free(sBattleMons);
+    sOwnParty = NULL;
+    sBattleMons = NULL;
+    // (the caught Pokemon, if any, is kept until Coop_GiveCaughtMon)
+}
+
+// This player caught the wild Pokemon in the last co-op battle.
+bool8 Coop_CaughtByMe(void)
+{
+    return sCaughtMon != NULL && sCaughtBy == gCoopMailbox.playerIndex
+        && GetMonData(sCaughtMon, MON_DATA_SPECIES) != SPECIES_NONE;
+}
+
+// The wild Pokemon this player met in the last co-op wild battle (rolled from their own
+// encounter table); valid until Coop_RestoreParty.
+struct Pokemon *Coop_GetOwnWildMon(void)
+{
+    return sBattleMons != NULL ? &sBattleMons[gCoopMailbox.playerIndex * 4 + 3] : NULL;
+}
+
+// The caught Pokemon joins this player's team (or goes to their PC).
+void Coop_GiveCaughtMon(void)
+{
+    if (Coop_CaughtByMe())
     {
         u16 dexNum = SpeciesToNationalPokedexNum(GetMonData(sCaughtMon, MON_DATA_SPECIES));
 
@@ -1100,11 +1123,8 @@ void Coop_RestoreParty(void)
         GetSetPokedexFlag(dexNum, FLAG_SET_CAUGHT);
     }
     sCaughtBy = 0xFF;
-    Free(sOwnParty);
-    Free(sBattleMons);
-    Free(sCaughtMon);
-    sOwnParty = NULL;
-    sBattleMons = NULL;
+    if (sCaughtMon != NULL)
+        Free(sCaughtMon);
     sCaughtMon = NULL;
 }
 

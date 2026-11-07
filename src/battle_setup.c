@@ -28,6 +28,8 @@
 #include "field_screen_effect.h"
 #include "field_message_box.h"
 #include "menu.h"
+#include "naming_screen.h"
+#include "battle_setup.h"
 #include "window.h"
 #include "evolution_scene.h"
 #include "new_menu_helpers.h"
@@ -366,6 +368,9 @@ static MainCallback sCoopNext;         // where to go after the battle (and evol
 static u8 sCoopEvolve;                 // own Pokemon still to check for evolving
 static u32 sCoopMoney;                 // host: prize money won in the co-op battle
 static void CB2_CoopEvolutions(void);
+static void CB2_CoopAfterNickname(void);
+static void CoopNuzlockeAfterBattle(bool8 wild);
+static u8 sCoopNickname[POKEMON_NAME_LENGTH + 1];
 
 void Coop_SetBattleMoney(u32 money)
 {
@@ -473,6 +478,7 @@ static void CB2_EndCoopBattle(void)
         sState = 0;
         gBattleTypeFlags_Before = gBattleTypeFlags;
         Coop_CloseLink();
+        CoopNuzlockeAfterBattle(!(gBattleTypeFlags_Before & BATTLE_TYPE_TRAINER));
         Coop_RestoreParty();
         gBattleTypeFlags = 0;
         CpuFill16(0, (void *)BG_PLTT, BG_PLTT_SIZE);
@@ -489,8 +495,70 @@ static void CB2_EndCoopBattle(void)
         sCoopEvolve = Coop_TakeLeveledUpMons();
         if ((gBattleOutcome & ~B_OUTCOME_LINK_BATTLE_RAN) != B_OUTCOME_WON)
             sCoopEvolve = 0;
-        SetMainCallback2(CB2_CoopEvolutions);
+        if (Coop_CaughtByMe() && gSaveBlock1Ptr->keyFlags.nuzlocke == 1)
+        {
+            // Nuzlocke: a caught Pokemon must be given a nickname.
+            struct Pokemon *mon = Coop_GetCaughtMon();
+
+            GetMonData(mon, MON_DATA_NICKNAME, sCoopNickname);
+            FreeAllWindowBuffers();
+            DoNamingScreen(NAMING_SCREEN_CAUGHT_MON, sCoopNickname, GetMonData(mon, MON_DATA_SPECIES),
+                           GetMonGender(mon), GetMonData(mon, MON_DATA_PERSONALITY), CB2_CoopAfterNickname);
+        }
+        else
+        {
+            Coop_GiveCaughtMon();
+            SetMainCallback2(CB2_CoopEvolutions);
+        }
         break;
+    }
+}
+
+static void CB2_CoopAfterNickname(void)
+{
+    SetMonData(Coop_GetCaughtMon(), MON_DATA_NICKNAME, sCoopNickname);
+    Coop_GiveCaughtMon();
+    SetMainCallback2(CB2_CoopEvolutions);
+}
+
+// Nuzlocke rules after a co-op battle, by this player's own settings: the Pokemon they
+// caught is their first in this area (or it faints, as in a normal battle), and a wild
+// battle counts as their encounter here.
+static void CoopNuzlockeAfterBattle(bool8 wild)
+{
+    u8 mapsec = GetCurrentRegionMapSectionId();
+
+    if (gSaveBlock1Ptr->keyFlags.nuzlocke != 1)
+        return;
+    if (Coop_CaughtByMe())
+    {
+        struct Pokemon *mon = Coop_GetCaughtMon();
+        u16 species = GetMonData(mon, MON_DATA_SPECIES);
+
+        if (NuzlockeFlagGet(mapsec) == TRUE)
+        {
+            u32 status = 0;
+            u16 hp = 0;
+
+            SetMonData(mon, MON_DATA_STATUS, &status);
+            SetMonData(mon, MON_DATA_HP, &hp);
+        }
+        else
+        {
+            SetNuzlockeDupeFlags(SpeciesToNationalPokedexNum(species));
+            NuzlockeTracker_RecordEncounter(mapsec, species, TRUE);
+            NuzlockeFlagSet(mapsec);
+        }
+    }
+    else if (wild && Coop_GetOwnWildMon() != NULL)
+    {
+        u16 species = GetMonData(Coop_GetOwnWildMon(), MON_DATA_SPECIES);
+
+        if (species != SPECIES_NONE && !IsWildMonNuzlockeDupe(species))
+        {
+            NuzlockeTracker_RecordEncounter(mapsec, species, FALSE);
+            NuzlockeFlagSet(mapsec);
+        }
     }
 }
 

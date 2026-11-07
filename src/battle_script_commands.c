@@ -9843,9 +9843,12 @@ static void Cmd_handleballthrow(void)
                 gBattlescriptCurrInstr = BattleScript_SuccessBallThrow;
             SetMonData(&gEnemyParty[gBattlerPartyIndexes[gBattlerTarget]], MON_DATA_POKEBALL, &gLastUsedItem);
             if (Coop_IsLinkOpen())
+            {
                 gBattlescriptCurrInstr = BattleScript_CoopSuccessBallThrow; // given to whoever threw it after the battle
-            // (Nuzlocke rules: the host's own, so only for the host's catches)
-            if(gSaveBlock1Ptr->keyFlags.nuzlocke == 1 && (!Coop_IsLinkOpen() || GetBattlerPosition(gBattlerAttacker) == B_POSITION_PLAYER_LEFT))
+                PREPARE_MON_NICK_BUFFER(gBattleTextBuff1, gBattlerTarget, gBattlerPartyIndexes[gBattlerTarget]);
+            }
+            // (co-op: the catcher's own game applies their Nuzlocke rules after the battle)
+            if(gSaveBlock1Ptr->keyFlags.nuzlocke == 1 && !Coop_IsLinkOpen())
             {
                 if(NuzlockeFlagGet(GetCurrentRegionMapSectionId()) == TRUE) //already caught something here, faint mon
                 {
@@ -9907,8 +9910,11 @@ static void Cmd_handleballthrow(void)
                     gBattlescriptCurrInstr = BattleScript_SuccessBallThrow;
                 SetMonData(&gEnemyParty[gBattlerPartyIndexes[gBattlerTarget]], MON_DATA_POKEBALL, &gLastUsedItem);
                 if (Coop_IsLinkOpen())
+                {
                     gBattlescriptCurrInstr = BattleScript_CoopSuccessBallThrow;
-                if(gSaveBlock1Ptr->keyFlags.nuzlocke == 1 && (!Coop_IsLinkOpen() || GetBattlerPosition(gBattlerAttacker) == B_POSITION_PLAYER_LEFT))
+                    PREPARE_MON_NICK_BUFFER(gBattleTextBuff1, gBattlerTarget, gBattlerPartyIndexes[gBattlerTarget]);
+                }
+                if(gSaveBlock1Ptr->keyFlags.nuzlocke == 1 && !Coop_IsLinkOpen())
                 {
                     if(NuzlockeFlagGet(GetCurrentRegionMapSectionId()) == TRUE) //already caught something here, faint mon
                     {

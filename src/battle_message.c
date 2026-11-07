@@ -485,6 +485,7 @@ static const u8 sText_ItAppearedCaught[] = _("Aww!\nIt appeared to be caught!");
 static const u8 sText_AarghAlmostHadIt[] = _("Aargh!\nAlmost had it!");
 static const u8 sText_ShootSoClose[] = _("Shoot!\nIt was so close, too!");
 static const u8 sText_GotchaPkmnCaught[] = _("Gotcha!\n{B_OPPONENT_MON1_NAME} was caught!{WAIT_SE}{PLAY_BGM MUS_CAUGHT}\p");
+static const u8 sText_CoopGotchaPkmnCaught[] = _("Gotcha!\n{B_BUFF1} was caught!{WAIT_SE}{PLAY_BGM MUS_CAUGHT}\p");
 static const u8 sText_GotchaPkmnCaught2[] = _("Gotcha!\n{B_OPPONENT_MON1_NAME} was caught!{WAIT_SE}{PLAY_BGM MUS_CAUGHT}{PAUSE 127}");
 static const u8 sText_GiveNicknameCaptured[] = _("Give a nickname to the\ncaptured {B_OPPONENT_MON1_NAME}?");
 static const u8 sText_PkmnSentToPC[] = _("{B_OPPONENT_MON1_NAME} was sent to\n{B_PC_CREATOR_NAME} PC.");
@@ -1716,6 +1717,9 @@ void BufferStringBattle(u16 stringId)
         else
         {
             stringPtr = gBattleStringsTable[stringId - BATTLESTRINGS_TABLE_START];
+            // Co-op: the caught Pokemon may be either wild one (its name is in buffer 1)
+            if (stringId == STRINGID_GOTCHAPKMNCAUGHT && Coop_IsLinkOpen())
+                stringPtr = sText_CoopGotchaPkmnCaught;
         }
         break;
     }
