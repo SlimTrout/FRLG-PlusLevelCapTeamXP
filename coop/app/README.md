@@ -39,9 +39,13 @@ If the partner disconnects, the app closes. Only the host saves, so progress sin
   up, the partner sees "... is starting a big battle! You're joining in.", is taken
   to the other player, follows them and joins the battle. Losing the first rival
   battle doesn't white out, as in the normal game.
-- **Story battles ask first.** The player who starts the story battle is told their
-  partner will be pulled in and chooses when: "Bring ... in now?" Saying no shows
-  "Press A when you're ready", and A asks again.
+- **Getting ready for a story battle.** Before a split partner is pulled in, they're
+  told the battle is coming and get a menu: HEAL (not with the No Pokemon Center
+  rule), POKéMON BOXES, ITEM STORAGE and READY. The battle starts once they pick READY;
+  the player who started it waits ("... is getting ready to join this battle").
+- **Losing your Pokemon.** If all of one player's Pokemon faint, they watch the rest of
+  the battle. If their partner doesn't lose, they white out normally once back on the
+  map (splitting up from their partner).
 - **The bag works in linked battles.** Each player uses their own bag. Potions and
   other medicine work as usual, and the partner's screen shows the healing.
 - **Catching.** Each player's ball goes at the wild Pokemon across from them (or the
@@ -72,6 +76,10 @@ If the partner disconnects, the app closes. Only the host saves, so progress sin
 
 
 ## Shared world and saving
+
+- **Rules.** The guest always plays by the host's Key System settings (difficulty,
+  Nuzlocke, exp, level caps, team exp and the rest) while connected.
+
 
 - **One story for both players.** Badges, beaten trainers, items picked up and story
   events are shared. When the guest joins, their game takes the host's progress, and

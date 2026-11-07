@@ -64,6 +64,8 @@ extern const u8 Coop_Text_PartnerSplitOff[];
 extern const u8 Coop_Text_PartnerDisconnected[];
 extern const u8 Coop_Text_SplitForStarters[];
 extern const u8 Coop_Text_PulledIntoStoryBattle[];
+extern const u8 Coop_EventScript_StoryGetReady[];
+extern const u8 Coop_EventScript_WhiteOut[];
 
 EWRAM_DATA struct CoopMailbox gCoopMailbox = {0};
 EWRAM_DATA u8 gCoopTextPages = 0; // not plain "u8 gCoopTextPages;": that lands past the end of IWRAM, on top of the GPU register buffer
@@ -89,6 +91,9 @@ static bool8 sApplyingItem;        // host: using the partner's item on its copy
 static u8 sItemMonByBattler[4];    // host: the item each battler used this turn went on this slot
 static u8 sCaughtBy;               // co-op battle: player index of who caught the wild Pokemon
 static struct Pokemon *sCaughtMon; // (on the heap while a co-op battle is on)
+static bool8 sStoryPartnerReady;   // story battle starter: the partner said they're ready
+static bool8 sStoryReadySent;      // pulled player: said ready, so no "joining in" notice
+static bool8 sWhiteOutPending;     // all own Pokemon fainted in a co-op battle the partner won
 static u8 sLeveledUp;             // own Pokemon that leveled up in the last co-op battle
 static u8 sCoopBattlePending;    // COOP_CMD_* of a battle the partner started, waiting to join
 static bool8 sStoryPullWarp;     // pulled into a story battle: warp to the partner first
@@ -457,10 +462,21 @@ static void HandlePartnerCommand(void)
         if (Coop_IsFollowing())
             sCoopBattlePending = p->cmd;
         break;
+    case COOP_CMD_STORY_ASK:
+        // The partner is about to start a story battle: get ready (heal, PC) first.
+        if (gCoopMailbox.local.mode == COOP_MODE_SPLIT)
+            sPendingScript = Coop_EventScript_StoryGetReady;
+        break;
+    case COOP_CMD_STORY_READY:
+        sStoryPartnerReady = TRUE;
+        break;
     case COOP_CMD_STORY_PULL:
     case COOP_CMD_STORY_PULL_NO_WHITEOUT:
         // The partner started a story battle: go to them, link up (they lead) and join.
-        sPendingNotice = Coop_Text_PulledIntoStoryBattle;
+        if (sStoryReadySent)
+            sStoryReadySent = FALSE;
+        else
+            sPendingNotice = Coop_Text_PulledIntoStoryBattle;
         StopMirroring();
         StartFollowing();
         sStoryPullWarp = TRUE;
@@ -488,7 +504,12 @@ static void RunPendingScripts(void)
 {
     if (!CanRunCoopScript())
         return;
-    if (sMovesPending)
+    if (sWhiteOutPending)
+    {
+        sWhiteOutPending = FALSE;
+        RunCoopScript(Coop_EventScript_WhiteOut);
+    }
+    else if (sMovesPending)
     {
         u8 slot = 0;
 
@@ -535,6 +556,7 @@ static void WarpToLeader(void)
     DoWarp();
     sWarping = TRUE;
     sWarpFrames = 0;
+    sFollowFrame = gMain.vblankCounter2; // (may be stale if following just started)
     sIdleFrames = 0;
 }
 
@@ -743,6 +765,7 @@ static void UpdateMirroredText(void)
 }
 
 static void TryStartPartnersWildBattle(void);
+static void FollowHostRules(void);
 bool8 BattleSetup_IsStarting(void);
 
 // ---------------------------------------------------------------- main update
@@ -787,6 +810,7 @@ void Coop_Update(void)
     }
 
     HandlePartnerCommand();
+    FollowHostRules();
     // Picking starters in Oak's lab: each player picks their own, so a linked pair
     // splits up there as long as this player has no Pokemon yet.
     if (Coop_IsLinked() && CalculatePlayerPartyCount() == 0
@@ -862,6 +886,84 @@ void Coop_SplitOff(void)
 {
     SendCommand(COOP_CMD_SPLIT);
     Split();
+}
+
+// ---------------------------------------------------------------- story battles: getting ready
+
+// The player who ran into a story battle asks the partner to get ready.
+void Coop_AskPartnerToGetReady(void)
+{
+    sStoryPartnerReady = FALSE;
+    SendCommand(COOP_CMD_STORY_ASK);
+}
+
+bool8 Coop_TakeStoryPartnerReady(void)
+{
+    bool8 ready = sStoryPartnerReady;
+
+    sStoryPartnerReady = FALSE;
+    return ready;
+}
+
+// special: the pulled player is ready to be brought over
+void Coop_StorySendReady(void)
+{
+    sStoryReadySent = TRUE;
+    SendCommand(COOP_CMD_STORY_READY);
+}
+
+// special: VAR_RESULT = whether healing is allowed (not with the No Pokemon Center rule)
+void Coop_CanHealForStory(void)
+{
+    gSpecialVar_Result = !gSaveBlock1Ptr->keyFlags.noPMC;
+}
+
+// ---------------------------------------------------------------- whiting out after a co-op battle
+
+// This player's Pokemon all fainted but the partner kept going and the battle ended
+// without a loss: they white out once they're back on the map.
+void Coop_SetWhiteOutPending(void)
+{
+    sWhiteOutPending = TRUE;
+}
+
+// special: whiting out on your own leaves the partner behind
+void Coop_DoWhiteOut(void)
+{
+    if (gCoopMailbox.active && gCoopMailbox.local.mode != COOP_MODE_SPLIT)
+        Coop_SplitOff();
+    SetMainCallback2(CB2_WhiteOut);
+}
+
+// ---------------------------------------------------------------- the guest plays by the host's rules
+
+// The host's Key System settings (difficulty, Nuzlocke, exp, level caps and so on)
+// are the guest's too while connected.
+static void FollowHostRules(void)
+{
+    struct KeySystemFlags host;
+    struct KeySystemFlags *own = &gSaveBlock1Ptr->keyFlags;
+    bool8 recalc;
+    u8 i;
+
+    if (!Coop_IsGuest() || gCoopMailbox.partner.seq == 0)
+        return;
+    *(u16 *)&host = gCoopMailbox.partner.keySettings;
+    recalc = (own->ivCalcMode != host.ivCalcMode || own->evCalcMode != host.evCalcMode);
+    own->difficulty = host.difficulty;
+    own->version = host.version;
+    own->nuzlocke = host.nuzlocke;
+    own->ivCalcMode = host.ivCalcMode;
+    own->evCalcMode = host.evCalcMode;
+    own->noPMC = host.noPMC;
+    own->expMod = host.expMod;
+    own->levelCap = host.levelCap;
+    own->teamExp = host.teamExp;
+    if (recalc)
+    {
+        for (i = 0; i < gPlayerPartyCount; i++)
+            CalculateMonStats(&gPlayerParty[i], FALSE);
+    }
 }
 
 bool8 Coop_IsGuest(void)

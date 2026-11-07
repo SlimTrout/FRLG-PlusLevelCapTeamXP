@@ -42,6 +42,18 @@ static void DestroyScriptMenuWindow(u8 windowId);
 static u8 CreateWindowFromRect(u8 left, u8 top, u8 width, u8 height);
 
 
+extern const u8 Coop_Text_StoryMenuHeal[];
+extern const u8 Coop_Text_StoryMenuPokemon[];
+extern const u8 Coop_Text_StoryMenuItems[];
+extern const u8 Coop_Text_StoryMenuReady[];
+
+static const struct MenuAction sMultichoiceList_CoopStoryReady[] = {
+    { Coop_Text_StoryMenuHeal },
+    { Coop_Text_StoryMenuPokemon },
+    { Coop_Text_StoryMenuItems },
+    { Coop_Text_StoryMenuReady }
+};
+
 static const struct MenuAction sMultichoiceList_YesNo[] = {
     { gText_Yes },
     { gText_No }
@@ -732,6 +744,7 @@ static const struct MultichoiceListStruct sMultichoiceLists[] = {
 	[MULTICHOICE_SOUTHERN_BIRTH_NAVEL]                       = MULTICHOICE(sMultichoiceList_SouthernBirthNavel),
 	[MULTICHOICE_SOUTHERN_BIRTH_NAVEL_FARAWAY]               = MULTICHOICE(sMultichoiceList_SouthernBirthNavelFaraway),
 	[MULTICHOICE_MASTER_YOUNGSTER]                           = MULTICHOICE(sMultichoiceList_MasterYoungster),
+	[MULTICHOICE_COOP_STORY_READY]                           = MULTICHOICE(sMultichoiceList_CoopStoryReady),
 };
 
 // From Cool to Berries goes unused

@@ -108,3 +108,13 @@ link.c: SendBlock / IsLinkTaskFinished / GetMultiplayerId get a co-op branch.
   (DoNamingScreen -> CB2_CoopAfterNickname) before the mon is given.
 - The "Gotcha!" message names the actual caught mon in co-op (buffer 1).
 - Not done: the optional nickname prompt for co-op catches without Nuzlocke.
+- Guest follows the host's Key System settings (FollowHostRules in Coop_Update; iv/ev
+  calc changes recalc the party).
+- Story battles: the starter sends COOP_CMD_STORY_ASK and waits (Task_CoopStoryPullWait);
+  the partner runs Coop_EventScript_StoryGetReady (heal / boxes / item storage / ready)
+  and answers COOP_CMD_STORY_READY; then the usual STORY_PULL. Fixed: WarpToLeader now
+  refreshes sFollowFrame, or a warp right after following started looked finished at
+  once and the battle start was lost to the map reload.
+- A player whose own Pokemon all fainted in a battle that wasn't lost whites out after
+  it (Coop_SetWhiteOutPending -> Coop_EventScript_WhiteOut -> Coop_DoWhiteOut, which
+  splits first).

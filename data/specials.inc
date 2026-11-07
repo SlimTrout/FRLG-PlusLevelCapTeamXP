@@ -467,4 +467,7 @@ gSpecials::
 	def_special Coop_SplitOff
 	def_special Coop_SaveWithHost
 	def_special Coop_PartnerNeedsStarter
+	def_special Coop_StorySendReady
+	def_special Coop_CanHealForStory
+	def_special Coop_DoWhiteOut
 gSpecialsEnd::

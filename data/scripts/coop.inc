@@ -171,19 +171,105 @@ Coop_Text_PulledIntoStoryBattle::
 	.string "{STR_VAR_1} is starting a big battle!\n"
 	.string "You're joining in.$"
 
-Coop_Text_StoryPullIntro::
-	.string "You're about to start a big battle!\p"
-	.string "{STR_VAR_1} will be pulled in\n"
-	.string "to battle with you.\p"
-	.string "Bring {STR_VAR_1} in now?$"
+@ The partner is about to start a story battle: heal and use the PC, then say ready.
+Coop_EventScript_StoryGetReady::
+	lockall
+	special Coop_BufferPartnerName
+	msgbox Coop_Text_StoryGetReady
+Coop_EventScript_StoryReadyMenu::
+	message Coop_Text_StoryWhatToDo
+	waitmessage
+	multichoice 17, 4, MULTICHOICE_COOP_STORY_READY, FALSE
+	switch VAR_RESULT
+	case 0, Coop_EventScript_StoryHeal
+	case 1, Coop_EventScript_StoryPokemonStorage
+	case 2, Coop_EventScript_StoryItemStorage
+	case 3, Coop_EventScript_StoryReady
+	goto Coop_EventScript_StoryReadyMenu
+	end
 
-Coop_Text_StoryPullAsk::
-	.string "Bring {STR_VAR_1} in now?$"
+Coop_EventScript_StoryHeal::
+	special Coop_CanHealForStory
+	goto_if_eq VAR_RESULT, FALSE, Coop_EventScript_StoryCantHeal
+	special HealPlayerParty
+	playse SE_USE_ITEM
+	msgbox Coop_Text_StoryHealed
+	goto Coop_EventScript_StoryReadyMenu
+	end
 
-Coop_Text_StoryPullWait::
-	.string "Press A when you're ready to\n"
-	.string "bring {STR_VAR_1} in.$"
+Coop_EventScript_StoryCantHeal::
+	msgbox Coop_Text_StoryCantHeal
+	goto Coop_EventScript_StoryReadyMenu
+	end
 
-Coop_Text_StoryPullBusy::
-	.string "{STR_VAR_1} is busy right now.\n"
-	.string "Press A to ask again.$"
+Coop_EventScript_StoryPokemonStorage::
+	playse SE_PC_LOGIN
+	msgbox Text_OpenedPkmnStorage
+	special ShowPokemonStorageSystemPC
+	waitstate
+	goto Coop_EventScript_StoryReadyMenu
+	end
+
+Coop_EventScript_StoryItemStorage::
+	playse SE_PC_LOGIN
+	msgbox Text_AccessedPlayersPC
+	special PlayerPC
+	waitstate
+	goto Coop_EventScript_StoryReadyMenu
+	end
+
+Coop_EventScript_StoryReady::
+	special Coop_BufferPartnerName
+	msgbox Coop_Text_StoryOnTheWay
+	special Coop_StorySendReady
+	releaseall
+	end
+
+@ This player's Pokemon all fainted in a co-op battle the partner kept fighting.
+Coop_EventScript_WhiteOut::
+	lockall
+	msgbox Coop_Text_WhitedOut
+	fadescreen FADE_TO_BLACK
+	releaseall
+	special Coop_DoWhiteOut
+	end
+
+Coop_Text_StoryPullWaiting::
+	.string "{STR_VAR_1} is getting ready to\n"
+	.string "join this battle…$"
+
+Coop_Text_StoryGetReady::
+	.string "{STR_VAR_1} is about to start a\n"
+	.string "big battle, and you're joining in!\p"
+	.string "Get ready, then you'll be brought\n"
+	.string "over to {STR_VAR_1}.$"
+
+Coop_Text_StoryWhatToDo::
+	.string "What would you like to do?$"
+
+Coop_Text_StoryHealed::
+	.string "Your POKéMON were healed.$"
+
+Coop_Text_StoryCantHeal::
+	.string "Healing is off with the No POKéMON\n"
+	.string "CENTER rule.$"
+
+Coop_Text_StoryOnTheWay::
+	.string "Off to {STR_VAR_1}!$"
+
+Coop_Text_WhitedOut::
+	.string "{PLAYER} has no more POKéMON that\n"
+	.string "can fight!\p"
+	.string "{PLAYER} whited out!$"
+
+Coop_Text_StoryMenuHeal::
+	.string "HEAL$"
+
+Coop_Text_StoryMenuPokemon::
+	.string "POKéMON BOXES$"
+
+Coop_Text_StoryMenuItems::
+	.string "ITEM STORAGE$"
+
+Coop_Text_StoryMenuReady::
+	.string "READY$"

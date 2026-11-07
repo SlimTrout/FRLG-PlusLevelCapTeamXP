@@ -355,11 +355,8 @@ static void CB2_EndCoopBattle(void);
 static void DoTrainerBattle(void);
 void BattleSetup_StartCoopTrainerBattle(bool8 starter, bool8 noWhiteOut);
 static void CB2_EndTrainerBattle(void);
-static void Task_CoopStoryPullPrompt(u8 taskId);
-extern const u8 Coop_Text_StoryPullIntro[];
-extern const u8 Coop_Text_StoryPullAsk[];
-extern const u8 Coop_Text_StoryPullWait[];
-extern const u8 Coop_Text_StoryPullBusy[];
+static void Task_CoopStoryPullWait(u8 taskId);
+extern const u8 Coop_Text_StoryPullWaiting[];
 
 static u32 gBattleTypeFlags_Before;
 static MainCallback sCoopAfterBattle; // the starter's own end of battle (trainer battles)
@@ -368,6 +365,20 @@ static MainCallback sCoopNext;         // where to go after the battle (and evol
 static u8 sCoopEvolve;                 // own Pokemon still to check for evolving
 static u32 sCoopMoney;                 // host: prize money won in the co-op battle
 static void CB2_CoopEvolutions(void);
+
+static bool8 HasAnyAliveMon(void)
+{
+    u8 i;
+
+    for (i = 0; i < PARTY_SIZE; i++)
+    {
+        if (GetMonData(&gPlayerParty[i], MON_DATA_SPECIES) != SPECIES_NONE
+         && !GetMonData(&gPlayerParty[i], MON_DATA_IS_EGG)
+         && GetMonData(&gPlayerParty[i], MON_DATA_HP) != 0)
+            return TRUE;
+    }
+    return FALSE;
+}
 static void CB2_CoopAfterNickname(void);
 static void CoopNuzlockeAfterBattle(bool8 wild);
 static u8 sCoopNickname[POKEMON_NAME_LENGTH + 1];
@@ -483,6 +494,10 @@ static void CB2_EndCoopBattle(void)
         gBattleTypeFlags = 0;
         CpuFill16(0, (void *)BG_PLTT, BG_PLTT_SIZE);
         ResetOamRange(0, 128);
+        // All of this player's Pokemon fainted, but their partner kept going and didn't
+        // lose: they white out once back on the map (after a trainer's script, if any).
+        if (!IsPlayerDefeated(gBattleOutcome) && !sCoopNoWhiteOut && !HasAnyAliveMon())
+            Coop_SetWhiteOutPending();
         if (sCoopAfterBattle != NULL)
             sCoopNext = sCoopAfterBattle; // the trainer battle's own ending (flags, script)
         else if (IsPlayerDefeated(gBattleOutcome) == TRUE && !sCoopNoWhiteOut)
@@ -619,8 +634,8 @@ static bool8 TryStartCoopTrainerBattle(void)
     sCoopNoWhiteOut = (sTrainerBattleMode == TRAINER_BATTLE_EARLY_RIVAL);
     if (!Coop_IsLinked())
     {
-        // A story battle while split up: this player says when to pull the partner in.
-        CreateTask(Task_CoopStoryPullPrompt, 80);
+        // A story battle while split up: the partner gets ready, then comes over.
+        CreateTask(Task_CoopStoryPullWait, 80);
         return TRUE;
     }
     Coop_StartLinkedTrainerBattle(sCoopNoWhiteOut, FALSE);
@@ -629,85 +644,38 @@ static bool8 TryStartCoopTrainerBattle(void)
 }
 
 // The story battle's trainer script is paused while this runs (the battle continues
-// it as usual afterwards).
-enum {
-    PULL_SHOW_INTRO,
-    PULL_WAIT_INTRO,
-    PULL_ASK,
-    PULL_WAIT_ANSWER,
-    PULL_WAIT_READY,
-    PULL_WAIT_BUSY,
-};
-
-static void Task_CoopStoryPullPrompt(u8 taskId)
+// it as usual afterwards). The partner gets ready first (heal, PC) and then says so.
+static void Task_CoopStoryPullWait(u8 taskId)
 {
     s16 *state = &gTasks[taskId].data[0];
 
     switch (*state)
     {
-    case PULL_SHOW_INTRO:
+    case 0:
+        Coop_AskPartnerToGetReady();
         Coop_BufferPartnerName();
-        StringExpandPlaceholders(gStringVar4, Coop_Text_StoryPullIntro);
+        StringExpandPlaceholders(gStringVar4, Coop_Text_StoryPullWaiting);
         ShowFieldMessage(gStringVar4);
-        *state = PULL_WAIT_INTRO;
+        *state = 1;
         break;
-    case PULL_WAIT_INTRO:
-        if (IsFieldMessageBoxHidden())
-            *state = PULL_ASK;
-        break;
-    case PULL_ASK:
-        DisplayYesNoMenuDefaultYes();
-        *state = PULL_WAIT_ANSWER;
-        break;
-    case PULL_WAIT_ANSWER:
-        switch (Menu_ProcessInputNoWrapClearOnChoose())
+    case 1:
+        if (!gCoopMailbox.active)
         {
-        case 0: // yes
-            if (!gCoopMailbox.active)
-            {
-                // The partner left: a normal battle on this player's own.
-                HideFieldMessageBox();
-                DestroyTask(taskId);
-                gBattleTypeFlags = BATTLE_TYPE_TRAINER;
-                if (sTrainerBattleMode == TRAINER_BATTLE_EARLY_RIVAL && sRivalBattleFlags & RIVAL_BATTLE_TUTORIAL)
-                    gBattleTypeFlags |= BATTLE_TYPE_FIRST_BATTLE;
-                gMain.savedCallback = CB2_EndTrainerBattle;
-                DoTrainerBattle();
-            }
-            else if (!gCoopMailbox.partner.inOverworld || gCoopMailbox.partner.battleTrainer != 0)
-            {
-                Coop_BufferPartnerName();
-                StringExpandPlaceholders(gStringVar4, Coop_Text_StoryPullBusy);
-                ShowFieldMessage(gStringVar4);
-                *state = PULL_WAIT_BUSY;
-            }
-            else
-            {
-                HideFieldMessageBox();
-                DestroyTask(taskId);
-                Coop_StartLinkedTrainerBattle(sCoopNoWhiteOut, TRUE);
-                BattleSetup_StartCoopTrainerBattle(TRUE, sCoopNoWhiteOut);
-            }
-            break;
-        case 1: // no
-        case MENU_B_PRESSED:
-            Coop_BufferPartnerName();
-            StringExpandPlaceholders(gStringVar4, Coop_Text_StoryPullWait);
-            ShowFieldMessage(gStringVar4);
-            *state = PULL_WAIT_READY;
-            break;
+            // The partner left: a normal battle on this player's own.
+            HideFieldMessageBox();
+            DestroyTask(taskId);
+            gBattleTypeFlags = BATTLE_TYPE_TRAINER;
+            if (sTrainerBattleMode == TRAINER_BATTLE_EARLY_RIVAL && sRivalBattleFlags & RIVAL_BATTLE_TUTORIAL)
+                gBattleTypeFlags |= BATTLE_TYPE_FIRST_BATTLE;
+            gMain.savedCallback = CB2_EndTrainerBattle;
+            DoTrainerBattle();
         }
-        break;
-    case PULL_WAIT_BUSY:
-    case PULL_WAIT_READY:
-        // Shown until this player presses A to be asked again.
-        if (IsFieldMessageBoxHidden() && JOY_NEW(A_BUTTON))
+        else if (Coop_TakeStoryPartnerReady())
         {
-            PlaySE(SE_SELECT);
-            Coop_BufferPartnerName();
-            StringExpandPlaceholders(gStringVar4, Coop_Text_StoryPullAsk);
-            ShowFieldMessage(gStringVar4);
-            *state = PULL_WAIT_INTRO;
+            HideFieldMessageBox();
+            DestroyTask(taskId);
+            Coop_StartLinkedTrainerBattle(sCoopNoWhiteOut, TRUE);
+            BattleSetup_StartCoopTrainerBattle(TRUE, sCoopNoWhiteOut);
         }
         break;
     }

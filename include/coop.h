@@ -34,6 +34,8 @@ enum
     COOP_CMD_TRAINER_BATTLE_NO_WHITEOUT, // same, but losing doesn't white out (first rival battle)
     COOP_CMD_STORY_PULL,      // a story battle: come over (warp), link up and join it
     COOP_CMD_STORY_PULL_NO_WHITEOUT,
+    COOP_CMD_STORY_ASK,       // "I'm about to start a story battle: get ready"
+    COOP_CMD_STORY_READY,     // "ready, bring me over"
 };
 
 #define COOP_TEXT_SIZE 400
@@ -120,6 +122,9 @@ bool8 Coop_ShouldAdvanceText(void);
 // specials
 void Coop_BufferPartnerName(void);
 u8 Coop_TakeLeveledUpMons(void);
+void Coop_AskPartnerToGetReady(void);
+bool8 Coop_TakeStoryPartnerReady(void);
+void Coop_SetWhiteOutPending(void);
 void Coop_ResetItemUse(void);
 void Coop_NoteItemUsed(u8 partyIndex, u8 moveIndex);
 u8 Coop_GetItemParty(void);
