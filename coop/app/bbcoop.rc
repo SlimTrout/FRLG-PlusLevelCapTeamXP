@@ -1,2 +1,35 @@
-// Windows resources for bbcoop.exe: the manifest (modern controls, sharp on high-DPI screens).
+// Windows resources for bbcoop.exe: the manifest (modern controls, sharp on high-DPI
+// screens) and version information (shown in the file's Properties; an exe without
+// it looks more suspicious to antivirus programs).
+#include <winver.h>
+
 1 24 "bbcoop.manifest"
+
+1 VERSIONINFO
+FILEVERSION 1,0,0,0
+PRODUCTVERSION 1,0,0,0
+FILEFLAGSMASK 0x3fL
+FILEFLAGS 0x0L
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+FILESUBTYPE VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName", "SlimTrout"
+            VALUE "FileDescription", "Brainy Blue Co-op"
+            VALUE "FileVersion", "1.0.0.0"
+            VALUE "InternalName", "bbcoop"
+            VALUE "LegalCopyright", "Built from github.com/SlimTrout/FRLG-PlusLevelCapTeamXP"
+            VALUE "OriginalFilename", "bbcoop.exe"
+            VALUE "ProductName", "Brainy Blue Co-op"
+            VALUE "ProductVersion", "1.0.0.0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
