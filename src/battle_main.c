@@ -2438,6 +2438,7 @@ static void BattleStartClearSetData(void)
     u32 j;
     u8 *dataPtr;
 
+    Coop_ResetBattleExp();
     TurnValuesCleanUp(FALSE);
     SpecialStatusesClear();
 

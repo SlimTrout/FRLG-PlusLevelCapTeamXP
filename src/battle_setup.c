@@ -412,7 +412,7 @@ void BattleSetup_StartCoopWildBattle(void)
 static void CB2_EndCoopBattle(void)
 {
     static u8 sState;
-    u32 info[3]; // a marker, then the host's: prize money won, who caught the wild Pokemon
+    u32 info[4]; // a marker, then the host's: prize money won, who caught the wild Pokemon, the guest's exp for the EXP. BOTTLE
     bool8 host = Coop_IsHost();
     u8 partner = GetMultiplayerId() ^ 1;
 
@@ -432,6 +432,7 @@ static void CB2_EndCoopBattle(void)
         info[0] = COOP_END_BATTLE_MARKER;
         info[1] = host ? sCoopMoney : 0;
         info[2] = host ? Coop_GetCaughtBy() : 0xFF;
+        info[3] = host ? Coop_TakeGuestBottleExp() : 0;
         if (IsLinkTaskFinished() && SendBlock(0, info, sizeof(info)))
             sState++;
         break;
@@ -447,6 +448,7 @@ static void CB2_EndCoopBattle(void)
                 if (info[1] != 0)
                     AddMoney(&gSaveBlock1Ptr->money, info[1]);
                 Coop_SetCaughtBy(info[2]);
+                Coop_AddBottleExp(info[3]);
             }
             sCoopMoney = 0;
             ResetBlockReceivedFlags();
@@ -1506,6 +1508,9 @@ void StartTrainerBattle(void)
 
 static void CB2_EndTrainerBattle(void)
 {
+    // Co-op: a trainer beaten alone fills the partner's EXP. BOTTLE.
+    if (!IsPlayerDefeated(gBattleOutcome))
+        Coop_SendBattleExpToPartner();
     if (sTrainerBattleMode == TRAINER_BATTLE_EARLY_RIVAL)
     {
         if (IsPlayerDefeated(gBattleOutcome) == TRUE)

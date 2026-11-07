@@ -114,6 +114,7 @@ static int wsVarShared(int v) { // v = var - 0x4000
     if (v >= 0x25 && v <= 0x29) return 0;   // step counters, quest log, last repel
     if (v == 0x2D || v == 0x2F || v == 0x30 || v == 0x31) return 0; // daycare, ash, ice, starter
     if (v == 0x37 || v == 0x3A) return 0;   // PC box to send to, elevator floor
+    if (v == 0xC0 || v == 0xC1) return 0;   // the EXP. BOTTLE's exp (each player's own)
     if (v >= 0x42 && v <= 0x48) return 0;   // trainer card
     if (v == 0x4D || v == 0x8C) return 0;   // quest log entrance, Faraway Island steps
     if (v >= 0xAA && v <= 0xB3) return 0;   // quest log backups

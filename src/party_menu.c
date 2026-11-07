@@ -5061,11 +5061,70 @@ static void Task_TryLearningNextMoveAfterText(u8 taskId)
         Task_TryLearningNextMove(taskId);
 }
 
+// Co-op: the EXP. BOTTLE raises a Pokemon one level for the exp that takes. At the
+// level cap it does nothing (and keeps its exp); it's never used up.
+static const u8 sText_ExpBottleAtCap[] = _("{STR_VAR_1} is at the level cap.\nThe EXP. BOTTLE has no effect.{PAUSE_UNTIL_PRESS}");
+static const u8 sText_ExpBottleNotEnough[] = _("The EXP. BOTTLE holds {STR_VAR_2} EXP.\n{STR_VAR_1} needs {STR_VAR_3}.{PAUSE_UNTIL_PRESS}");
+
+static u32 ExpToNextLevel(struct Pokemon *mon)
+{
+    u16 species = GetMonData(mon, MON_DATA_SPECIES);
+    u8 level = GetMonData(mon, MON_DATA_LEVEL);
+
+    return gExperienceTables[gSpeciesInfo[species].growthRate][level + 1] - GetMonData(mon, MON_DATA_EXP);
+}
+
+static void ItemUseCB_ExpBottle(u8 taskId, TaskFunc func)
+{
+    struct Pokemon *mon = &gPlayerParty[gPartyMenu.slotId];
+    u32 need;
+
+    PlaySE(SE_SELECT);
+    GetMonNickname(mon, gStringVar1);
+    if (GetMonData(mon, MON_DATA_IS_EGG) || GetMonData(mon, MON_DATA_LEVEL) >= MAX_LEVEL)
+    {
+        gPartyMenuUseExitCallback = FALSE;
+        DisplayPartyMenuMessage(gText_WontHaveEffect, TRUE);
+        ScheduleBgCopyTilemapToVram(2);
+        gTasks[taskId].func = func;
+        return;
+    }
+    if (IsMonAtLevelCap(mon))
+    {
+        gPartyMenuUseExitCallback = FALSE;
+        StringExpandPlaceholders(gStringVar4, sText_ExpBottleAtCap);
+        DisplayPartyMenuMessage(gStringVar4, TRUE);
+        ScheduleBgCopyTilemapToVram(2);
+        gTasks[taskId].func = func;
+        return;
+    }
+    need = ExpToNextLevel(mon);
+    if (Coop_GetBottleExp() < need)
+    {
+        gPartyMenuUseExitCallback = FALSE;
+        ConvertIntToDecimalStringN(gStringVar2, Coop_GetBottleExp(), STR_CONV_MODE_LEFT_ALIGN, 10);
+        ConvertIntToDecimalStringN(gStringVar3, need, STR_CONV_MODE_LEFT_ALIGN, 10);
+        StringExpandPlaceholders(gStringVar4, sText_ExpBottleNotEnough);
+        DisplayPartyMenuMessage(gStringVar4, TRUE);
+        ScheduleBgCopyTilemapToVram(2);
+        gTasks[taskId].func = func;
+        return;
+    }
+    Task_DoUseItemAnim(taskId);
+    gItemUseCB = ItemUseCB_RareCandyStep;
+}
+
 void ItemUseCB_RareCandy(u8 taskId, TaskFunc func)
 {
     struct Pokemon *mon = &gPlayerParty[gPartyMenu.slotId];
     u16 item = gSpecialVar_ItemId;
     bool8 noEffect;
+
+    if (item == ITEM_EXP_BOTTLE)
+    {
+        ItemUseCB_ExpBottle(taskId, func);
+        return;
+    }
 
     if (GetMonData(mon, MON_DATA_LEVEL) != MAX_LEVEL && !IsMonAtLevelCap(mon))
         noEffect = PokemonItemUseNoEffect(mon, item, gPartyMenu.slotId, 0);
@@ -5094,13 +5153,27 @@ static void ItemUseCB_RareCandyStep(u8 taskId, TaskFunc func)
     u8 level;
 
     GetMonLevelUpWindowStats(mon, arrayPtr);
-    ExecuteTableBasedItemEffect_(gPartyMenu.slotId, gSpecialVar_ItemId, 0);
+    if (gSpecialVar_ItemId == ITEM_EXP_BOTTLE)
+    {
+        // exactly enough exp for the next level, out of the bottle
+        u32 need = ExpToNextLevel(mon);
+        u32 exp = GetMonData(mon, MON_DATA_EXP) + need;
+
+        Coop_TakeBottleExp(need);
+        SetMonData(mon, MON_DATA_EXP, &exp);
+        CalculateMonStats(mon, TRUE);
+    }
+    else
+    {
+        ExecuteTableBasedItemEffect_(gPartyMenu.slotId, gSpecialVar_ItemId, 0);
+    }
     GetMonLevelUpWindowStats(mon, &ptr->data[NUM_STATS]);
     gPartyMenuUseExitCallback = TRUE;
     ItemUse_SetQuestLogEvent(QL_EVENT_USED_ITEM, mon, gSpecialVar_ItemId, 0xFFFF);
     PlayFanfareByFanfareNum(FANFARE_LEVEL_UP);
     UpdateMonDisplayInfoAfterRareCandy(gPartyMenu.slotId, mon);
-    RemoveBagItem(gSpecialVar_ItemId, 1);
+    if (gSpecialVar_ItemId != ITEM_EXP_BOTTLE) // (the bottle is never used up)
+        RemoveBagItem(gSpecialVar_ItemId, 1);
     GetMonNickname(mon, gStringVar1);
     level = GetMonData(mon, MON_DATA_LEVEL);
     ConvertIntToDecimalStringN(gStringVar2, level, STR_CONV_MODE_LEFT_ALIGN, 3);

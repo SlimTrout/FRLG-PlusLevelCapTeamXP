@@ -3199,6 +3199,32 @@ static u32 GetTeamExpAmount(void)
 }
 
 static void Cmd_getexp_Internal(void);
+static u32 Coop_ApplyExpMultiplier(u32 exp);
+
+// The exp the current exp getter earns from this foe, before the level cap (as
+// worked out below in Cmd_getexp_Internal). *boosted: it's a traded Pokemon's.
+static u32 CalcGetterExp(u16 holdEffect, bool32 viaTeamExp, bool8 *boosted)
+{
+    u32 amount = (gBattleStruct->sentInPokes & 1) ? gBattleStruct->expValue : 0;
+
+    *boosted = FALSE;
+    if (holdEffect == HOLD_EFFECT_EXP_SHARE)
+        amount += gExpShareExp;
+    if (viaTeamExp)
+        amount += GetTeamExpAmount();
+    if (holdEffect == HOLD_EFFECT_LUCKY_EGG)
+        amount = (amount * 150) / 100;
+    if (gBattleTypeFlags & BATTLE_TYPE_TRAINER)
+        amount = (amount * 150) / 100;
+    if (IsTradedMon(&gPlayerParty[gBattleStruct->expGetterMonId]) && !(gBattleTypeFlags & BATTLE_TYPE_POKEDUDE))
+    {
+        amount = (amount * 150) / 100;
+        *boosted = TRUE;
+    }
+    if (Coop_IsLinkOpen())
+        amount = Coop_ApplyExpMultiplier(amount);
+    return amount;
+}
 
 // Co-op: the current Pokemon's owner's exp multiplier (Key System), as in GetModifiedExpYield.
 static u32 Coop_ApplyExpMultiplier(u32 exp)
@@ -3329,6 +3355,15 @@ static void Cmd_getexp_Internal(void)
             }
             else if (GetMonData(&gPlayerParty[gBattleStruct->expGetterMonId], MON_DATA_LEVEL) == MAX_LEVEL || gSaveBlock1Ptr->keyFlags.expMod == 0 || FlagGet(FLAG_MASTER_TRAINER_BATTLE) || atLevelCap)
             {
+                // Co-op: exp a Pokemon at the level cap misses goes into the EXP. BOTTLE
+                // (worked out before sentInPokes moves on to the next Pokemon).
+                if (atLevelCap && !FlagGet(FLAG_MASTER_TRAINER_BATTLE) && gSaveBlock1Ptr->keyFlags.expMod != 0
+                 && GetMonData(&gPlayerParty[gBattleStruct->expGetterMonId], MON_DATA_HP))
+                {
+                    bool8 boosted;
+
+                    Coop_NoteBattleExp(gBattleStruct->expGetterMonId, 0, CalcGetterExp(holdEffect, viaTeamExp, &boosted));
+                }
                 *(&gBattleStruct->sentInPokes) >>= 1;
                 gBattleScripting.getexpState = 5;
                 gBattleMoveDamage = 0; // used for exp
@@ -3340,6 +3375,7 @@ static void Cmd_getexp_Internal(void)
                     // Capped Pokémon still earn EVs, same as the 0× Exp. Modifier.
                     MonGainEVs(&gPlayerParty[gBattleStruct->expGetterMonId], gBattleMons[gBattlerFainted].species);
                 }
+
             }
             else
             {
@@ -3378,7 +3414,14 @@ static void Cmd_getexp_Internal(void)
                     }
                     if (Coop_IsLinkOpen())
                         gBattleMoveDamage = Coop_ApplyExpMultiplier(gBattleMoveDamage);
-                    gBattleMoveDamage = GetCappedExpGain(&gPlayerParty[gBattleStruct->expGetterMonId], gBattleMoveDamage);
+                    {
+                        // Co-op: what the level cap cuts off goes into the EXP. BOTTLE, and
+                        // what's gained counts toward the partner's bottle (battles alone).
+                        u32 full = gBattleMoveDamage;
+
+                        gBattleMoveDamage = GetCappedExpGain(&gPlayerParty[gBattleStruct->expGetterMonId], gBattleMoveDamage);
+                        Coop_NoteBattleExp(gBattleStruct->expGetterMonId, gBattleMoveDamage, full - gBattleMoveDamage);
+                    }
 
                     // get exp getter battlerId
                     if (Coop_IsLinkOpen())

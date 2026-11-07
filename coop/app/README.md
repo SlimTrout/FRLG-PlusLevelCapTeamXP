@@ -21,6 +21,14 @@ The ROM must be built from the `coop` branch.
 
 **Controls…** in the launcher changes the keyboard keys (also remembered).
 
+### The EXP. BOTTLE
+
+Both players carry an EXP. BOTTLE (Key Items). It fills up with the exp your partner
+earns beating trainers on their own (while you're split up), and with the exp your own
+Pokemon miss because of the level cap. Use it on a Pokemon to raise it one level for
+exactly the exp that takes; at the level cap it does nothing (and keeps its exp). It's
+never used up.
+
 ### Save states
 
 As a fail safe on top of the game's own save, both games make a save state at the same

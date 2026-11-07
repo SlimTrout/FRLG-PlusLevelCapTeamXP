@@ -821,6 +821,8 @@ bool8 BattleSetup_IsStarting(void);
 
 // In co-op each player carries 3 Pokemon. Any more (an older save, an Egg from the
 // Day Care) go to the PC once the player is free.
+static void GiveExpBottle(void);
+
 static void LimitParty(void)
 {
     u8 i;
@@ -908,6 +910,7 @@ void Coop_Update(void)
         ShowNotice(Coop_Text_SplitForSafari);
     }
     LimitParty();
+    GiveExpBottle();
     TryStartPartnersWildBattle();
     if (Coop_IsFollowing())
         UpdateFollowing();
@@ -1178,7 +1181,7 @@ static bool8 IsSafariZoneMap(void)
 #define GIFT_VARS(idx) (VAR_0x40D0 + 10 * (idx))
 #define GIFT_SLOTS 3
 #define GIFT_SLOT(base, seq) ((base) + 1 + ((seq) % GIFT_SLOTS) * 3)
-enum { GIFT_ITEM = 1, GIFT_MON };
+enum { GIFT_ITEM = 1, GIFT_MON, GIFT_EXP };
 
 static bool8 IsGiftSharedHere(void)
 {
@@ -1266,7 +1269,104 @@ static void CheckPartnerGift(void)
         {
             ScriptGiveMon(id, amount, ITEM_NONE, 0, 0, 0);
         }
+        else if (VarGet(slot) == GIFT_EXP)
+        {
+            Coop_AddBottleExp(id | ((u32)amount << 16));
+        }
     }
+}
+
+// ---------------------------------------------------------------- the EXP. BOTTLE
+//
+// A key item each player has from the start. It fills up with the exp the partner
+// earns beating trainers on their own, and with the exp this player's Pokemon miss
+// because of the level cap; it raises a Pokemon a level for the exp that takes
+// (party_menu.c). Its exp is this player's own (two variables the world sync leaves
+// alone).
+
+#define VAR_BOTTLE_EXP_LO VAR_0x40C0
+#define VAR_BOTTLE_EXP_HI VAR_0x40C1
+
+static u32 sBattleExpGained; // this battle: exp this player's Pokemon got (battling alone)
+static u32 sGuestBottleExp;  // host, this co-op battle: the guest's exp for their bottle
+
+u32 Coop_GetBottleExp(void)
+{
+    return VarGet(VAR_BOTTLE_EXP_LO) | ((u32)VarGet(VAR_BOTTLE_EXP_HI) << 16);
+}
+
+static void SetBottleExp(u32 exp)
+{
+    VarSet(VAR_BOTTLE_EXP_LO, exp & 0xFFFF);
+    VarSet(VAR_BOTTLE_EXP_HI, exp >> 16);
+}
+
+void Coop_AddBottleExp(u32 exp)
+{
+    u32 now = Coop_GetBottleExp();
+
+    if (exp == 0)
+        return;
+    if (now + exp < now)
+        now = 0xFFFFFFFF; // (full: billions of exp)
+    else
+        now += exp;
+    SetBottleExp(now);
+}
+
+bool8 Coop_TakeBottleExp(u32 exp)
+{
+    u32 now = Coop_GetBottleExp();
+
+    if (now < exp)
+        return FALSE;
+    SetBottleExp(now - exp);
+    return TRUE;
+}
+
+void Coop_ResetBattleExp(void)
+{
+    sBattleExpGained = 0;
+    sGuestBottleExp = 0;
+}
+
+// Exp given in battle to party slot partyId: gained, and missed because of the level cap.
+void Coop_NoteBattleExp(u8 partyId, u32 gained, u32 missed)
+{
+    if (Coop_IsLinkOpen())
+    {
+        // the host's game runs co-op battles: the guest's Pokemon are slots 3-5
+        if (partyId >= MULTI_PARTY_SIZE)
+            sGuestBottleExp += missed;
+        else
+            Coop_AddBottleExp(missed);
+        return;
+    }
+    sBattleExpGained += gained;
+    Coop_AddBottleExp(missed);
+}
+
+u32 Coop_TakeGuestBottleExp(void)
+{
+    u32 exp = sGuestBottleExp;
+
+    sGuestBottleExp = 0;
+    return exp;
+}
+
+// A trainer beaten alone (not in a co-op battle): the exp goes to the partner's bottle.
+void Coop_SendBattleExpToPartner(void)
+{
+    if (gCoopMailbox.active && !Coop_IsLinkOpen() && sBattleExpGained != 0)
+        SendGift(GIFT_EXP, sBattleExpGained & 0xFFFF, sBattleExpGained >> 16);
+    sBattleExpGained = 0;
+}
+
+// Both players carry the bottle from the start (older saves get it too).
+static void GiveExpBottle(void)
+{
+    if (!CheckBagHasItem(ITEM_EXP_BOTTLE, 1))
+        AddBagItem(ITEM_EXP_BOTTLE, 1);
 }
 
 // special: VAR_TEMP_1 = the caught Pokemon's species, VAR_RESULT = 0 in the team, 1 in the PC
