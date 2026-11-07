@@ -32,7 +32,8 @@ If the partner disconnects, the app closes. Only the host saves, so progress sin
 - When one of your Pokemon faints you pick your next one from your own team.
 - **Linked trainer battles.** When the leader is spotted by (or talks to) a trainer,
   both players fight that trainer together as a double battle. A trainer with only one
-  Pokemon gets a second copy so each player has someone to face. Winning marks the
+  Pokemon gets a second one (a different Pokemon of the same type and evolution
+  stage, at the same level) so each player has someone to face. Winning marks the
   trainer as beaten for both players.
 - **Story battles pull the partner in.** If one player starts a story battle (the
   rival, a gym leader, the Elite Four, the Champion, a boss) while the two are split

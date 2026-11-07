@@ -73,6 +73,8 @@ static void CB2_HandleStartMultiBattle(void);
 static u8 CreateNPCTrainerParty(struct Pokemon *party, u16 trainerNum);
 static void CB2_HandleStartBattle(void);
 static void CB2_HandleStartCoopBattle(void);
+static void CoopCreateSecondTrainerMon(void);
+extern const struct Evolution gEvolutionTable[][EVOS_PER_MON];
 static void TryCorrectShedinjaLanguage(struct Pokemon *mon);
 static void BattleMainCB1(void);
 static void CB2_QuitPokedudeBattle(void);
@@ -1150,11 +1152,12 @@ static void CB2_HandleStartCoopBattle(void)
             if ((gBattleTypeFlags & BATTLE_TYPE_TRAINER) && host)
             {
                 // The trainer's team, as the host's game makes it. A trainer with a
-                // single Pokemon gets a second one, so both players have someone to face.
+                // single Pokemon gets a second one (same type, stage and level), so both
+                // players have someone to face.
                 ZeroEnemyPartyMons();
                 CreateNPCTrainerParty(&gEnemyParty[0], gTrainerBattleOpponent_A);
                 if (GetMonData(&gEnemyParty[1], MON_DATA_SPECIES) == SPECIES_NONE)
-                    gEnemyParty[1] = gEnemyParty[0];
+                    CoopCreateSecondTrainerMon();
                 CalculateEnemyPartyCount();
             }
             gBattleCommunication[1] = 0;
@@ -4772,4 +4775,74 @@ static void HandleAction_ActionFinished(void)
 // Co-op: nothing left for the battle engine to do while both games leave the battle.
 static void BattleTurnPassed_Dummy(void)
 {
+}
+
+// Co-op: how many evolutions it took to reach this species (0 for a basic Pokemon).
+static u8 CoopEvoStage(u16 species, const u16 *preEvo)
+{
+    u8 stage = 0;
+
+    while (preEvo[species] != SPECIES_NONE && stage < 3)
+    {
+        species = preEvo[species];
+        stage++;
+    }
+    return stage;
+}
+
+// Co-op: a trainer with one Pokemon gets a second: a different species that shares its
+// type and evolution stage (not a legendary), at the same level. If there's none, a copy.
+static void CoopCreateSecondTrainerMon(void)
+{
+    u16 species = GetMonData(&gEnemyParty[0], MON_DATA_SPECIES);
+    u8 level = GetMonData(&gEnemyParty[0], MON_DATA_LEVEL);
+    u8 type = gSpeciesInfo[species].types[0];
+    u16 *preEvo = AllocZeroed(sizeof(u16) * NUM_SPECIES);
+    u16 count = 0, pick, s;
+    u8 stage, i;
+
+    if (preEvo == NULL)
+    {
+        gEnemyParty[1] = gEnemyParty[0];
+        return;
+    }
+    for (s = 1; s < NUM_SPECIES; s++)
+    {
+        for (i = 0; i < EVOS_PER_MON; i++)
+        {
+            u16 target = gEvolutionTable[s][i].targetSpecies;
+
+            if (target != SPECIES_NONE && target < NUM_SPECIES && preEvo[target] == SPECIES_NONE)
+                preEvo[target] = s;
+        }
+    }
+    stage = CoopEvoStage(species, preEvo);
+
+    // Two passes: count the candidates, then take a random one.
+    for (pick = 0xFFFF; ; )
+    {
+        u16 n = 0;
+
+        for (s = 1; s < NUM_SPECIES; s++)
+        {
+            if (s == species || gSpeciesInfo[s].baseHP == 0 || gSpeciesInfo[s].catchRate <= 3
+             || SpeciesToNationalPokedexNum(s) == 0
+             || (gSpeciesInfo[s].types[0] != type && gSpeciesInfo[s].types[1] != type)
+             || CoopEvoStage(s, preEvo) != stage)
+                continue;
+            if (n == pick)
+            {
+                CreateMon(&gEnemyParty[1], s, level, GetMonData(&gEnemyParty[0], MON_DATA_HP_IV), FALSE, 0, OT_ID_RANDOM_NO_SHINY, 0);
+                Free(preEvo);
+                return;
+            }
+            n++;
+        }
+        if (pick != 0xFFFF || n == 0)
+            break;
+        count = n;
+        pick = Random() % count;
+    }
+    Free(preEvo);
+    gEnemyParty[1] = gEnemyParty[0];
 }
