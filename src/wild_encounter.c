@@ -757,8 +757,7 @@ static bool8 IsWildLevelAllowedByRepel(u8 wildLevel)
     if (!VarGet(VAR_REPEL_STEP_COUNT))
         return TRUE;
 
-    if(gSaveBlock1Ptr->keyFlags.nuzlocke == 1 && NuzlockeFlagGet(GetCurrentRegionMapSectionId()) == FALSE) //if Nuzlocke & first encounter not done Repel doesn't work.
-        return TRUE;
+    // (Brainy Blue: Repel works on an area's first Nuzlocke encounter too)
 
     for (i = 0; i < PARTY_SIZE; i++)
     {
