@@ -372,7 +372,7 @@ static void usage(void) {
         "Brainy Blue Co-op\n"
         "  bbcoop host [--port N] [--rom file.gba] [--speed N]\n"
         "  bbcoop join <address> [--port N] [--rom file.gba] [--speed N]\n"
-        "  (runs at 3x speed by default; Tab switches to normal speed and back)\n");
+        "  (runs at 3x speed unless --speed says otherwise; 1 = normal)\n");
 }
 
 static void stepFrame(struct App *app) {
@@ -386,7 +386,7 @@ int main(int argc, char **argv) {
     struct App app;
     const char *mode = NULL, *address = NULL, *script = NULL, *shots = NULL, *saveArg = NULL;
     int port = DEFAULT_PORT;
-    int speed = 3; // game speed: 3x by default (--speed N; Tab switches between 1x and it)
+    int speed = 3; // game speed: 3x by default (--speed N, set by the launcher)
 
     memset(&app, 0, sizeof app);
     app.romPath = "pokefirered.gba";
@@ -496,7 +496,7 @@ int main(int argc, char **argv) {
     unsigned coreRate = app.core->audioSampleRate(app.core);
     if (speed < 1) speed = 1;
     if (speed > 10) speed = 10;
-    int fastSpeed = speed > 1 ? speed : 3, curSpeed = speed;
+    int curSpeed = speed;
     // Sped up, the sound plays faster too (as in other emulators' fast-forward).
     SDL_AudioStream *stream = audio ? SDL_NewAudioStream(AUDIO_S16SYS, 2, (int)coreRate * curSpeed, have.format, have.channels, have.freq) : NULL;
     int16_t samples[4096];
@@ -509,15 +509,6 @@ int main(int argc, char **argv) {
         while (SDL_PollEvent(&ev)) {
             if (ev.type == SDL_QUIT) running = 0;
             if (ev.type == SDL_KEYDOWN && ev.key.keysym.scancode == SDL_SCANCODE_ESCAPE) running = 0;
-            if (ev.type == SDL_KEYDOWN && ev.key.keysym.scancode == SDL_SCANCODE_TAB && !ev.key.repeat) {
-                // Tab: normal speed <-> fast
-                curSpeed = curSpeed == 1 ? fastSpeed : 1;
-                if (stream) {
-                    SDL_FreeAudioStream(stream);
-                    stream = SDL_NewAudioStream(AUDIO_S16SYS, 2, (int)coreRate * curSpeed, have.format, have.channels, have.freq);
-                }
-                lastConnected = -1; // retitle
-            }
             if (ev.type == SDL_CONTROLLERDEVICEADDED && !pad) pad = SDL_GameControllerOpen(ev.cdevice.which);
         }
 
@@ -549,7 +540,7 @@ int main(int argc, char **argv) {
                 };
                 char title[160];
                 lastConnected = status;
-                snprintf(title, sizeof title, "Brainy Blue Co-op - %s (%s) - %dx speed (Tab)", app.net.isHost ? "Host" : "Guest", titles[status], curSpeed);
+                snprintf(title, sizeof title, "Brainy Blue Co-op - %s (%s) - %dx speed", app.net.isHost ? "Host" : "Guest", titles[status], curSpeed);
                 SDL_SetWindowTitle(win, title);
             }
         }

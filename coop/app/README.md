@@ -17,11 +17,11 @@ The host needs TCP port 27450 open (or pick another with `--port`). Each player
 uses their own ROM copy and save file (`--save` picks a different one).
 
 Controls: arrows, Z = A, X = B, Enter = Start, Backspace = Select, A = L, S = R,
-Tab = switch between normal and fast speed, Escape = quit. A game controller also works.
+Escape = quit. A game controller also works.
 
-The game runs at 3x speed by default (the window title shows the speed). Tab switches
-to normal speed and back. `--speed N` sets the fast speed (`--speed 1` starts at
-normal speed).
+The game runs at 3x speed by default (the window title shows the speed). The speed is
+set when the app starts, with `--speed N` (1 = normal, up to 10); it can't be changed
+in the game.
 
 If the partner disconnects, the app closes. Only the host saves, so progress since the host last saved is not kept.
 
