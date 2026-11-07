@@ -39,7 +39,7 @@ Route16_NorthEntrance_2F_EventScript_Aide::
 	goto_if_set FLAG_GOT_AMULET_COIN_FROM_OAKS_AIDE, Route16_NorthEntrance_2F_EventScript_AlreadyGotAmuletCoin
 	msgbox Route16_NorthEntrance_2F_Text_GiveAmuletCoinIfCaught40, MSGBOX_YESNO
 	goto_if_eq VAR_RESULT, NO, Aide_EventScript_DeclineCheckMons
-	setvar VAR_0x8004, 0
+	setvar VAR_0x8004, 2 @ Brainy Blue: every species caught counts
 	specialvar VAR_RESULT, GetPokedexCount
 	buffernumberstring STR_VAR_3, VAR_0x8006
 	call Route16_NorthEntrance_2F_EventScript_GetAideRequestInfo

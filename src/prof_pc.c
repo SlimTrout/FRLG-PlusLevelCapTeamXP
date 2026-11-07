@@ -22,7 +22,13 @@ extern const u8 PokedexRating_Text_Complete[];
 
 u16 GetPokedexCount(void)
 {
-    if (gSpecialVar_0x8004 == 0)
+    if (gSpecialVar_0x8004 == 2)
+    {
+        // Oak's aides: every species seen/caught counts, Kanto or not.
+        gSpecialVar_0x8005 = GetNationalPokedexCount(0);
+        gSpecialVar_0x8006 = GetNationalPokedexCount(1);
+    }
+    else if (gSpecialVar_0x8004 == 0)
     {
         gSpecialVar_0x8005 = GetKantoPokedexCount(0);
         gSpecialVar_0x8006 = GetKantoPokedexCount(1);
