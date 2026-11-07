@@ -299,6 +299,10 @@ Coop_Text_SoloBattle::
 	.string "That battle was just for you, so\n"
 	.string "you and {STR_VAR_1} split up.$"
 
+Coop_Text_PartyLimit::
+	.string "In co-op, each player carries 3\n"
+	.string "POKéMON. The rest went to the PC.$"
+
 Coop_Text_SplitForSafari::
 	.string "You and {STR_VAR_1} split up to\n"
 	.string "visit the SAFARI ZONE on your own.$"

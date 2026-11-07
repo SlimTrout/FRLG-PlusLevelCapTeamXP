@@ -3224,6 +3224,8 @@ static void Cmd_getexp(void)
     Coop_RestoreExpSettings(saved);
 }
 
+static bool8 sCoopExpMessageShown; // co-op: "Your party gained EXP. Points!" is shown once per fainted foe
+
 static void Cmd_getexp_Internal(void)
 {
     u16 item;
@@ -3298,6 +3300,7 @@ static void Cmd_getexp_Internal(void)
             gBattleScripting.getexpState++;
             gBattleStruct->expGetterMonId = 0;
             gBattleStruct->sentInPokes = sentIn;
+            sCoopExpMessageShown = FALSE;
         }
         // fall through
     case 2: // set exp value to the poke in expgetter_id and print message
@@ -3403,7 +3406,14 @@ static void Cmd_getexp_Internal(void)
                     PREPARE_STRING_BUFFER(gBattleTextBuff2, i);
                     PREPARE_WORD_NUMBER_BUFFER(gBattleTextBuff3, 5, gBattleMoveDamage);
 
-                    PrepareStringBattle(STRINGID_PKMNGAINEDEXP, gBattleStruct->expGetterBattlerId);
+                    // Co-op: one message for everyone instead of one per Pokemon
+                    if (!Coop_IsLinkOpen())
+                        PrepareStringBattle(STRINGID_PKMNGAINEDEXP, gBattleStruct->expGetterBattlerId);
+                    else if (!sCoopExpMessageShown)
+                    {
+                        sCoopExpMessageShown = TRUE;
+                        PrepareStringBattle(STRINGID_COOPPARTYGAINEDEXP, gBattleStruct->expGetterBattlerId);
+                    }
                     MonGainEVs(&gPlayerParty[gBattleStruct->expGetterMonId], gBattleMons[gBattlerFainted].species);
                 }
                 gBattleStruct->sentInPokes >>= 1;

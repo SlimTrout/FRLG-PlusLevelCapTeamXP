@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "gflib.h"
 #include "event_data.h"
 #include "field_fadetransition.h"
@@ -287,7 +288,7 @@ static void Task_PCMainMenu(u8 taskId)
             DestroyTask(taskId);
             break;
         default:
-            if (task->tInput == OPTION_WITHDRAW && CountPartyMons() == PARTY_SIZE)
+            if (task->tInput == OPTION_WITHDRAW && CountPartyMons() >= COOP_PARTY_LIMIT) // co-op: 3 per player
             {
                 // Can't withdraw
                 FillWindowPixelBuffer(0, PIXEL_FILL(1));

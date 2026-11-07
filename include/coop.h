@@ -44,6 +44,10 @@ enum
 
 #define COOP_TEXT_SIZE 400
 
+// Co-op: each player carries up to 3 Pokemon (6 between them in a double battle);
+// the rest go to the PC.
+#define COOP_PARTY_LIMIT 3
+
 // First word of the block each game sends once a co-op battle is over (battle_setup.c);
 // the battle's own link code leaves such a block alone.
 #define COOP_END_BATTLE_MARKER 0x444E4542 // "BEND"

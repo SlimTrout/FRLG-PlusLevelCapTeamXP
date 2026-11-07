@@ -25,6 +25,7 @@
 #include "overworld.h"
 #include "script.h"
 #include "palette.h"
+#include "pokemon_storage_system.h"
 #include "string_util.h"
 #include "characters.h"
 #include "constants/event_objects.h"
@@ -75,6 +76,7 @@ extern const u8 Coop_EventScript_NicknameCaught[];
 extern const u8 Coop_EventScript_TradeRequest[];
 extern const u8 Coop_Text_SoloBattle[];
 extern const u8 Coop_Text_SplitForSafari[];
+extern const u8 Coop_Text_PartyLimit[];
 
 EWRAM_DATA struct CoopMailbox gCoopMailbox = {0};
 EWRAM_DATA u8 gCoopTextPages = 0; // not plain "u8 gCoopTextPages;": that lands past the end of IWRAM, on top of the GPU register buffer
@@ -814,6 +816,33 @@ static void CheckPartnerGift(void);
 static bool8 IsSafariZoneMap(void);
 bool8 BattleSetup_IsStarting(void);
 
+// ---------------------------------------------------------------- 3 Pokemon each
+
+// In co-op each player carries 3 Pokemon. Any more (an older save, an Egg from the
+// Day Care) go to the PC once the player is free.
+static void LimitParty(void)
+{
+    u8 i;
+    bool8 moved = FALSE;
+
+    if (CalculatePlayerPartyCount() <= COOP_PARTY_LIMIT || ScriptContext_IsEnabled()
+     || ArePlayerFieldControlsLocked() || sPendingNotice != NULL)
+        return;
+    for (i = COOP_PARTY_LIMIT; i < PARTY_SIZE; i++)
+    {
+        if (GetMonData(&gPlayerParty[i], MON_DATA_SPECIES) == SPECIES_NONE)
+            continue;
+        if (SendMonToPC(&gPlayerParty[i]) == MON_CANT_GIVE)
+            break; // the PC is full too: keep it
+        ZeroMonData(&gPlayerParty[i]);
+        moved = TRUE;
+    }
+    CompactPartySlots();
+    CalculatePlayerPartyCount();
+    if (moved)
+        ShowNotice(Coop_Text_PartyLimit);
+}
+
 // ---------------------------------------------------------------- main update
 
 // Called every overworld frame.
@@ -877,6 +906,7 @@ void Coop_Update(void)
         Split();
         ShowNotice(Coop_Text_SplitForSafari);
     }
+    LimitParty();
     TryStartPartnersWildBattle();
     if (Coop_IsFollowing())
         UpdateFollowing();

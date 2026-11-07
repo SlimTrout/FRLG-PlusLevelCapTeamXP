@@ -5316,13 +5316,13 @@ u8 GiveMonToPlayer(struct Pokemon *mon)
     SetMonData(mon, MON_DATA_OT_GENDER, &gSaveBlock2Ptr->playerGender);
     SetMonData(mon, MON_DATA_OT_ID, gSaveBlock2Ptr->playerTrainerId);
 
-    for (i = 0; i < PARTY_SIZE; i++)
+    for (i = 0; i < COOP_PARTY_LIMIT; i++) // co-op: 3 per player
     {
         if (GetMonData(&gPlayerParty[i], MON_DATA_SPECIES, NULL) == SPECIES_NONE)
             break;
     }
 
-    if (i >= PARTY_SIZE)
+    if (i >= COOP_PARTY_LIMIT)
         return SendMonToPC(mon);
 
     CopyMon(&gPlayerParty[i], mon, sizeof(*mon));

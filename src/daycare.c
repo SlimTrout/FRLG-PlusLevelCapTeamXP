@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "nuzlocke_tracker.h"
 #include "gflib.h"
 #include "data.h"
@@ -529,7 +530,7 @@ static u16 TakeSelectedPokemonFromDaycare(struct DaycareMon *daycareMon)
         ApplyDaycareExperience(&pokemon);
     }
 
-    if(CalculatePlayerPartyCount() != 6)
+    if (CalculatePlayerPartyCount() < COOP_PARTY_LIMIT) // co-op: 3 per player
     {
         gSpecialVar_MonBoxId = 9999;
         gSpecialVar_MonBoxPos = 9999;

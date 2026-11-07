@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "gflib.h"
 #include "data.h"
 #include "decompress.h"
@@ -1098,6 +1099,13 @@ static void Task_PlaceMon(u8 taskId)
     switch (gStorage->state)
     {
     case 0:
+        // Co-op: 3 Pokemon per player, so a box Pokemon can't join a party of 3.
+        if (sInPartyMenu && !IsCursorInBox() && CountPartyMons() >= COOP_PARTY_LIMIT)
+        {
+            PrintStorageMessage(MSG_PARTY_FULL);
+            gStorage->state = 2;
+            break;
+        }
         SetPokeStorageQuestLogEvent(1);
         InitMonPlaceChange(CHANGE_PLACE);
         gStorage->state++;
@@ -1138,7 +1146,7 @@ static void Task_WithdrawMon(u8 taskId)
     switch (gStorage->state)
     {
     case 0:
-        if (CalculatePlayerPartyCount() == PARTY_SIZE)
+        if (CalculatePlayerPartyCount() >= COOP_PARTY_LIMIT) // co-op: 3 per player
         {
             PrintStorageMessage(MSG_PARTY_FULL);
             gStorage->state = 1;

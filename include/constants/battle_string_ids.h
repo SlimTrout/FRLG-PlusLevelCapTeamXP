@@ -389,8 +389,9 @@
 #define STRINGID_PICKUPSOLO 388
 #define STRINGID_COOPGOTCHACONTINUE 389
 #define STRINGID_COOPCATCHERWATCHES 390
+#define STRINGID_COOPPARTYGAINEDEXP 391
 
-#define BATTLESTRINGS_COUNT     391
+#define BATTLESTRINGS_COUNT     392
 
 // This is the string id that gBattleStringsTable starts with.
 // String ids before this (e.g. STRINGID_INTROMSG) are not in the table,
