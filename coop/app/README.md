@@ -79,9 +79,8 @@ If the partner disconnects, the app closes. Only the host saves, so progress sin
 ## Shared world and saving
 
 - **Gifts for both.** When one player is given something by the game (an NPC's gift,
-  a key item, a TM, a gift Pokemon like Eevee or Lapras), the other gets the same,
-  with a short message. If they're busy (a message, a menu, another screen) it goes
-  straight into their bag (or PC) without one. Item balls and hidden items stay each player's own, and the
+  a key item, a TM, a gift Pokemon like Eevee or Lapras), the same goes straight
+  into the other's bag or team (or PC, if full), without a message. Item balls and hidden items stay each player's own, and the
   Game Corner prizes and rooftop vending machines are bought by each player. Starters
   are still picked by each player.
 - **Legendary Pokemon** (the birds, Mewtwo, Mew, Deoxys, Lugia, Ho-Oh, Latias and

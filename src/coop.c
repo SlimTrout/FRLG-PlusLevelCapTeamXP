@@ -69,8 +69,6 @@ extern const u8 Coop_Text_SplitForStarters[];
 extern const u8 Coop_Text_PulledIntoStoryBattle[];
 extern const u8 Coop_EventScript_StoryGetReady[];
 extern const u8 Coop_EventScript_WhiteOut[];
-extern const u8 Coop_EventScript_PartnerGiftItem[];
-extern const u8 Coop_EventScript_PartnerGiftMon[];
 extern const u8 Coop_EventScript_NicknameCaught[];
 extern const u8 Coop_Text_SoloBattle[];
 extern const u8 Coop_Text_SplitForSafari[];
@@ -105,9 +103,7 @@ static bool8 sWhiteOutPending;     // all own Pokemon fainted in a co-op battle 
 static bool8 sNoShare;             // the next item/Pokemon isn't shared (item balls, gifts received)
 static u16 sLastPartnerGiftSeq;    // partner's gift counter last seen
 static bool8 sGiftSeqKnown;
-static u16 sConnectedFrames;
-static u32 sLastUpdateFrame;       // gMain.vblankCounter2 at the last overworld update
-static u8 sBackFromElsewhere;      // frames since coming back from a menu, battle or other screen      // overworld frames since connecting (the guest gets the host's world first)
+static u16 sConnectedFrames;       // overworld frames since connecting (the guest gets the host's world first)
 static u16 sNickSpecies;           // co-op catch to offer a nickname for
 static u8 sNickWhere;              // MON_GIVEN_TO_PARTY / MON_GIVEN_TO_PC
 static u8 sLeveledUp;             // own Pokemon that leveled up in the last co-op battle
@@ -793,12 +789,6 @@ void Coop_Update(void)
 {
     gCoopMailbox.magic[0] = COOP_MAGIC_0;
     gCoopMailbox.magic[1] = COOP_MAGIC_1;
-    // (a gap in overworld frames: back from a menu, a battle or another screen)
-    if (gMain.vblankCounter2 - sLastUpdateFrame > 2)
-        sBackFromElsewhere = 30;
-    else if (sBackFromElsewhere != 0)
-        sBackFromElsewhere--;
-    sLastUpdateFrame = gMain.vblankCounter2;
     // A co-op script is over once it has released the player (it may wait on a
     // yes/no box in between, when the script context isn't running).
     if (sCoopScriptRunning && !ScriptContext_IsEnabled() && !ArePlayerFieldControlsLocked())
@@ -949,11 +939,15 @@ static bool8 IsSafariZoneMap(void)
 // ---------------------------------------------------------------- shared one-time rewards
 //
 // Items and Pokemon given by scripts (NPC gifts, prizes for story events, key items,
-// TMs) go to both players: when one gets something, the other gets the same. They're
-// passed through the shared variables: each player has four (VAR_0x40D0 + 4 * index):
-// a counter, then the kind, the item or species, and the amount or level.
+// TMs) go to both players: when one gets something, the same goes straight into the
+// other's bag (or PC). They're passed through the shared variables: each player has
+// ten (VAR_0x40D0 + 10 * index): a counter, then three gifts (the last three sent, so
+// a few given at once all arrive), each the kind, the item or species, and the amount
+// or level.
 
-#define GIFT_VARS(idx) (VAR_0x40D0 + 4 * (idx))
+#define GIFT_VARS(idx) (VAR_0x40D0 + 10 * (idx))
+#define GIFT_SLOTS 3
+#define GIFT_SLOT(base, seq) ((base) + 1 + ((seq) % GIFT_SLOTS) * 3)
 enum { GIFT_ITEM = 1, GIFT_MON };
 
 static bool8 IsGiftSharedHere(void)
@@ -967,11 +961,13 @@ static bool8 IsGiftSharedHere(void)
 static void SendGift(u8 kind, u16 id, u16 amount)
 {
     u16 base = GIFT_VARS(gCoopMailbox.playerIndex);
+    u16 seq = VarGet(base) + 1;
+    u16 slot = GIFT_SLOT(base, seq);
 
-    VarSet(base + 1, kind);
-    VarSet(base + 2, id);
-    VarSet(base + 3, amount);
-    VarSet(base, VarGet(base) + 1);
+    VarSet(slot, kind);
+    VarSet(slot + 1, id);
+    VarSet(slot + 2, amount);
+    VarSet(base, seq);
 }
 
 void Coop_ShareItemGift(u16 item, u16 count)
@@ -1021,51 +1017,26 @@ static void CheckPartnerGift(void)
         sLastPartnerGiftSeq = seq;
         return;
     }
-    if (seq == sLastPartnerGiftSeq)
-        return;
-    sLastPartnerGiftSeq = seq;
-    // Busy (a message, a menu, another screen just closed): it goes straight into the
-    // bag (or the PC) without a word.
-    if (sPendingScript != NULL || !CanRunCoopScript() || sBackFromElsewhere != 0)
+    // (more than three behind: the oldest are gone)
+    if ((u16)(seq - sLastPartnerGiftSeq) > GIFT_SLOTS)
+        sLastPartnerGiftSeq = seq - GIFT_SLOTS;
+    while (sLastPartnerGiftSeq != seq)
     {
-        u16 id = VarGet(base + 2);
-        u16 amount = VarGet(base + 3);
+        u16 slot = GIFT_SLOT(base, ++sLastPartnerGiftSeq);
+        u16 id = VarGet(slot + 1);
+        u16 amount = VarGet(slot + 2);
 
-        if (VarGet(base + 1) == GIFT_ITEM)
+        // It goes straight into the bag (or the PC), without a word.
+        if (VarGet(slot) == GIFT_ITEM)
         {
             if (!AddBagItem(id, amount))
                 AddPCItem(id, amount);
         }
-        else if (VarGet(base + 1) == GIFT_MON)
+        else if (VarGet(slot) == GIFT_MON)
         {
             ScriptGiveMon(id, amount, ITEM_NONE, 0, 0, 0);
         }
-        return;
     }
-    if (VarGet(base + 1) == GIFT_ITEM)
-        sPendingScript = Coop_EventScript_PartnerGiftItem;
-    else if (VarGet(base + 1) == GIFT_MON)
-        sPendingScript = Coop_EventScript_PartnerGiftMon;
-}
-
-// special: VAR_0x8000/0x8001 = the partner's item and amount (not shared back)
-void Coop_PrepareGiftItem(void)
-{
-    u16 base = GIFT_VARS(gCoopMailbox.playerIndex ^ 1);
-
-    gSpecialVar_0x8000 = VarGet(base + 2);
-    gSpecialVar_0x8001 = VarGet(base + 3);
-    sNoShare = TRUE;
-}
-
-// special: gives the partner's Pokemon gift. VAR_RESULT as givemon, VAR_TEMP_1 = species.
-void Coop_GiveGiftMon(void)
-{
-    u16 base = GIFT_VARS(gCoopMailbox.playerIndex ^ 1);
-    u16 species = VarGet(base + 2);
-
-    VarSet(VAR_TEMP_1, species);
-    gSpecialVar_Result = ScriptGiveMon(species, VarGet(base + 3), ITEM_NONE, 0, 0, 0);
 }
 
 // special: VAR_TEMP_1 = the caught Pokemon's species, VAR_RESULT = 0 in the team, 1 in the PC

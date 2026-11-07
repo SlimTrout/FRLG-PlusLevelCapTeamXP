@@ -131,3 +131,6 @@ link.c: SendBlock / IsLinkTaskFinished / GetMultiplayerId get a co-op branch.
   scripts run as single ones; trainers who'd need two Pokemon see the player as usual.
 - Legendary flags are per player in the app (world_sync.h); protocol version 5.
 - Co-op catches without Nuzlocke: Coop_EventScript_NicknameCaught on the map after.
+- Gifts now always go straight into the partner's bag/team (or PC) silently; three gift
+  slots per player (VAR_0x40D0 + 10 * index: counter, then 3 x kind/id/amount) so a few
+  given at once all arrive.
