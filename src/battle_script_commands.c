@@ -3528,13 +3528,23 @@ static void Cmd_checkteamslost(void)
 
     for (i = 0; i < PARTY_SIZE; i++)
     {
+        // Co-op: the player watching after their catch doesn't count
+        if (Coop_IsLinkOpen() && Coop_GetSpectator() < 2 && i / MULTI_PARTY_SIZE == Coop_GetSpectator())
+            continue;
         if (GetMonData(&gPlayerParty[i], MON_DATA_SPECIES) && !GetMonData(&gPlayerParty[i], MON_DATA_IS_EGG))
         {
             HP_count += GetMonData(&gPlayerParty[i], MON_DATA_HP);
         }
     }
     if (HP_count == 0)
-        gBattleOutcome |= B_OUTCOME_LOST;
+    {
+        // Co-op: the player still fighting lost all their Pokemon while the other one
+        // watched: the battle just ends (the beaten player whites out afterwards).
+        if (Coop_IsLinkOpen() && Coop_GetSpectator() < 2)
+            gBattleOutcome |= B_OUTCOME_PLAYER_TELEPORTED;
+        else
+            gBattleOutcome |= B_OUTCOME_LOST;
+    }
     HP_count = 0;
 
     // Get total HP for the enemy's party to determine if the player has won
@@ -6409,6 +6419,15 @@ static void Cmd_various(void)
         MarkBattlerForControllerExec(gActiveBattler);
         break;
     }
+    case VARIOUS_COOP_CATCHER_SPECTATES:
+        // The player who caught one has their Pokemon come back and sits out the rest
+        // of the battle; the wild Pokemon fights the other player only.
+        Coop_SetSpectator(gActiveBattler);
+        gAbsentBattlerFlags |= gBitTable[gActiveBattler];
+        PREPARE_MON_NICK_BUFFER(gBattleTextBuff1, gActiveBattler, gBattlerPartyIndexes[gActiveBattler]);
+        BtlController_EmitReturnMonToBall(BUFFER_A, FALSE);
+        MarkBattlerForControllerExec(gActiveBattler);
+        break;
     }
 
     gBattlescriptCurrInstr += 3;

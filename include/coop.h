@@ -154,6 +154,8 @@ struct Pokemon *Coop_GetMyCaughtMon(u8 slot);
 bool8 Coop_GuestCaughtAny(void);
 void Coop_NoteMyCatch(void);
 bool8 Coop_CaughtOneThisBattle(void);
+void Coop_SetSpectator(u8 battler);
+u8 Coop_GetSpectator(void);
 bool8 Coop_CaughtByMe(void);
 struct Pokemon *Coop_GetOwnWildMon(void);
 void Coop_GiveCaughtMon(void);

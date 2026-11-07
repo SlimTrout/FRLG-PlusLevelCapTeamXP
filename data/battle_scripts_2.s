@@ -184,6 +184,10 @@ BattleScript_CoopCaughtOneOfTwo::
 	givecaughtmon
 	various BS_TARGET, VARIOUS_COOP_REMOVE_CAUGHT
 	waitstate
+	various BS_ATTACKER, VARIOUS_COOP_CATCHER_SPECTATES
+	waitstate
+	printstring STRINGID_COOPCATCHERWATCHES
+	waitmessage B_WAIT_TIME_LONG
 	finishaction
 
 BattleScript_AIUseFullRestoreOrHpHeal::

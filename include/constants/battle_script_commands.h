@@ -96,6 +96,7 @@
 #define VARIOUS_COOP_ITEM_STATUS_ICON           17
 #define VARIOUS_COOP_CATCH_CONTINUES            18 // gBattleCommunication[MULTIUSE_STATE] = the other wild Pokemon is still in the battle
 #define VARIOUS_COOP_REMOVE_CAUGHT              19 // the caught Pokemon leaves the field; the battle goes on
+#define VARIOUS_COOP_CATCHER_SPECTATES          20 // the catcher's Pokemon comes back; they watch the rest
 
 // Cmd_manipulatedmg
 #define DMG_CHANGE_SIGN            0

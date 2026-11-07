@@ -104,6 +104,7 @@ static u8 sItemMonByBattler[4];    // host: the item each battler used this turn
 static u8 sCaughtBy[2];
 static struct Pokemon *sCaughtMon;
 static bool8 sCaughtOneThisBattle; // this player's ball caught a wild Pokemon (one each per battle)
+static u8 sSpectator;              // host: player index of who caught one and now watches (0xFF = none)
 static bool8 sStoryPartnerReady;   // story battle starter: the partner said they're ready
 static bool8 sStoryReadySent;      // pulled player: said ready, so no "joining in" notice
 static bool8 sWhiteOutPending;     // all own Pokemon fainted in a co-op battle the partner won
@@ -1451,6 +1452,7 @@ void Coop_BackUpParty(void)
     sCaughtMon = AllocZeroed(sizeof(struct Pokemon) * 2);
     sCaughtBy[0] = sCaughtBy[1] = 0xFF;
     sCaughtOneThisBattle = FALSE;
+    sSpectator = 0xFF;
     memcpy(sOwnParty, gPlayerParty, sizeof(struct Pokemon) * PARTY_SIZE);
     // This player's own wild Pokemon, rolled from their own encounter table.
     memcpy(&sBattleMons[gCoopMailbox.playerIndex * 4 + 3], &gEnemyParty[0], sizeof(struct Pokemon));
@@ -1708,6 +1710,17 @@ void Coop_NoteMyCatch(void)
 bool8 Coop_CaughtOneThisBattle(void)
 {
     return sCaughtOneThisBattle;
+}
+
+// Host: the player whose battler caught a wild Pokemon sits out the rest of the battle.
+void Coop_SetSpectator(u8 battler)
+{
+    sSpectator = (gBattlerPositions[battler] == B_POSITION_PLAYER_LEFT) ? 0 : 1;
+}
+
+u8 Coop_GetSpectator(void)
+{
+    return sSpectator;
 }
 
 bool8 Coop_GuestCaughtAny(void)
