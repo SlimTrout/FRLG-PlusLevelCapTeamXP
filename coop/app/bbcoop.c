@@ -106,6 +106,11 @@ struct Net {
     int everConnected;
     unsigned char inbuf[4096];
     size_t inlen;
+    // Bytes waiting to go out. When this player's partner stops reading for a while
+    // (on Windows, dragging the window pauses the app), sends back up here instead
+    // of being cut off half-way.
+    unsigned char *outbuf;
+    size_t outlen;
     unsigned char partnerState[STATE_SIZE];
     int havePartnerState;
     unsigned char partnerText[TEXT_SIZE];
@@ -186,6 +191,8 @@ static void netConnected(struct Net *n, int isHost) {
     setsockopt(n->peer, IPPROTO_TCP, TCP_NODELAY, (const char *)&one, sizeof one);
     n->connected = 1;
     n->everConnected = 1;
+    n->inlen = 0;
+    n->outlen = 0;
     n->sentMsgSeq = -1;
     wsInit(&n->ws, isHost);
     lrInit(&n->lr);
@@ -233,13 +240,40 @@ static void netTryJoin(struct Net *n) {
     }
 }
 
+#define OUTBUF_SIZE (8 * 1024 * 1024)
+
+// Sends what it can of the waiting bytes; the rest goes on the next try.
+static void netFlush(struct Net *n) {
+    size_t sent = 0;
+    while (n->connected && sent < n->outlen) {
+        int r = send(n->peer, (const char *)n->outbuf + sent, (int)(n->outlen - sent), 0);
+        if (r > 0) { sent += (size_t)r; continue; }
+        if (r < 0 && sock_would_block()) break;
+        n->connected = 0;
+    }
+    if (sent) {
+        memmove(n->outbuf, n->outbuf + sent, n->outlen - sent);
+        n->outlen -= sent;
+    }
+}
+
 static void netSend(struct Net *n, int type, const void *payload, int len) {
-    unsigned char msg[4 + 255];
+    unsigned char *msg;
     if (!n->connected) return;
+    if (!n->outbuf) {
+        n->outbuf = malloc(OUTBUF_SIZE);
+        if (!n->outbuf) { n->connected = 0; return; }
+    }
+    if (n->outlen + 4 + len > OUTBUF_SIZE) {
+        // The partner hasn't read anything for minutes: let them go.
+        n->connected = 0;
+        return;
+    }
+    msg = n->outbuf + n->outlen;
     msg[0] = 'B'; msg[1] = 'B'; msg[2] = (unsigned char)type; msg[3] = (unsigned char)len;
     if (len) memcpy(msg + 4, payload, len);
-    if (send(n->peer, (const char *)msg, 4 + len, 0) < 0 && !sock_would_block())
-        n->connected = 0;
+    n->outlen += 4 + len;
+    netFlush(n);
 }
 
 static void netPoll(struct Net *n) {
@@ -253,8 +287,15 @@ static void netPoll(struct Net *n) {
     }
     if (!n->isHost && n->joining && !n->everConnected) netTryJoin(n);
     if (!n->connected) return;
+    netFlush(n);
 
+    // Read everything that has arrived, a buffer at a time (after a pause there can be
+    // far more than one buffer's worth waiting).
+    int more = 1;
+    while (more && n->connected) {
+    more = 0;
     for (;;) {
+        if (n->inlen == sizeof n->inbuf) { more = 1; break; } // full: handle these first
         int got = recv(n->peer, (char *)n->inbuf + n->inlen, (int)(sizeof n->inbuf - n->inlen), 0);
         if (got > 0) { n->inlen += got; continue; }
         if (got == 0 || !sock_would_block()) { n->connected = 0; return; }
@@ -285,6 +326,7 @@ static void netPoll(struct Net *n) {
     }
     memmove(n->inbuf, n->inbuf + pos, n->inlen - pos);
     n->inlen -= pos;
+    }
 }
 
 // ------------------------------------------------------------------ mailbox
