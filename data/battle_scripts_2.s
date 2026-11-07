@@ -170,10 +170,21 @@ BattleScript_CoopUseItem::
 @ Co-op: no nickname or Pokedex screen here; the catcher's game gets the Pokemon after the battle.
 BattleScript_CoopSuccessBallThrow::
 	incrementgamestat GAME_STAT_POKEMON_CAPTURES
+	various BS_TARGET, VARIOUS_COOP_CATCH_CONTINUES
+	jumpifbyte CMP_NOT_EQUAL, gBattleCommunication, 0, BattleScript_CoopCaughtOneOfTwo
 	printstring STRINGID_GOTCHAPKMNCAUGHT
 	waitmessage B_WAIT_TIME_LONG
 	givecaughtmon
 	goto BattleScript_CaughtPokemonDone
+
+@ Co-op: the other wild Pokemon is still fighting, so the battle goes on.
+BattleScript_CoopCaughtOneOfTwo::
+	printstring STRINGID_COOPGOTCHACONTINUE
+	waitmessage B_WAIT_TIME_LONG
+	givecaughtmon
+	various BS_TARGET, VARIOUS_COOP_REMOVE_CAUGHT
+	waitstate
+	finishaction
 
 BattleScript_AIUseFullRestoreOrHpHeal::
 	printstring STRINGID_EMPTYSTRING3

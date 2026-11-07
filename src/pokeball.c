@@ -1,4 +1,5 @@
 #include "global.h"
+#include "coop.h"
 #include "gflib.h"
 #include "battle.h"
 #include "battle_anim.h"
@@ -903,6 +904,10 @@ static void SpriteCB_BallThrow_CaptureMon(struct Sprite *sprite)
     {
         FreeOamMatrix(gSprites[gBattlerSpriteIds[sprite->sBattler]].oam.matrixNum);
         DestroySprite(&gSprites[gBattlerSpriteIds[sprite->sBattler]]);
+        // Co-op: the battle may go on (two wild Pokemon); nothing may touch the old
+        // sprite slot through this battler again, it'll be reused.
+        if (gMain.inBattle && Coop_IsLinkOpen())
+            gBattlerSpriteIds[sprite->sBattler] = MAX_SPRITES;
         DestroySpriteAndFreeResources(sprite);
         if (gMain.inBattle)
             gBattleSpritesDataPtr->healthBoxesData[battlerId].ballAnimActive = FALSE;

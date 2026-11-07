@@ -380,6 +380,8 @@ static bool8 HasAnyAliveMon(void)
     return FALSE;
 }
 static void CB2_CoopAfterNickname(void);
+static void CB2_CoopNameCaughtMons(void);
+static u8 sCoopNameSlot;
 static void CoopNuzlockeAfterBattle(bool8 wild);
 static u8 sCoopNickname[POKEMON_NAME_LENGTH + 1];
 
@@ -475,19 +477,19 @@ static void CB2_EndCoopBattle(void)
                 memcpy(&gPlayerParty[5], gBlockRecvBuffer[0], sizeof(struct Pokemon));
             ResetBlockReceivedFlags();
             sState++;
-            if (Coop_GetCaughtBy() != 1)
+            if (!Coop_GuestCaughtAny())
                 sState += 2; // the guest didn't catch anything
         }
         break;
-    case 7: // the guest caught the wild Pokemon: the host's game has it
-        if (!host || (IsLinkTaskFinished() && SendBlock(0, Coop_GetCaughtMon(), sizeof(struct Pokemon))))
+    case 7: // the guest caught a wild Pokemon: the host's game has it
+        if (!host || (IsLinkTaskFinished() && SendBlock(0, Coop_GetCaughtMons(), sizeof(struct Pokemon) * 2)))
             sState++;
         break;
     case 8:
         if (host ? IsLinkTaskFinished() : (GetBlockReceivedStatus() & 1) != 0)
         {
             if (!host)
-                memcpy(Coop_GetCaughtMon(), gBlockRecvBuffer[0], sizeof(struct Pokemon));
+                memcpy(Coop_GetCaughtMons(), gBlockRecvBuffer[partner], sizeof(struct Pokemon) * 2);
             ResetBlockReceivedFlags();
             sState++;
         }
@@ -521,30 +523,39 @@ static void CB2_EndCoopBattle(void)
         sCoopEvolve = Coop_TakeLeveledUpMons();
         if ((gBattleOutcome & ~B_OUTCOME_LINK_BATTLE_RAN) != B_OUTCOME_WON)
             sCoopEvolve = 0;
-        if (Coop_CaughtByMe() && gSaveBlock1Ptr->keyFlags.nuzlocke == 1)
-        {
-            // Nuzlocke: a caught Pokemon must be given a nickname.
-            struct Pokemon *mon = Coop_GetCaughtMon();
-
-            GetMonData(mon, MON_DATA_NICKNAME, sCoopNickname);
-            FreeAllWindowBuffers();
-            DoNamingScreen(NAMING_SCREEN_CAUGHT_MON, sCoopNickname, GetMonData(mon, MON_DATA_SPECIES),
-                           GetMonGender(mon), GetMonData(mon, MON_DATA_PERSONALITY), CB2_CoopAfterNickname);
-        }
-        else
-        {
-            Coop_GiveCaughtMon();
-            SetMainCallback2(CB2_CoopEvolutions);
-        }
+        sCoopNameSlot = 0;
+        SetMainCallback2(CB2_CoopNameCaughtMons);
         break;
     }
 }
 
-static void CB2_CoopAfterNickname(void)
+// Nuzlocke: each Pokemon this player caught must be given a nickname. Then they join
+// the team.
+static void CB2_CoopNameCaughtMons(void)
 {
-    SetMonData(Coop_GetCaughtMon(), MON_DATA_NICKNAME, sCoopNickname);
+    while (sCoopNameSlot < 2)
+    {
+        struct Pokemon *mon = Coop_GetMyCaughtMon(sCoopNameSlot);
+
+        if (mon != NULL && gSaveBlock1Ptr->keyFlags.nuzlocke == 1)
+        {
+            GetMonData(mon, MON_DATA_NICKNAME, sCoopNickname);
+            FreeAllWindowBuffers();
+            DoNamingScreen(NAMING_SCREEN_CAUGHT_MON, sCoopNickname, GetMonData(mon, MON_DATA_SPECIES),
+                           GetMonGender(mon), GetMonData(mon, MON_DATA_PERSONALITY), CB2_CoopAfterNickname);
+            return;
+        }
+        sCoopNameSlot++;
+    }
     Coop_GiveCaughtMon();
     SetMainCallback2(CB2_CoopEvolutions);
+}
+
+static void CB2_CoopAfterNickname(void)
+{
+    SetMonData(Coop_GetMyCaughtMon(sCoopNameSlot), MON_DATA_NICKNAME, sCoopNickname);
+    sCoopNameSlot++;
+    SetMainCallback2(CB2_CoopNameCaughtMons);
 }
 
 // Nuzlocke rules after a co-op battle, by this player's own settings: the Pokemon they
@@ -558,22 +569,31 @@ static void CoopNuzlockeAfterBattle(bool8 wild)
         return;
     if (Coop_CaughtByMe())
     {
-        struct Pokemon *mon = Coop_GetCaughtMon();
-        u16 species = GetMonData(mon, MON_DATA_SPECIES);
+        u8 slot;
 
-        if (NuzlockeFlagGet(mapsec) == TRUE)
+        // (a second catch in the same battle is a second catch in this area)
+        for (slot = 0; slot < 2; slot++)
         {
-            u32 status = 0;
-            u16 hp = 0;
+            struct Pokemon *mon = Coop_GetMyCaughtMon(slot);
+            u16 species;
 
-            SetMonData(mon, MON_DATA_STATUS, &status);
-            SetMonData(mon, MON_DATA_HP, &hp);
-        }
-        else
-        {
-            SetNuzlockeDupeFlags(SpeciesToNationalPokedexNum(species));
-            NuzlockeTracker_RecordEncounter(mapsec, species, TRUE);
-            NuzlockeFlagSet(mapsec);
+            if (mon == NULL)
+                continue;
+            species = GetMonData(mon, MON_DATA_SPECIES);
+            if (NuzlockeFlagGet(mapsec) == TRUE)
+            {
+                u32 status = 0;
+                u16 hp = 0;
+
+                SetMonData(mon, MON_DATA_STATUS, &status);
+                SetMonData(mon, MON_DATA_HP, &hp);
+            }
+            else
+            {
+                SetNuzlockeDupeFlags(SpeciesToNationalPokedexNum(species));
+                NuzlockeTracker_RecordEncounter(mapsec, species, TRUE);
+                NuzlockeFlagSet(mapsec);
+            }
         }
     }
     else if (wild && Coop_GetOwnWildMon() != NULL)

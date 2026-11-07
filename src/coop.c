@@ -98,8 +98,11 @@ static u8 sItemParty;              // co-op battle: battle party slot the bag it
 static u8 sItemMove;               // ...and the move (PP items)
 static bool8 sApplyingItem;        // host: using the partner's item on its copy
 static u8 sItemMonByBattler[4];    // host: the item each battler used this turn went on this slot
-static u8 sCaughtBy;               // co-op battle: player index of who caught the wild Pokemon
-static struct Pokemon *sCaughtMon; // (on the heap while a co-op battle is on)
+// Co-op battle: the wild Pokemon caught, by the wild one's side of the field (0 = left,
+// 1 = right), and the player index of who caught each (0xFF = not caught). The caught
+// Pokemon are on the heap while a co-op battle is on.
+static u8 sCaughtBy[2];
+static struct Pokemon *sCaughtMon;
 static bool8 sStoryPartnerReady;   // story battle starter: the partner said they're ready
 static bool8 sStoryReadySent;      // pulled player: said ready, so no "joining in" notice
 static bool8 sWhiteOutPending;     // all own Pokemon fainted in a co-op battle the partner won
@@ -1444,8 +1447,8 @@ void Coop_BackUpParty(void)
 {
     sOwnParty = AllocZeroed(sizeof(struct Pokemon) * PARTY_SIZE);
     sBattleMons = AllocZeroed(sizeof(struct Pokemon) * 8);
-    sCaughtMon = AllocZeroed(sizeof(struct Pokemon));
-    sCaughtBy = 0xFF;
+    sCaughtMon = AllocZeroed(sizeof(struct Pokemon) * 2);
+    sCaughtBy[0] = sCaughtBy[1] = 0xFF;
     memcpy(sOwnParty, gPlayerParty, sizeof(struct Pokemon) * PARTY_SIZE);
     // This player's own wild Pokemon, rolled from their own encounter table.
     memcpy(&sBattleMons[gCoopMailbox.playerIndex * 4 + 3], &gEnemyParty[0], sizeof(struct Pokemon));
@@ -1551,11 +1554,19 @@ void Coop_RestoreParty(void)
     // (the caught Pokemon, if any, is kept until Coop_GiveCaughtMon)
 }
 
-// This player caught the wild Pokemon in the last co-op battle.
+// The caught Pokemon in slot 0 or 1, if this player caught it (else NULL).
+struct Pokemon *Coop_GetMyCaughtMon(u8 slot)
+{
+    if (sCaughtMon == NULL || slot > 1 || sCaughtBy[slot] != gCoopMailbox.playerIndex
+     || GetMonData(&sCaughtMon[slot], MON_DATA_SPECIES) == SPECIES_NONE)
+        return NULL;
+    return &sCaughtMon[slot];
+}
+
+// This player caught a wild Pokemon in the last co-op battle.
 bool8 Coop_CaughtByMe(void)
 {
-    return sCaughtMon != NULL && sCaughtBy == gCoopMailbox.playerIndex
-        && GetMonData(sCaughtMon, MON_DATA_SPECIES) != SPECIES_NONE;
+    return Coop_GetMyCaughtMon(0) != NULL || Coop_GetMyCaughtMon(1) != NULL;
 }
 
 // The wild Pokemon this player met in the last co-op wild battle (rolled from their own
@@ -1565,26 +1576,35 @@ struct Pokemon *Coop_GetOwnWildMon(void)
     return sBattleMons != NULL ? &sBattleMons[gCoopMailbox.playerIndex * 4 + 3] : NULL;
 }
 
-// The caught Pokemon joins this player's team (or goes to their PC).
+// The Pokemon this player caught join their team (or go to their PC).
 void Coop_GiveCaughtMon(void)
 {
-    if (Coop_CaughtByMe())
+    u8 slot;
+    bool8 offeredNickname = FALSE;
+
+    for (slot = 0; slot < 2; slot++)
     {
-        u16 dexNum = SpeciesToNationalPokedexNum(GetMonData(sCaughtMon, MON_DATA_SPECIES));
+        struct Pokemon *mon = Coop_GetMyCaughtMon(slot);
+        u16 dexNum;
+        u8 where;
 
-        u8 where = GiveMonToPlayer(sCaughtMon);
-
+        if (mon == NULL)
+            continue;
+        dexNum = SpeciesToNationalPokedexNum(GetMonData(mon, MON_DATA_SPECIES));
+        where = GiveMonToPlayer(mon);
         GetSetPokedexFlag(dexNum, FLAG_SET_SEEN);
         GetSetPokedexFlag(dexNum, FLAG_SET_CAUGHT);
         // Offer a nickname back on the map (Nuzlocke catches were already named).
-        if (where != MON_CANT_GIVE && gSaveBlock1Ptr->keyFlags.nuzlocke != 1)
+        // (one prompt per battle: for the first of them)
+        if (where != MON_CANT_GIVE && gSaveBlock1Ptr->keyFlags.nuzlocke != 1 && !offeredNickname)
         {
-            sNickSpecies = GetMonData(sCaughtMon, MON_DATA_SPECIES);
+            offeredNickname = TRUE;
+            sNickSpecies = GetMonData(mon, MON_DATA_SPECIES);
             sNickWhere = where;
             sPendingScript = Coop_EventScript_NicknameCaught;
         }
     }
-    sCaughtBy = 0xFF;
+    sCaughtBy[0] = sCaughtBy[1] = 0xFF;
     if (sCaughtMon != NULL)
         Free(sCaughtMon);
     sCaughtMon = NULL;
@@ -1648,28 +1668,38 @@ u8 Coop_GetItemMonForBattler(u8 battler)
 
 // ---------------------------------------------------------------- catching in co-op battles
 
-// Host: a ball thrown by this battler worked.
-void Coop_OnMonCaught(u8 battler, struct Pokemon *mon)
+// Host: a ball thrown by this battler caught the wild Pokemon target.
+void Coop_OnMonCaught(u8 battler, u8 target, struct Pokemon *mon)
 {
+    u8 slot = (gBattlerPositions[target] == B_POSITION_OPPONENT_LEFT) ? 0 : 1;
+
     if (sCaughtMon == NULL)
         return;
-    sCaughtBy = (gBattlerPositions[battler] == B_POSITION_PLAYER_LEFT) ? 0 : 1;
-    memcpy(sCaughtMon, mon, sizeof(struct Pokemon));
+    sCaughtBy[slot] = (gBattlerPositions[battler] == B_POSITION_PLAYER_LEFT) ? 0 : 1;
+    memcpy(&sCaughtMon[slot], mon, sizeof(struct Pokemon));
 }
 
-u8 Coop_GetCaughtBy(void)
+// Who caught each wild Pokemon: slot 0 in the low byte, slot 1 in the high byte.
+u16 Coop_GetCaughtBy(void)
 {
-    return sCaughtBy;
+    return sCaughtBy[0] | (sCaughtBy[1] << 8);
 }
 
-void Coop_SetCaughtBy(u8 playerIndex)
+void Coop_SetCaughtBy(u16 caughtBy)
 {
-    sCaughtBy = playerIndex;
+    sCaughtBy[0] = caughtBy;
+    sCaughtBy[1] = caughtBy >> 8;
 }
 
-struct Pokemon *Coop_GetCaughtMon(void)
+// Both slots (2 Pokemon), sent from the host's game to the guest's after the battle.
+struct Pokemon *Coop_GetCaughtMons(void)
 {
     return sCaughtMon;
+}
+
+bool8 Coop_GuestCaughtAny(void)
+{
+    return sCaughtBy[0] == 1 || sCaughtBy[1] == 1;
 }
 
 // The leader ran into a wild Pokemon while linked: both games go into a co-op battle.

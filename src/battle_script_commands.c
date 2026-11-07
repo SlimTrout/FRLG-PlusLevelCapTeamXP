@@ -6386,6 +6386,29 @@ static void Cmd_various(void)
     case VARIOUS_COOP_ITEM_STATUS_ICON:
         CoopSyncItemMon(gBattlescriptCurrInstr[2]);
         break;
+    case VARIOUS_COOP_CATCH_CONTINUES:
+    {
+        // Co-op: one of two wild Pokemon was caught. If the other one is still
+        // fighting, the battle goes on without the caught one.
+        u8 other = BATTLE_PARTNER(gActiveBattler);
+
+        gBattleCommunication[MULTIUSE_STATE] = (gBattleTypeFlags & BATTLE_TYPE_DOUBLE)
+            && !(gAbsentBattlerFlags & gBitTable[other]) && gBattleMons[other].hp != 0;
+        break;
+    }
+    case VARIOUS_COOP_REMOVE_CAUGHT:
+    {
+        u16 hp = 0;
+
+        // (the catcher already has their copy: Coop_OnMonCaught)
+        gBattleMons[gActiveBattler].hp = 0;
+        SetMonData(&gEnemyParty[gBattlerPartyIndexes[gActiveBattler]], MON_DATA_HP, &hp);
+        gAbsentBattlerFlags |= gBitTable[gActiveBattler];
+        // off the field in both games (its picture went with the ball already)
+        BtlController_EmitReturnMonToBall(BUFFER_A, TRUE);
+        MarkBattlerForControllerExec(gActiveBattler);
+        break;
+    }
     }
 
     gBattlescriptCurrInstr += 3;
@@ -9967,7 +9990,7 @@ static void Cmd_givecaughtmon(void)
     if (Coop_IsLinkOpen())
     {
         // Co-op: the catcher's own game gets it once the battle is over.
-        Coop_OnMonCaught(gBattlerAttacker, &gEnemyParty[gBattlerPartyIndexes[gBattlerTarget]]);
+        Coop_OnMonCaught(gBattlerAttacker, gBattlerTarget, &gEnemyParty[gBattlerPartyIndexes[gBattlerTarget]]);
         gBattleResults.caughtMonSpecies = gBattleMons[gBattlerTarget].species;
         gBattlescriptCurrInstr++;
         return;
