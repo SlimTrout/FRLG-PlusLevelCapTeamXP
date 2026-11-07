@@ -32,12 +32,14 @@ cmake -S mgba -B mgba/build-win -G Ninja -DCMAKE_BUILD_TYPE=Release \
 ninja -C mgba/build-win mgba
 
 # 3. the app
-DEFS=$(grep -m1 -A3 "CMakeFiles/mgba.dir/src/core/core.c.o:" mgba/build-win/build.ninja | grep DEFINES | sed 's/ *DEFINES = //')
+# (the app must see the same defines as the library, or its structs won't match)
+DEFS=$(grep -m1 -A3 -E "CMakeFiles/mgba.dir/src/core/core.c.o(bj)?:" mgba/build-win/build.ninja | grep DEFINES | sed 's/ *DEFINES = //')
+if [ -z "$DEFS" ]; then echo "Could not read mGBA's build defines from mgba/build-win/build.ninja"; exit 1; fi
 mkdir -p windows
 x86_64-w64-mingw32-windres bbcoop.rc -O coff -o windows/bbcoop_res.o
 x86_64-w64-mingw32-gcc -O2 -std=gnu11 -D_WIN32_WINNT=0x0601 $DEFS -Imgba/include -Imgba/build-win/include -Imgba/src \
     -I$SDL/include/SDL2 bbcoop.c windows/bbcoop_res.o -o windows/bbcoop.exe mgba/build-win/libmgba.a \
-    -L$SDL/lib -lSDL2 -lws2_32 -lshlwapi -liphlpapi -lcomdlg32 -lcomctl32 -lgdi32 -luser32 -lm -static-libgcc -mwindows
+    -L$SDL/lib -lSDL2 -lws2_32 -lshlwapi -liphlpapi -lcomdlg32 -lcomctl32 -lgdi32 -luser32 -lshell32 -lole32 -luuid -lm -static-libgcc -mwindows
 rm -f windows/bbcoop_res.o
 cp $SDL/bin/SDL2.dll windows/
 echo "Built windows/bbcoop.exe (keep SDL2.dll next to it). Double-click it to open the launcher."
