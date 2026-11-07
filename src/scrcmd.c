@@ -2131,7 +2131,7 @@ bool8 ScrCmd_playmoncry(struct ScriptContext * ctx)
     u16 species = VarGet(ScriptReadHalfword(ctx));
     u16 mode = VarGet(ScriptReadHalfword(ctx));
 
-    PlayCry_Script(species, mode);
+    PlayCry_Script(GetRandomizedLegendaryCry(species), mode);
     return FALSE;
 }
 

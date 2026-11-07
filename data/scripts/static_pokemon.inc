@@ -9,6 +9,7 @@ EventScript_MonFlewAway::
     fadescreenswapbuffers FADE_TO_BLACK
     removeobject VAR_LAST_TALKED
     fadescreenswapbuffers FADE_FROM_BLACK
+    special RandomizeStaticSpeciesVar
     bufferspeciesname STR_VAR_1, VAR_0x8004
     msgbox Text_MonFlewAway
     release

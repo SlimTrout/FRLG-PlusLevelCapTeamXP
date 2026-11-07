@@ -454,6 +454,7 @@ gSpecials::
 	def_special CreateEnemyEventMon
 	def_special RandomizeObtainedItem
 	def_special RandomizeHiddenItem
+	def_special RandomizeStaticSpeciesVar
 	def_special RandomizeGiftTM
 	def_special BufferGiftTMNames
 	def_special ShufflePrizeTM
