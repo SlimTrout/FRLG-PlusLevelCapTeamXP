@@ -297,6 +297,11 @@ static void TrackSteps(void)
 
 bool8 BattleSetup_IsStarting(void);
 
+static bool8 IsMyNuzlockeFirstEncounter(void)
+{
+    return gSaveBlock1Ptr->keyFlags.nuzlocke == 1 && NuzlockeFlagGet(GetCurrentRegionMapSectionId()) != TRUE;
+}
+
 static void WriteLocalState(void)
 {
     struct CoopPlayerState *s = &gCoopMailbox.local;
@@ -316,6 +321,7 @@ static void WriteLocalState(void)
     s->msgPage = gCoopTextPages - sMsgPageBase;
     s->keySettings = *(u16 *)&gSaveBlock1Ptr->keyFlags;
     s->hasPokemon = CalculatePlayerPartyCount() != 0;
+    s->nuzFirst = IsMyNuzlockeFirstEncounter();
     s->fieldFree = !ScriptContext_IsEnabled() && !ArePlayerFieldControlsLocked() && !BattleSetup_IsStarting()
                 && !gCoopMailbox.linkActive && !gPaletteFade.active && !sCoopScriptRunning;
     StringCopyN(s->name, gSaveBlock2Ptr->playerName, PLAYER_NAME_LENGTH + 1);
@@ -1812,6 +1818,21 @@ void Coop_OnMonCaught(u8 battler, u8 target, struct Pokemon *mon)
         return;
     sCaughtBy[slot] = (gBattlerPositions[battler] == B_POSITION_PLAYER_LEFT) ? 0 : 1;
     memcpy(&sCaughtMon[slot], mon, sizeof(struct Pokemon));
+}
+
+// Linked wild battle: under this player's Nuzlocke rules (first encounter of the
+// area), the player of this battler may only throw at their own encounter, the
+// wild Pokemon across from them. The host's battler is on the left.
+bool8 Coop_OwnEncounterOnly(u8 battler)
+{
+    bool8 hostsBattler;
+
+    if (!Coop_IsLinkOpen() || (gBattleTypeFlags & BATTLE_TYPE_TRAINER))
+        return FALSE;
+    hostsBattler = (gBattlerPositions[battler] == B_POSITION_PLAYER_LEFT);
+    if (hostsBattler == (Coop_IsHost() != FALSE))
+        return IsMyNuzlockeFirstEncounter();
+    return gCoopMailbox.partner.nuzFirst;
 }
 
 // Who caught each wild Pokemon: slot 0 in the low byte, slot 1 in the high byte.

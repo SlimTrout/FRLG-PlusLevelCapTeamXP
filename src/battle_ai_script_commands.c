@@ -494,10 +494,11 @@ static s32 AI_TargetBonus(u8 moveIndex, u8 target, bool8 smart)
         bonus -= smart ? 3 : 1;
     if (smart && gBattleMons[target].hp * 3 <= gBattleMons[target].maxHP)
         bonus += 2; // finish it off
-    // Gang up: hit the foe its partner is already attacking this turn.
+    // Gang up on the foe its partner is already attacking this turn, but only now and
+    // then: a small nudge that breaks a tie some of the time, not a rule.
     if (AllyChoseThisTurn() && sAllyChoiceTarget == target && sAllyChoiceMove != MOVE_NONE
-     && gBattleMoves[sAllyChoiceMove].power != 0)
-        bonus += smart ? 2 : 1;
+     && gBattleMoves[sAllyChoiceMove].power != 0 && (Random() % 100) < (smart ? 40 : 25))
+        bonus += 1;
     return bonus;
 }
 

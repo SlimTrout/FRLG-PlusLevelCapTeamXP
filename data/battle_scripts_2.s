@@ -140,6 +140,13 @@ BattleScript_TrainerBallBlock::
 	waitmessage B_WAIT_TIME_LONG
 	finishaction
 
+@ Co-op Nuzlocke: this player's own encounter is gone, and they may not throw at the other one.
+BattleScript_CoopBallNoTarget::
+	waitmessage B_WAIT_TIME_LONG
+	printstring STRINGID_COOPBALLNOTARGET
+	waitmessage B_WAIT_TIME_LONG
+	finishaction
+
 BattleScript_GhostBallDodge::
 	waitmessage B_WAIT_TIME_LONG
 	printstring STRINGID_ITDODGEDBALL

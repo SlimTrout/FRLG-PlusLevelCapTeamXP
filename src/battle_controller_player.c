@@ -84,6 +84,7 @@ static void PlayerCmdEnd(void);
 
 static void PlayerBufferRunCommand(void);
 static void HandleInputChooseTarget(void);
+static bool8 IsLastTargetValid(u8 battler);
 static void MoveSelectionDisplayPpNumber(void);
 static void MoveSelectionDisplayPpString(void);
 static void MoveSelectionDisplayMoveType(void);
@@ -186,6 +187,7 @@ void SetControllerToPlayer(void)
 {
     gBattlerControllerFuncs[gActiveBattler] = PlayerBufferRunCommand;
     gDoingBattleAnim = FALSE;
+    BattleController_ResetLastTargets(); // a new battle (both games set their controllers up)
 }
 
 static void PlayerBufferExecCompleted(void)
@@ -333,6 +335,32 @@ static void EndBounceEffect2(void)
     gBattlerControllerFuncs[gActiveBattler] = HandleInputChooseTarget;
 }
 
+// Remembers which foe each player battler last aimed a move at, so the
+// target cursor in doubles starts there. Cleared when a battle starts.
+static EWRAM_DATA u8 sLastChosenTarget[MAX_BATTLERS_COUNT] = {0};
+
+void BattleController_ResetLastTargets(void)
+{
+    s32 i;
+
+    for (i = 0; i < MAX_BATTLERS_COUNT; i++)
+        sLastChosenTarget[i] = 0xFF;
+}
+
+static bool8 IsLastTargetValid(u8 battler)
+{
+    if (battler >= gBattlersCount)
+        return FALSE;
+    if (GetBattlerSide(battler) != B_SIDE_OPPONENT)
+        return FALSE;
+    // (the party, not gBattleMons: in co-op the guest's game only keeps the party up to date)
+    if (gAbsentBattlerFlags & gBitTable[battler] || gBattlerSpriteIds[battler] >= MAX_SPRITES)
+        return FALSE;
+    if (GetMonData(&gEnemyParty[gBattlerPartyIndexes[battler]], MON_DATA_HP) == 0)
+        return FALSE;
+    return TRUE;
+}
+
 static void HandleInputChooseTarget(void)
 {
     s32 i;
@@ -355,6 +383,8 @@ static void HandleInputChooseTarget(void)
     {
         PlaySE(SE_SELECT);
         gSprites[gBattlerSpriteIds[gMultiUsePlayerCursor]].callback = SpriteCB_HideAsMoveTarget;
+        if (GetBattlerSide(gMultiUsePlayerCursor) == B_SIDE_OPPONENT)
+            sLastChosenTarget[gActiveBattler & 3] = gMultiUsePlayerCursor;
         BtlController_EmitTwoReturnValues(1, 10, gMoveSelectionCursor[gActiveBattler] | (gMultiUsePlayerCursor << 8));
         EndBounceEffect(gMultiUsePlayerCursor, BOUNCE_HEALTHBOX);
         PlayerBufferExecCompleted();
@@ -509,6 +539,8 @@ void HandleInputChooseMove(void)
             gBattlerControllerFuncs[gActiveBattler] = HandleInputChooseTarget;
             if (moveTarget & (MOVE_TARGET_USER | MOVE_TARGET_USER_OR_SELECTED))
                 gMultiUsePlayerCursor = gActiveBattler;
+            else if (IsLastTargetValid(sLastChosenTarget[gActiveBattler & 3]))
+                gMultiUsePlayerCursor = sLastChosenTarget[gActiveBattler & 3];
             else if (gAbsentBattlerFlags & gBitTable[GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT)])
                 gMultiUsePlayerCursor = GetBattlerAtPosition(B_POSITION_OPPONENT_RIGHT);
             else

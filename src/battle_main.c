@@ -2440,6 +2440,7 @@ static void BattleStartClearSetData(void)
 
     Coop_ResetBattleExp();
     BattleAI_ResetAllyChoice();
+    BattleController_ResetLastTargets();
     TurnValuesCleanUp(FALSE);
     SpecialStatusesClear();
 

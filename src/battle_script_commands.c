@@ -9846,8 +9846,19 @@ static void Cmd_handleballthrow(void)
     gActiveBattler = gBattlerAttacker;
     gBattlerTarget = gBattlerAttacker ^ BIT_SIDE;
     // Co-op: each player throws at the wild Pokemon across from them, or the other one if that one's gone.
+    // Under Nuzlocke (first encounter of the area) a player may only throw at their own encounter.
     if (Coop_IsLinkOpen() && ((gAbsentBattlerFlags & gBitTable[gBattlerTarget]) || gBattleMons[gBattlerTarget].hp == 0))
-        gBattlerTarget ^= BIT_FLANK;
+    {
+        if (!Coop_OwnEncounterOnly(gBattlerAttacker))
+            gBattlerTarget ^= BIT_FLANK;
+        else
+        {
+            EmitBallThrowAnim(BALL_TRAINER_BLOCK);
+            MarkBattlerForControllerExec(gActiveBattler);
+            gBattlescriptCurrInstr = BattleScript_CoopBallNoTarget;
+            return;
+        }
+    }
 
     if (gBattleTypeFlags & BATTLE_TYPE_GHOST)
     {

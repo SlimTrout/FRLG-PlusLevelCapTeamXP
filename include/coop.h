@@ -70,7 +70,8 @@ struct CoopPlayerState
              u8 msgActive:1;   // a field message is on screen (the follower mirrors it)
              u8 hasPokemon:1;  // the player has at least one Pokemon
              u8 fieldFree:1;   // walking around freely: no script, menu, battle or link (save states are made then)
-             u8 padding:2;
+             u8 nuzFirst:1;    // Nuzlocke is on and this area's first encounter is still open
+             u8 padding:1;
     /*0x0C*/ u8 mode;          // COOP_MODE_*
     /*0x0D*/ u8 stepCount;     // steps taken by input so far (wraps)
     /*0x0E*/ u8 steps[COOP_STEP_RING / 4]; // last 16 step directions, 2 bits each (DIR_* - 1)
@@ -168,6 +169,7 @@ u32 Coop_TakeGuestBottleExp(void);
 void Coop_SendBattleExpToPartner(void);
 void Coop_SetSpectator(u8 battler);
 u8 Coop_GetSpectator(void);
+bool8 Coop_OwnEncounterOnly(u8 battler);
 bool8 Coop_CaughtByMe(void);
 struct Pokemon *Coop_GetOwnWildMon(void);
 void Coop_GiveCaughtMon(void);

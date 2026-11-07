@@ -488,6 +488,7 @@ static const u8 sText_GotchaPkmnCaught[] = _("Gotcha!\n{B_OPPONENT_MON1_NAME} wa
 static const u8 sText_CoopGotchaPkmnCaught[] = _("Gotcha!\n{B_BUFF1} was caught!{WAIT_SE}{PLAY_BGM MUS_CAUGHT}\p");
 // Co-op: one of two wild Pokemon was caught and the other is still fighting.
 static const u8 sText_CoopPartyGainedExp[] = _("Your party gained\nEXP. Points!\p");
+static const u8 sText_CoopBallNoTarget[] = _("There's no POKéMON\nthere to catch!");
 static const u8 sText_CoopCatcherWatches[] = _("{B_BUFF1} came back.\nIts TRAINER watches the rest!");
 static const u8 sText_CoopGotchaContinue[] = _("Gotcha!\n{B_BUFF1} was caught!{WAIT_SE}{PLAY_BGM MUS_VS_WILD}\p");
 static const u8 sText_GotchaPkmnCaught2[] = _("Gotcha!\n{B_OPPONENT_MON1_NAME} was caught!{WAIT_SE}{PLAY_BGM MUS_CAUGHT}{PAUSE 127}");
@@ -794,6 +795,7 @@ const u8 *const gBattleStringsTable[BATTLESTRINGS_COUNT - BATTLESTRINGS_TABLE_ST
     [STRINGID_COOPGOTCHACONTINUE - BATTLESTRINGS_TABLE_START]            = sText_CoopGotchaContinue,
     [STRINGID_COOPCATCHERWATCHES - BATTLESTRINGS_TABLE_START]            = sText_CoopCatcherWatches,
     [STRINGID_COOPPARTYGAINEDEXP - BATTLESTRINGS_TABLE_START]            = sText_CoopPartyGainedExp,
+    [STRINGID_COOPBALLNOTARGET - BATTLESTRINGS_TABLE_START]              = sText_CoopBallNoTarget,
     [STRINGID_GIVENICKNAMECAPTURED - BATTLESTRINGS_TABLE_START]          = sText_GiveNicknameCaptured,
     [STRINGID_PKMNSENTTOPC - BATTLESTRINGS_TABLE_START]                  = sText_PkmnSentToPC,
     [STRINGID_PKMNDATAADDEDTODEX - BATTLESTRINGS_TABLE_START]            = sText_PkmnDataAddedToDex,

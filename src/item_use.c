@@ -1,4 +1,6 @@
 #include "global.h"
+#include "util.h"
+#include "battle_anim.h"
 #include "coop.h"
 #include "gflib.h"
 #include "battle.h"
@@ -757,12 +759,27 @@ void Task_ItemUse_CloseMessageBoxAndReturnToField_VsSeeker(u8 taskId)
     Task_ItemUse_CloseMessageBoxAndReturnToField(taskId);
 }
 
+static const u8 sText_CoopOwnEncounterGone[] = _("Your own encounter is gone, and\nthe other is your partner's!{PAUSE_UNTIL_PRESS}");
+
+// Co-op: the wild Pokemon across from this player's battler has fainted (or left).
+static bool8 IsOwnEncounterGone(u8 battler)
+{
+    u8 target = battler ^ BIT_SIDE;
+
+    // (the party, not gBattleMons: the guest's game only keeps the party up to date)
+    if (gAbsentBattlerFlags & gBitTable[target] || gBattlerSpriteIds[target] >= MAX_SPRITES)
+        return TRUE;
+    return GetMonData(&gEnemyParty[gBattlerPartyIndexes[target]], MON_DATA_HP) == 0;
+}
+
 static const u8 sText_CoopAlreadyCaught[] = _("You already caught a POKéMON in\nthis battle!{PAUSE_UNTIL_PRESS}");
 
 void BattleUseFunc_PokeBallEtc(u8 taskId)
 {
     if (Coop_IsLinkOpen() && Coop_CaughtOneThisBattle())
         DisplayItemMessageInBag(taskId, FONT_NORMAL, sText_CoopAlreadyCaught, Task_ReturnToBagFromContextMenu);
+    else if (Coop_IsLinkOpen() && Coop_OwnEncounterOnly(gBattlerInMenuId) && IsOwnEncounterGone(gBattlerInMenuId))
+        DisplayItemMessageInBag(taskId, FONT_NORMAL, sText_CoopOwnEncounterGone, Task_ReturnToBagFromContextMenu);
     else if (!IsPlayerPartyAndPokemonStorageFull())
     {
         RemoveBagItem(gSpecialVar_ItemId, 1);
