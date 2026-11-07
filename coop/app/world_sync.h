@@ -50,6 +50,7 @@ struct WorldSync {
     // changes from the partner waiting to be applied
     unsigned char pending[4096];
     int pendingLen;
+    uint32_t lastMb;       // the mailbox the shadow belongs to (a new one = the game restarted)
 };
 
 // Flags of item balls on the ground (generated from data/maps/*/map.json: every
@@ -163,11 +164,20 @@ static int wsTick(struct WorldSync *ws, struct mCore *c, uint32_t mb, int connec
     unsigned char now[WS_IMAGE];
     int applied = 0;
 
-    if (!mb || !wsInGame(c, mb, &flags, &vars)) {
-        // Not in the overworld yet (title screen, intro): nothing to keep in step.
+    if (!mb || mb != ws->lastMb) {
+        // No game yet, or it restarted (title screen, intro): start over.
         ws->haveShadow = 0;
         ws->pendingLen = 0;
         ws->snapChunks = 0;
+        ws->lastMb = mb;
+        if (!mb) return 0;
+    }
+    if (!wsInGame(c, mb, &flags, &vars)) {
+        // Not in the overworld yet, or for a moment (battles, menus: the game moves
+        // its flags and vars around then). Keep the shadow: the flags and vars come
+        // back the same, and whatever changed meanwhile (a trainer beaten at the end
+        // of a battle) is sent once they're back. Before the first time in the
+        // overworld there's no shadow yet.
         return 0;
     }
     if (!connected) {

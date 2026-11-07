@@ -383,7 +383,12 @@ static void exchangeMailbox(struct App *app) {
     unsigned char local[STATE_SIZE];
 
     if (!app->mailbox) return;
-    if (c->busRead32(c, app->mailbox) != COOP_MAGIC_0) { app->mailbox = 0; return; } // game reset
+    if (c->busRead32(c, app->mailbox) != COOP_MAGIC_0) {
+        // The game was reset: the shared world starts over once it's back.
+        app->mailbox = 0;
+        wsInit(&app->net.ws, app->net.isHost);
+        return;
+    }
     for (int i = 0; i < STATE_SIZE; i++)
         local[i] = c->busRead8(c, app->mailbox + MB_LOCAL + i);
     // A new field message: send its text first, so it's there when the state says so.
